@@ -1,0 +1,33 @@
+{
+  "name": "leetcode-dashboard",
+  "version": "1.0.0",
+  "description": "Personal LeetCode practice dashboard with category workflow, Java Lab editor, and AI study assistant.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "migrate": "node db/migrate.js",
+    "import:problems": "node scripts/import-problems.js",
+    "test:api": "node scripts/test-api.js",
+    "check": "node --check script.js && node --check lab-notes.js && node --check server.js && node --check db/pool.js && node --check db/problems.js && node --check db/migrate.js && node --check scripts/import-problems.js && node --check scripts/test-api.js"
+  },
+  "keywords": [
+    "leetcode",
+    "dashboard",
+    "javascript",
+    "dsa",
+    "coding"
+  ],
+  "author": "Shaharukh Khan",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "mysql2": "^3.24.5",
+    "openai": "^6.25.0"
+  }
+}

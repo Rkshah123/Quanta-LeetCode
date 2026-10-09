@@ -1,0 +1,40 @@
+# Render blueprint for the Quanta API (optional).
+#
+# Push this repository to GitHub, then in Render: New → Blueprint → pick the
+# repo. Render reads this file and creates the web service. Database secrets
+# must be typed in the Render dashboard (Environment tab) — they are never
+# stored in this file or in git.
+#
+#   DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME  → your hosted MySQL
+#   DB_SSL=true                                          → TLS to the database
+#
+# The service listens on the PORT Render injects; server.js now prefers the
+# OS PORT over .env, which is what makes this work. Free services sleep after
+# inactivity, so the first request after idle takes ~30s while it wakes up.
+
+services:
+  - type: web
+    name: quanta-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "4000"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: RATE_LIMIT_MAX
+        value: "300"
+      - key: CORS_ORIGINS
+        sync: false

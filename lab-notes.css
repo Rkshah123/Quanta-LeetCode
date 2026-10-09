@@ -1,0 +1,5401 @@
+/* ============================== dialogs =============================== */
+
+.code-editor-modal[hidden],
+.notes-modal[hidden] {
+  display: none;
+}
+
+.dialog-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dialog-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.dialog-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid var(--accent-line, rgba(16, 185, 129, 0.45));
+  box-shadow: var(--shadow-soft, 0 6px 14px rgba(0, 0, 0, 0.35));
+  flex: none;
+}
+
+.code-editor-title,
+.notes-title {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================== Code Lab ============================== */
+
+.code-editor-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  background: rgba(2, 10, 8, 0.78);
+}
+
+.code-editor-dialog {
+  width: 100vw;
+  height: 100dvh;
+  border-radius: 0;
+  background: #061712;
+  border: none;
+  box-shadow: none;
+  padding: 12px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  gap: 10px;
+  animation: code-editor-pop 0.22s ease;
+  overflow: hidden;
+}
+
+body[data-theme="beige"] .code-editor-dialog {
+  background: #f2f8f5;
+}
+
+.code-editor-title {
+  color: #ecfdf5;
+}
+
+.notes-title {
+  color: #ecfdf5;
+}
+
+body[data-theme="beige"] .code-editor-title,
+body[data-theme="beige"] .notes-title {
+  color: #0c2b22;
+}
+
+/* --------------------- unified dialog close buttons -------------------- */
+
+.settings-close-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(140deg, #ef4444, #b91c1c 90%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(185, 28, 28, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform var(--anim-fast), filter var(--anim-fast), box-shadow var(--anim-fast);
+}
+
+.settings-close-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.settings-close-btn:hover {
+  transform: rotate(90deg) scale(1.06);
+  filter: brightness(1.12);
+  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.5);
+}
+
+/* ------------------------------ settings ------------------------------ */
+
+.settings-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  background: rgba(2, 10, 8, 0.78);
+  backdrop-filter: blur(4px);
+  padding: 14px;
+  padding-top: max(14px, env(safe-area-inset-top));
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+}
+
+.settings-modal[hidden] {
+  display: none;
+}
+
+.settings-dialog {
+  width: min(560px, 100%);
+  max-height: min(88dvh, 100%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-xl, 20px);
+  border: 1px solid var(--border);
+  background: var(--card-1);
+  box-shadow: var(--shadow-lift);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  animation: code-editor-pop 0.22s ease;
+}
+
+body[data-theme="beige"] .settings-dialog {
+  background: linear-gradient(170deg, #ffffff, #f2f8f5 70%);
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+.settings-title {
+  margin: 0;
+  color: var(--text-a);
+  font-size: 1.1rem;
+}
+
+body[data-theme="beige"] .settings-title {
+  color: #0c2b22;
+}
+
+.settings-body {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-group h3 {
+  margin: 0 0 8px;
+  color: var(--text-b);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body[data-theme="beige"] .settings-group h3 {
+  color: #4e7a6c;
+}
+
+.settings-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border);
+  background: var(--card-1);
+}
+
+body[data-theme="beige"] .settings-row {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 106, 78, 0.18);
+}
+
+.settings-row__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-row__text strong {
+  font-size: 0.92rem;
+  color: var(--text-a);
+}
+
+body[data-theme="beige"] .settings-row__text strong {
+  color: #0c2b22;
+}
+
+.settings-row__text span {
+  color: var(--text-b);
+  font-size: 0.78rem;
+}
+
+body[data-theme="beige"] .settings-row__text span {
+  color: #4e7a6c;
+}
+
+.theme-picker {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.theme-chip {
+  padding: 8px 12px;
+  min-height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  background: rgba(6, 34, 27, 0.9);
+  color: #d1fae5;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter var(--anim-fast), transform var(--anim-fast), box-shadow var(--anim-fast);
+}
+
+.theme-chip:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.15);
+}
+
+.theme-chip.is-active {
+  background: linear-gradient(125deg, #10b981, #006a4e 85%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+}
+
+body[data-theme="beige"] .theme-chip {
+  background: #fff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.3);
+}
+
+body[data-theme="beige"] .theme-chip.is-active {
+  background: linear-gradient(125deg, #006a4e, #0d9488 85%);
+  color: #fff;
+}
+
+.settings-switch {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 26px;
+  display: inline-block;
+}
+
+.settings-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.settings-switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.18);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  transition: background var(--anim-fast);
+  pointer-events: none;
+}
+
+.settings-switch span::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #7fb3a4;
+  transition: transform var(--anim-fast), background var(--anim-fast);
+}
+
+.settings-switch input:checked + span {
+  background: rgba(16, 185, 129, 0.4);
+}
+
+.settings-switch input:checked + span::after {
+  transform: translateX(20px);
+  background: #ecfdf5;
+}
+
+.font-size-controls {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.font-size-controls button {
+  min-width: 44px;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  background: rgba(6, 34, 27, 0.9);
+  color: #d1fae5;
+  font-weight: 800;
+  cursor: pointer;
+  transition: filter var(--anim-fast), transform var(--anim-fast);
+}
+
+.font-size-controls button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.15);
+}
+
+body[data-theme="beige"] .font-size-controls button {
+  background: #fff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.3);
+}
+
+.settings-action-btn {
+  flex: none;
+  padding: 9px 16px;
+  min-height: 38px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(125deg, #10b981, #006a4e 85%);
+  color: #fff;
+  font-weight: 750;
+  cursor: pointer;
+  transition: filter var(--anim-fast), transform var(--anim-fast), box-shadow var(--anim-fast);
+}
+
+.settings-action-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.35);
+}
+
+.settings-action-btn--danger {
+  background: linear-gradient(140deg, #ef4444, #b91c1c 90%);
+}
+
+.settings-action-btn--danger:hover {
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.4);
+}
+
+.java-lab-switches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  color: #7fb3a4;
+  font-size: 0.83rem;
+}
+
+body[data-theme="beige"] .java-lab-switches {
+  color: #4e7a6c;
+}
+
+.java-lab-switches label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 999px;
+  padding: 6px 11px;
+  cursor: pointer;
+}
+
+body[data-theme="beige"] .java-lab-switches label {
+  background: rgba(0, 106, 78, 0.08);
+  border-color: rgba(0, 106, 78, 0.22);
+}
+
+.java-lab-switches input[type="checkbox"] {
+  accent-color: #10b981;
+}
+
+/* --------------------------- create + actions ------------------------- */
+
+.java-create-form {
+  display: grid;
+  grid-template-columns: auto minmax(140px, 1fr) auto minmax(120px, 160px) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.java-field-label {
+  color: #7fb3a4;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+body[data-theme="beige"] .java-field-label {
+  color: #4e7a6c;
+}
+
+.java-create-form input,
+.java-create-form select {
+  background: rgba(4, 22, 18, 0.9);
+  border-color: rgba(52, 211, 153, 0.25);
+  color: #ecfdf5;
+}
+
+body[data-theme="beige"] .java-create-form input,
+body[data-theme="beige"] .java-create-form select {
+  background: #ffffff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+.java-create-form button,
+.code-editor-actions button,
+.notes-top-actions button,
+.notes-editor-meta button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  min-height: 42px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+}
+
+.java-create-form button:hover,
+.code-editor-actions button:hover,
+.notes-top-actions button:hover,
+.notes-editor-meta button:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.java-create-form button,
+.code-editor-actions button,
+.notes-top-actions button,
+.notes-editor-meta button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.java-create-form button svg,
+.code-editor-actions button svg,
+.notes-top-actions button svg,
+.notes-editor-meta button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  flex: none;
+}
+
+.java-create-form button {
+  background: var(--accent-grad, linear-gradient(125deg, #10b981, #006a4e));
+}
+
+.code-editor-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Code Lab action row: icon-only buttons (Run keeps its label) */
+.code-editor-actions button .btn-text {
+  display: none;
+}
+
+.code-editor-actions button {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+}
+
+.code-editor-actions button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.code-editor-actions #run-java-session-btn {
+  width: auto;
+  padding: 0 18px;
+}
+
+.code-editor-actions #run-java-session-btn .btn-text {
+  display: inline;
+}
+
+.code-editor-actions button[aria-label] {
+  position: relative;
+}
+
+.code-editor-actions button[aria-label]:hover::after,
+.notes-top-actions button[aria-label]:hover::after {
+  content: attr(aria-label);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: #f1f5f9;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 7px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.code-editor-actions--top {
+  justify-content: flex-start;
+}
+
+#java-new-session-btn,
+#notes-add-topic-btn { background: linear-gradient(125deg, #10b981, #006a4e 80%); }
+#save-java-file-btn,
+#notes-save-btn { background: linear-gradient(125deg, #0ea5e9, #0369a1 80%); }
+#notes-export-txt-btn { background: linear-gradient(125deg, #14b8a6, #0f766e 80%); }
+#notes-add-section-btn { background: linear-gradient(125deg, #10b981, #047857 80%); }
+
+#java-rename-session-btn,
+#notes-rename-topic-btn,
+#java-zoom-out-btn,
+#java-zoom-in-btn {
+  background: #24574a;
+}
+
+#java-zoom-out-btn,
+#java-zoom-in-btn {
+  min-width: 46px;
+}
+
+#java-delete-session-btn,
+#notes-delete-topic-btn {
+  background: #dc2626;
+}
+
+#run-java-session-btn {
+  background: linear-gradient(125deg, #22c55e, #15803d 80%);
+}
+
+#run-java-session-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+body[data-theme="beige"] #java-rename-session-btn,
+body[data-theme="beige"] #notes-rename-topic-btn,
+body[data-theme="beige"] #java-zoom-out-btn,
+body[data-theme="beige"] #java-zoom-in-btn {
+  background: #006a4e;
+}
+
+.notes-top-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* fullscreen icon pair */
+.icon-fullscreen-exit { display: none; }
+
+/* Notes topbar action buttons: icon-only, labels for screen readers & tooltips */
+.notes-top-actions button .btn-text {
+  display: none;
+}
+
+.notes-top-actions button {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  min-height: 42px;
+}
+
+.notes-top-actions button svg {
+  width: 19px;
+  height: 19px;
+}
+
+#notes-fullscreen-btn {
+  background: #24574a;
+}
+
+#notes-fullscreen-btn.is-active {
+  background: linear-gradient(125deg, #f59e0b, #b45309 80%);
+}
+
+#notes-fullscreen-btn.is-active .icon-fullscreen-enter { display: none; }
+#notes-fullscreen-btn.is-active .icon-fullscreen-exit { display: block; }
+
+body[data-theme="beige"] #notes-fullscreen-btn {
+  background: #006a4e;
+}
+
+.notes-editor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+#notes-word-count {
+  color: #7fb3a4;
+  font-size: 0.84rem;
+  font-weight: 700;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+body[data-theme="beige"] #notes-word-count {
+  color: #4e7a6c;
+}
+
+/* -------------------------------- tabs -------------------------------- */
+
+.java-session-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+.java-session-tabs:empty::after {
+  content: "No open programs — create one above.";
+  color: #4e8577;
+  font-size: 0.82rem;
+  align-self: center;
+}
+
+body[data-theme="beige"] .java-session-tabs:empty::after {
+  color: #4e7a6c;
+}
+
+.java-session-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(6, 34, 27, 0.85);
+  color: #d1fae5;
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-height: 40px;
+  white-space: nowrap;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  max-width: 240px;
+}
+
+body[data-theme="beige"] .java-session-tab {
+  background: #ffffff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+.java-session-tab.is-active {
+  border-color: rgba(16, 185, 129, 0.75);
+  background: rgba(16, 185, 129, 0.22);
+}
+
+body[data-theme="beige"] .java-session-tab.is-active {
+  background: rgba(0, 106, 78, 0.14);
+  border-color: rgba(0, 106, 78, 0.55);
+}
+
+.java-session-tab__lang {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.java-session-tab__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.java-session-tab__close {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex: none;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.65;
+}
+
+.java-session-tab__close:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* ------------------------------- layout ------------------------------- */
+
+.java-lab-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  gap: 12px;
+  min-height: 0;
+}
+
+.java-editor-pane {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.java-monaco-editor {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  min-height: 0;
+}
+
+.java-diagnostics {
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  background: rgba(4, 22, 18, 0.9);
+  color: #d1fae5;
+  padding: 10px;
+  max-height: 20dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+body[data-theme="beige"] .java-diagnostics {
+  background: #ffffff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.2);
+}
+
+.java-output-pane {
+  min-height: 0;
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  background: rgba(4, 22, 18, 0.92);
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: 6px;
+  overflow: hidden;
+  padding-bottom: 10px;
+}
+
+body[data-theme="beige"] .java-output-pane {
+  background: #ffffff;
+  border-color: rgba(0, 106, 78, 0.2);
+}
+
+.java-output-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px 4px;
+}
+
+.java-output-head h3 {
+  margin: 0;
+  color: #ecfdf5;
+  font-size: 0.95rem;
+}
+
+body[data-theme="beige"] .java-output-head h3 {
+  color: #0c2b22;
+}
+
+.run-status {
+  color: #6ee7b7;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.run-status--success { color: #34d399; }
+.run-status--error { color: #f87171; }
+.run-status--running { color: #facc15; }
+
+body[data-theme="beige"] .run-status { color: #006a4e; }
+body[data-theme="beige"] .run-status--success { color: #047857; }
+body[data-theme="beige"] .run-status--error { color: #b91c1c; }
+body[data-theme="beige"] .run-status--running { color: #a16207; }
+
+.java-stdin-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 12px;
+  color: #7fb3a4;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+body[data-theme="beige"] .java-stdin-label {
+  color: #4e7a6c;
+}
+
+.java-stdin {
+  margin: 0 12px;
+  min-height: 54px;
+  max-height: 110px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.85rem;
+  background: rgba(4, 22, 18, 0.9);
+  border-color: rgba(52, 211, 153, 0.25);
+  color: #ecfdf5;
+  resize: vertical;
+}
+
+body[data-theme="beige"] .java-stdin {
+  background: #f2f8f5;
+  color: #0c2b22;
+}
+
+.java-output {
+  margin: 0 12px 0;
+  padding: 10px;
+  overflow: auto;
+  border-radius: 10px;
+  background: rgba(1, 12, 9, 0.7);
+  border: 1px solid rgba(52, 211, 153, 0.18);
+  color: #a7f3d0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 0.86rem/1.55 Consolas, "Courier New", monospace;
+  overscroll-behavior: contain;
+}
+
+body[data-theme="beige"] .java-output {
+  background: #06281f;
+  color: #a7f3d0;
+  border-color: rgba(0, 106, 78, 0.5);
+}
+
+.java-diag-ok {
+  margin: 0;
+  color: #34d399;
+  font-size: 0.84rem;
+}
+
+body[data-theme="beige"] .java-diag-ok {
+  color: #047857;
+}
+
+.java-diag-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.java-diag-item {
+  margin: 0;
+  font-size: 0.82rem;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.java-diag-item--error {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.5);
+  border: 1px solid rgba(248, 113, 113, 0.38);
+}
+
+.java-diag-item--warn {
+  color: #fde68a;
+  background: rgba(120, 53, 15, 0.5);
+  border: 1px solid rgba(251, 191, 36, 0.33);
+}
+
+body[data-theme="beige"] .java-diag-item--error {
+  color: #7f1d1d;
+  background: rgba(254, 202, 202, 0.6);
+}
+
+body[data-theme="beige"] .java-diag-item--warn {
+  color: #78350f;
+  background: rgba(254, 243, 199, 0.8);
+}
+
+/* --------------------------- mobile switcher -------------------------- */
+
+.lab-mobile-switch {
+  display: none;
+}
+
+/* ================================ Notes =============================== */
+
+.notes-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 145;
+  display: grid;
+  place-items: stretch;
+  background: rgba(2, 10, 8, 0.78);
+  padding: 0;
+}
+
+.notes-dialog {
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  overflow: hidden;
+  border-radius: 0;
+  border: none;
+  background: linear-gradient(170deg, #0a2a21, #061712 72%);
+  box-shadow: none;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+}
+
+body[data-theme="beige"] .notes-dialog {
+  background: #fbfdfc;
+  border-color: rgba(0, 106, 78, 0.25);
+  box-shadow: 0 30px 70px rgba(0, 106, 78, 0.2);
+}
+
+.notes-dialog:fullscreen,
+.notes-dialog.is-fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  border: none;
+}
+
+.notes-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+}
+
+.notes-topics-panel {
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  background: rgba(6, 34, 27, 0.6);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+body[data-theme="beige"] .notes-topics-panel {
+  background: #eef5f1;
+  border-color: rgba(0, 106, 78, 0.2);
+}
+
+.notes-topics-panel h3 {
+  margin: 0;
+  color: #ecfdf5;
+}
+
+body[data-theme="beige"] .notes-topics-panel h3 {
+  color: #0c2b22;
+}
+
+.notes-topic-list {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.notes-topic-list:empty::after {
+  content: "No topics yet. Add one to start.";
+  color: #4e8577;
+  font-size: 0.82rem;
+}
+
+body[data-theme="beige"] .notes-topic-list:empty::after {
+  color: #4e7a6c;
+}
+
+.notes-topic-btn {
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  border-radius: 10px;
+  background: rgba(4, 22, 18, 0.85);
+  color: #d1fae5;
+  text-align: left;
+  padding: 10px 11px;
+  min-height: 42px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.notes-topic-btn.is-active {
+  background: rgba(16, 185, 129, 0.24);
+  border-color: rgba(16, 185, 129, 0.75);
+}
+
+body[data-theme="beige"] .notes-topic-btn {
+  background: #ffffff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+body[data-theme="beige"] .notes-topic-btn.is-active {
+  background: rgba(0, 106, 78, 0.16);
+  border-color: rgba(0, 106, 78, 0.6);
+}
+
+.notes-editor-panel {
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  background: rgba(6, 30, 24, 0.7);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+body[data-theme="beige"] .notes-editor-panel {
+  background: #eef5f1;
+  border-color: rgba(0, 106, 78, 0.2);
+}
+
+.notes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.notes-toolbar select {
+  width: auto;
+  flex: 1 1 150px;
+  min-width: 120px;
+  max-width: 220px;
+}
+
+.notes-toolbar button,
+.notes-toolbar select,
+.notes-toolbar label {
+  border-radius: 8px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(6, 34, 27, 0.9);
+  color: #d1fae5;
+  padding: 8px 9px;
+  min-height: 38px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.notes-toolbar button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  display: block;
+}
+
+.notes-toolbar select {
+  min-width: 64px;
+}
+
+.notes-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notes-toolbar input[type="color"] {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+body[data-theme="beige"] .notes-toolbar button,
+body[data-theme="beige"] .notes-toolbar select,
+body[data-theme="beige"] .notes-toolbar label {
+  background: #ffffff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+.notes-find-replace[hidden] {
+  display: none;
+}
+
+.notes-find-replace {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notes-find-replace input,
+.notes-find-replace button {
+  border-radius: 8px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(4, 22, 18, 0.9);
+  color: #d1fae5;
+  padding: 9px 10px;
+  font-size: 0.84rem;
+}
+
+body[data-theme="beige"] .notes-find-replace input,
+body[data-theme="beige"] .notes-find-replace button {
+  background: #ffffff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+.notes-find-replace input {
+  flex: 1 1 130px;
+}
+
+.notes-sections-list {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 4px 6px 2px;
+}
+
+.notes-section-card {
+  border-radius: 10px;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  background: rgba(4, 22, 18, 0.75);
+  padding: 9px;
+  display: grid;
+  gap: 8px;
+}
+
+body[data-theme="beige"] .notes-section-card {
+  background: #ffffff;
+  border-color: rgba(0, 106, 78, 0.2);
+}
+
+.notes-section-card.is-collapsed .notes-section-editor {
+  display: none;
+}
+
+.notes-section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.notes-section-title {
+  border-radius: 8px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(6, 34, 27, 0.9);
+  color: #ecfdf5;
+  padding: 9px 10px;
+  font-weight: 650;
+}
+
+body[data-theme="beige"] .notes-section-title {
+  background: #ffffff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+.notes-section-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.notes-section-btn {
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(6, 34, 27, 0.9);
+  color: #d1fae5;
+  border-radius: 8px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px;
+  cursor: pointer;
+}
+
+.notes-section-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  display: block;
+}
+
+.notes-section-btn:hover {
+  border-color: rgba(16, 185, 129, 0.6);
+  filter: brightness(1.15);
+}
+
+.notes-section-btn--danger {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+.notes-section-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  filter: none;
+}
+
+body[data-theme="beige"] .notes-section-btn {
+  background: #ffffff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+body[data-theme="beige"] .notes-section-btn--danger {
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.4);
+}
+
+.notes-section-editor {
+  border-radius: 8px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(2, 16, 13, 0.92);
+  color: #d1fae5;
+  min-height: 150px;
+  padding: 10px;
+  outline: none;
+  line-height: 1.55;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+body[data-theme="beige"] .notes-section-editor {
+  background: #ffffff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+.notes-section-editor:focus {
+  border-color: rgba(16, 185, 129, 0.7);
+}
+
+.notes-section-editor pre,
+.notes-section-editor code {
+  font-family: Consolas, "Courier New", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.notes-section-editor table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.notes-section-editor table th,
+.notes-section-editor table td {
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  padding: 6px;
+}
+
+/* ------------------------------ responsive ---------------------------- */
+
+@media (max-width: 1100px) {
+  .java-lab-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(200px, 34dvh);
+  }
+
+  .notes-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(120px, 30dvh) minmax(0, 1fr);
+  }
+
+  .notes-topics-panel {
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .code-editor-modal,
+  .notes-dialog {
+    gap: 10px;
+    padding: 10px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .code-editor-dialog {
+    padding: 10px;
+    gap: 8px;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  }
+
+  .java-create-form {
+    grid-template-columns: 1fr;
+  }
+
+  .java-field-label {
+    display: none;
+  }
+
+  .java-create-form input,
+  .java-create-form select {
+    min-height: 44px;
+  }
+
+  .code-editor-actions--top button {
+    flex: 1 1 auto;
+    padding: 10px 10px;
+    font-size: 0.8rem;
+  }
+
+  .code-editor-actions--top button span {
+    display: none;
+  }
+
+  .code-editor-actions--top #run-java-session-btn span {
+    display: inline;
+  }
+
+  .java-lab-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .java-output-pane {
+    display: none;
+  }
+
+  .java-lab-layout.show-output .java-output-pane {
+    display: grid;
+  }
+
+  .java-lab-layout.show-output .java-editor-pane {
+    display: none;
+  }
+
+  .java-monaco-editor {
+    min-height: 0;
+  }
+
+  .java-diagnostics {
+    max-height: 16dvh;
+  }
+
+  .lab-mobile-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    background: rgba(6, 34, 27, 0.7);
+    border: 1px solid rgba(52, 211, 153, 0.25);
+    border-radius: 12px;
+    padding: 5px;
+  }
+
+  body[data-theme="beige"] .lab-mobile-switch {
+    background: rgba(0, 106, 78, 0.1);
+    border-color: rgba(0, 106, 78, 0.22);
+  }
+
+  .lab-mobile-switch__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 42px;
+    border-radius: 9px;
+    background: transparent;
+    color: #7fb3a4;
+    font-weight: 700;
+  }
+
+  .lab-mobile-switch__btn svg {
+    width: 17px;
+    height: 17px;
+    fill: currentColor;
+  }
+
+  body[data-theme="beige"] .lab-mobile-switch__btn {
+    color: #4e7a6c;
+  }
+
+  .lab-mobile-switch__btn.is-active {
+    background: rgba(16, 185, 129, 0.3);
+    color: #fff;
+  }
+
+  body[data-theme="beige"] .lab-mobile-switch__btn.is-active {
+    background: rgba(0, 106, 78, 0.5);
+    color: #fff;
+  }
+
+  .notes-top-actions {
+    width: 100%;
+  }
+
+  .notes-top-actions button {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 44px;
+    padding: 0 8px;
+  }
+
+  .notes-top-actions button .btn-text {
+    display: none;
+  }
+
+  .notes-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(110px, 26dvh) minmax(0, 1fr);
+  }
+
+  .notes-topics-panel {
+    overflow-y: auto;
+  }
+
+  .notes-section-head {
+    grid-template-columns: 1fr;
+  }
+
+  #notes-word-count {
+    margin-left: 0;
+  }
+
+  .notes-editor-meta button {
+    flex: 1 1 auto;
+  }
+
+  .notes-editor-meta button span {
+    display: inline;
+  }
+}
+
+@keyframes code-editor-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================ LeetCode tracker ========================== */
+
+.lc-progress-chip {
+  color: #7fb3a4;
+  font-size: 0.78rem;
+  font-weight: 750;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  padding: 5px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+body[data-theme="beige"] .lc-progress-chip {
+  color: #006a4e;
+  background: rgba(0, 106, 78, 0.08);
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+.dialog-home-btn {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 16px;
+  background: none;
+  cursor: pointer;
+  transition: transform var(--anim-fast), border-color var(--anim-fast), box-shadow var(--anim-fast);
+}
+
+.dialog-home-btn:hover {
+  transform: scale(1.06);
+  border-color: rgba(52, 211, 153, 0.55);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
+.dialog-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  object-fit: cover;
+  display: block;
+}
+
+.lc-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.lc-toolbar input,
+.lc-toolbar select {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  background: rgba(6, 34, 27, 0.85);
+  color: #d1fae5;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+}
+
+.lc-toolbar select {
+  width: auto;
+}
+
+body[data-theme="beige"] .lc-toolbar input,
+body[data-theme="beige"] .lc-toolbar select {
+  background: #fff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.25);
+}
+
+.lc-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+.lc-list-pane {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-1);
+  overflow: hidden;
+}
+
+body[data-theme="beige"] .lc-list-pane {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 106, 78, 0.2);
+}
+
+.lc-problem-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.lc-problem-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--anim-fast), border-color var(--anim-fast);
+}
+
+.lc-problem-row:hover {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.lc-problem-row.is-active {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+body[data-theme="beige"] .lc-problem-row:hover {
+  background: rgba(0, 106, 78, 0.07);
+}
+
+body[data-theme="beige"] .lc-problem-row.is-active {
+  background: rgba(0, 106, 78, 0.12);
+  border-color: rgba(0, 106, 78, 0.4);
+}
+
+.lc-problem-num {
+  color: var(--text-b);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 4px 0;
+}
+
+body[data-theme="beige"] .lc-problem-num {
+  color: #006a4e;
+  background: rgba(0, 106, 78, 0.08);
+}
+
+.lc-problem-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.lc-problem-name {
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-a);
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.lc-problem-row.is-solved .lc-problem-name {
+  text-decoration: line-through;
+  text-decoration-color: rgba(52, 211, 153, 0.7);
+  color: #7fb3a4;
+}
+
+body[data-theme="beige"] .lc-problem-name {
+  color: #0c2b22;
+}
+
+.lc-problem-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lc-diff {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.lc-diff--easy { color: #34d399; background: rgba(52, 211, 153, 0.14); }
+.lc-diff--medium { color: #fbbf24; background: rgba(251, 191, 36, 0.14); }
+.lc-diff--hard { color: #f87171; background: rgba(248, 113, 113, 0.14); }
+
+body[data-theme="beige"] .lc-diff--easy { color: #047857; background: rgba(4, 120, 87, 0.1); }
+body[data-theme="beige"] .lc-diff--medium { color: #b45309; background: rgba(180, 83, 9, 0.1); }
+body[data-theme="beige"] .lc-diff--hard { color: #b91c1c; background: rgba(185, 28, 28, 0.1); }
+
+.lc-problem-link {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: #7fb3a4;
+  transition: color var(--anim-fast), background var(--anim-fast), transform var(--anim-fast);
+}
+
+.lc-problem-link svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.lc-problem-link:hover {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  transform: translateY(-1px);
+}
+
+.lc-empty {
+  margin: 0;
+  padding: 16px;
+  color: var(--text-b);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* detail pane */
+.lc-detail {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  background: rgba(6, 34, 27, 0.5);
+  padding: 12px;
+  overflow: hidden;
+}
+
+body[data-theme="beige"] .lc-detail {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 106, 78, 0.2);
+}
+
+.lc-detail[hidden] {
+  display: none;
+}
+
+.lc-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lc-detail-title-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.lc-detail-meta {
+  color: #7fb3a4;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+body[data-theme="beige"] .lc-detail-meta {
+  color: #4e7a6c;
+}
+
+.lc-detail-title {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  color: #ecfdf5;
+  overflow-wrap: anywhere;
+}
+
+body[data-theme="beige"] .lc-detail-title {
+  color: #0c2b22;
+}
+
+.lc-detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lc-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: rgba(6, 34, 27, 0.9);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #d1fae5;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: filter var(--anim-fast), transform var(--anim-fast);
+}
+
+.lc-link-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.lc-link-btn:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+
+body[data-theme="beige"] .lc-link-btn {
+  background: #fff;
+  color: #0c2b22;
+  border-color: rgba(0, 106, 78, 0.3);
+}
+
+.lc-solve-btn {
+  padding: 9px 15px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(125deg, #10b981, #006a4e 85%);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: filter var(--anim-fast), transform var(--anim-fast);
+}
+
+.lc-solve-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.lc-solve-btn.is-solved {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+}
+
+body[data-theme="beige"] .lc-solve-btn.is-solved {
+  background: rgba(0, 106, 78, 0.1);
+  color: #047857;
+  border-color: rgba(0, 106, 78, 0.35);
+}
+
+/* notes editor inside detail grows */
+.lc-detail .notes-toolbar {
+  flex: none;
+}
+
+.lc-detail .notes-sections-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* mobile: single pane switching */
+@media (max-width: 900px) {
+  .lc-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lc-detail {
+    display: none;
+  }
+
+  .lc-layout.show-detail .lc-list-pane {
+    display: none;
+  }
+
+  .lc-layout.show-detail .lc-detail {
+    display: flex;
+  }
+
+  .lc-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .lc-toolbar select {
+    width: 100%;
+  }
+}
+
+/* ------------------- Connection settings (run server) ------------------ */
+
+.settings-input {
+  width: 100%;
+  max-width: 340px;
+  margin-top: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md, 11px);
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.3));
+  background: var(--field, rgba(15, 23, 42, 0.6));
+  color: var(--text-a, #f1f5f9);
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: var(--accent, #10b981);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+
+.settings-col-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  min-width: 96px;
+}
+
+.settings-col-actions .settings-action-btn {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .settings-row:has(.settings-input) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settings-col-actions {
+    flex-direction: row;
+    min-width: 0;
+  }
+}
+
+/* ------------------------------ Lab toast ------------------------------ */
+
+.lab-toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 20px));
+  transform: translate(-50%, 16px);
+  z-index: 400;
+  max-width: min(92vw, 480px);
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(6, 30, 24, 0.92);
+  color: #d1fae5;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.lab-toast--visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+body[data-theme="beige"] .lab-toast {
+  background: rgba(240, 253, 244, 0.96);
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.35);
+}
+
+/* ===================== page shell: nav + pages ===================== */
+
+:root {
+  --qx-nav-h: 54px;
+}
+
+body {
+  padding-top: calc(var(--top-bar-h) + var(--qx-nav-h) + env(safe-area-inset-top, 0px));
+}
+
+.app-nav {
+  position: fixed;
+  top: var(--top-bar-h);
+  left: 0;
+  right: 0;
+  height: var(--qx-nav-h);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--panel-top);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.app-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-btn {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-b);
+  font-size: 0.92rem;
+  transition: color var(--anim-fast), background var(--anim-fast), border-color var(--anim-fast);
+}
+
+.nav-btn:hover {
+  color: var(--text-a);
+  background: var(--field);
+}
+
+.nav-btn.is-active {
+  color: var(--success);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.nav-btn.is-active[data-page="lab"] {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* pages */
+
+.app-pages {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 18px 16px 48px;
+}
+
+.page[hidden] {
+  display: none;
+}
+
+.page-hero {
+  margin-bottom: 14px;
+}
+
+.page-hero .brand-tag {
+  margin: 0;
+  font-size: clamp(1.5rem, 4.5vw, 2rem);
+}
+
+.page-hero .brand-sub {
+  margin: 2px 0 0;
+}
+
+/* ===================== Quanta Lab: toolbar chips ===================== */
+
+.lc-chips {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--field);
+}
+
+.lc-chip {
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-b);
+  font-size: 0.82rem;
+  transition: background var(--anim-fast), color var(--anim-fast);
+}
+
+.lc-chip:hover {
+  color: var(--text-a);
+}
+
+.lc-chip.is-active {
+  background: var(--accent-soft);
+  color: var(--success);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.lc-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--field);
+}
+
+.lc-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--success);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.lc-add-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.lc-add-btn:hover {
+  background: var(--accent-line);
+}
+
+/* detail head */
+
+.lc-detail-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.lc-back-btn {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+}
+
+.lc-back-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.lc-back-btn:hover {
+  color: var(--text-a);
+  border-color: var(--accent-line);
+}
+
+.lc-detail-title-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lc-detail-title {
+  margin: 2px 0 0;
+  font-size: 1.08rem;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+}
+
+.lc-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lc-delete-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+}
+
+.lc-delete-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.lc-delete-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* detail tabs: Notes | Code */
+
+.ql-detail-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--field);
+  margin: 12px 0;
+}
+
+.ql-detail-tab {
+  flex: 1 1 0;
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-b);
+  font-size: 0.88rem;
+  transition: background var(--anim-fast), color var(--anim-fast);
+}
+
+.ql-detail-tab:hover {
+  color: var(--text-a);
+}
+
+.ql-detail-tab.is-active {
+  background: var(--accent-soft);
+  color: var(--success);
+}
+
+.ql-detail-view[hidden] {
+  display: none;
+}
+
+/* per-problem code view */
+
+.ql-code {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.ql-code-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--field);
+}
+
+.ql-code-head select {
+  width: auto;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 0.84rem;
+}
+
+.ql-code-head .spacer {
+  flex: 1 1 auto;
+}
+
+.ql-code-status {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-b);
+}
+
+.ql-code-status--ok {
+  color: var(--success);
+}
+
+.ql-code-status--err {
+  color: var(--danger);
+}
+
+.ql-code-editor {
+  height: min(52vh, 460px);
+}
+
+.ql-code-editor .monaco-editor {
+  position: absolute !important;
+}
+
+.ql-code-output {
+  border-top: 1px solid var(--border);
+}
+
+.ql-code-output pre {
+  margin: 0;
+  padding: 12px;
+  max-height: 200px;
+  overflow: auto;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-a);
+}
+
+/* ===================== Notes notepad ===================== */
+
+.np-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.np-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.np-title {
+  margin: 0;
+  font-size: 1.3rem;
+  color: var(--text-a);
+}
+
+.np-lang-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--field);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.np-lang-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.np-lang-tab {
+  flex: 0 0 auto;
+  padding: 8px 15px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-b);
+  font-size: 0.86rem;
+  transition: background var(--anim-fast), color var(--anim-fast);
+}
+
+.np-lang-tab:hover {
+  color: var(--text-a);
+}
+
+.np-lang-tab.is-active {
+  background: var(--accent-soft);
+  color: var(--success);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.np-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.np-list-pane {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card-1);
+  overflow: hidden;
+}
+
+.np-list-actions {
+  padding: 10px 10px 8px;
+}
+
+.np-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--success);
+  font-size: 0.86rem;
+}
+
+.np-new-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.np-new-btn:hover {
+  background: var(--accent-line);
+}
+
+.np-list-pane input[type="search"] {
+  margin: 0 10px 8px;
+  width: calc(100% - 20px);
+}
+
+.np-note-list {
+  min-height: 120px;
+  max-height: min(56vh, 540px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.np-note-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-a);
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background var(--anim-fast);
+}
+
+.np-note-row:hover {
+  background: var(--field);
+}
+
+.np-note-row.is-active {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--success);
+}
+
+.np-note-row__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np-note-row__date {
+  flex: 0 0 auto;
+  color: var(--text-b);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.np-empty {
+  padding: 26px 14px;
+  text-align: center;
+  color: var(--text-b);
+  font-size: 0.88rem;
+}
+
+.np-editor-pane {
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card-1);
+  padding: 12px;
+}
+
+.np-placeholder {
+  margin: 0;
+  padding: 40px 10px;
+  text-align: center;
+  color: var(--text-b);
+}
+
+.np-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.np-note-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.np-delete-btn {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+}
+
+.np-delete-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.np-delete-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.np-note-editor {
+  min-height: 300px;
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--field);
+  color: var(--text-a);
+  outline: none;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+.np-note-editor:focus {
+  border-color: var(--accent-line);
+}
+
+.np-editor-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.np-word-count {
+  flex: 1 1 auto;
+  color: var(--text-b);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.np-editor-foot button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+  font-size: 0.8rem;
+}
+
+.np-editor-foot button svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.np-editor-foot button:hover {
+  color: var(--text-a);
+  border-color: var(--accent-line);
+}
+
+/* ===================== Lab page ===================== */
+
+.lp-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lp-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lp-title {
+  margin: 0;
+  font-size: 1.3rem;
+  color: var(--text-a);
+}
+
+.lp-sub {
+  margin: 0;
+  color: var(--text-b);
+  font-size: 0.9rem;
+}
+
+.lp-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-b);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lp-toggle input {
+  width: auto;
+}
+
+/* ===================== responsive ===================== */
+
+@media (max-width: 900px) {
+  .lc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .np-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .np-note-list {
+    max-height: 34vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-pages {
+    padding: 14px 12px 40px;
+  }
+
+  .app-nav {
+    justify-content: flex-start;
+    padding: 0 10px;
+  }
+
+  .nav-btn {
+    padding: 8px 12px;
+    font-size: 0.86rem;
+  }
+
+  .lc-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lc-chips {
+    align-self: flex-start;
+  }
+
+  .ql-code-editor {
+    height: 46vh;
+  }
+}
+
+/* editor heights for page context (Monaco automaticLayout fills these) */
+
+.java-monaco-editor {
+  height: clamp(320px, 56vh, 620px);
+}
+
+@media (max-width: 760px) {
+  .java-monaco-editor {
+    height: 52vh;
+  }
+}
+
+/* ===================== topbar home (Quanta logo) + dialog avatar home ===================== */
+
+.topbar-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-a);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  transition: background var(--anim-fast), border-color var(--anim-fast);
+}
+
+.topbar-home img {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Tap feedback must only exist where hover actually exists: on touch
+   devices a tap would otherwise "stick" the hover highlight on the QUANTA
+   pill after navigating home. Desktop keeps the exact same effect. */
+@media (hover: hover) {
+  .topbar-home:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+  }
+}
+
+/* Tap-to-navigate must never leave a pressed/focused look behind on touch
+   (keyboard users keep the :focus-visible outline). */
+.topbar-home:focus:not(:focus-visible) {
+  background: transparent;
+  border-color: transparent;
+  outline: none;
+}
+
+.dialog-avatar-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 14px;
+  line-height: 0;
+  cursor: pointer;
+  transition: transform var(--anim-fast), box-shadow var(--anim-fast);
+}
+
+.dialog-avatar-btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 2px var(--accent-line);
+}
+
+/* ===================== Quanta Lab page layout + code view ===================== */
+
+.ql-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+.ql-code-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ql-code-bar select {
+  flex: 0 1 220px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 10px;
+  font-size: 0.88rem;
+}
+
+.ql-code-bar #ql-code-status {
+  flex: 1 1 auto;
+  text-align: right;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-b);
+}
+
+.ql-code-bar .run-btn,
+.run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--success);
+  font-weight: 800;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.ql-code-bar .run-btn svg,
+.run-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.ql-code-bar .run-btn:hover,
+.run-btn:hover {
+  background: var(--accent-line);
+}
+
+.ql-code-bar .run-btn:disabled,
+.run-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.ql-monaco-editor {
+  height: clamp(320px, 52vh, 560px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+@media (max-width: 760px) {
+  .ql-monaco-editor {
+    height: 46vh;
+  }
+}
+
+/* mobile: settings inputs shrink to container, never force sideways scroll */
+@media (max-width: 640px) {
+  .settings-input {
+    max-width: 100%;
+  }
+
+  .settings-col-actions {
+    min-width: 0;
+  }
+
+  .settings-col-actions .settings-action-btn {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .settings-select,
+  .settings-row select {
+    max-width: 100%;
+  }
+}
+
+/* ===================== Settings & About as full pages ===================== */
+
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-head__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.page-title {
+  margin: 0;
+  font-size: clamp(1.35rem, 3.2vw, 1.7rem);
+  color: var(--text-a);
+}
+
+.page-sub {
+  margin: 0;
+  color: var(--text-b);
+  font-size: 0.88rem;
+}
+
+.page--settings .settings-body,
+.page--about .settings-body {
+  max-width: 860px;
+}
+
+.page--about .settings-body {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 1100px) {
+  .page--settings .settings-body {
+    max-width: 980px;
+  }
+}
+
+/* ===================== Home page hero (bigger Quanta on desktop) ===================== */
+
+.page-hero {
+  padding: 6px 2px 2px;
+}
+
+.page-hero .brand-tag {
+  margin: 0;
+  font-size: clamp(1.7rem, 5.2vw, 3rem);
+  letter-spacing: -0.02em;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  width: fit-content;
+}
+
+.page-hero .brand-sub {
+  margin: 3px 0 0;
+  font-size: clamp(0.92rem, 2vw, 1.08rem);
+  color: var(--text-b);
+}
+
+/* footer credit after links */
+
+.app-footer {
+  margin-top: 18px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.app-footer p {
+  margin: 0;
+  text-align: center;
+  color: var(--text-b);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+
+/* ===================== Quanta Lab extras ===================== */
+
+.lc-solved-tick {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--success);
+  flex: none;
+}
+
+.lc-solved-tick svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.lc-detail-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 11px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lc-detail-saved svg {
+  width: 14px;
+  height: 14px;
+  fill: var(--success);
+}
+
+.lc-detail-saved[hidden] {
+  display: none;
+}
+
+/* Notes toolbar save (icon-only) */
+
+#notes-save-btn {
+  width: 36px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+#notes-save-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+
+/* Notes page: head, editor-foot save buttons */
+
+.np-avatar,
+.lp-avatar {
+  width: 46px;
+  height: 46px;
+  flex: none;
+}
+
+.np-head {
+  align-items: center;
+}
+
+.np-head .np-title {
+  margin: 0;
+}
+
+.np-editor-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.np-editor-foot #np-word-count {
+  flex: 1 1 auto;
+  color: var(--text-b);
+  font-size: 0.78rem;
+}
+
+.np-save-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--success);
+  flex: none;
+}
+
+.np-save-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.np-save-btn:hover {
+  background: var(--accent-line);
+}
+
+.np-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex: none;
+}
+
+.np-mini-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.np-mini-btn:hover {
+  color: var(--text-a);
+  border-color: var(--accent-line);
+}
+
+.np-editor-foot button span {
+  pointer-events: none;
+}
+
+/* Notes desktop layout fix: pane + editor both visible, nothing clipped */
+
+.np-layout {
+  grid-template-columns: minmax(250px, 330px) minmax(0, 1fr);
+}
+
+.np-list-pane {
+  max-height: calc(100dvh - 230px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.np-editor {
+  max-height: none;
+}
+
+.np-note-editor {
+  min-height: 320px;
+  max-height: calc(100dvh - 320px);
+}
+
+@media (max-width: 760px) {
+  .np-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .np-list-pane {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .np-note-list {
+    max-height: 30vh;
+  }
+
+  .np-note-editor {
+    min-height: 260px;
+    max-height: none;
+  }
+
+  .np-head .np-lang-tabs {
+    order: 3;
+    width: 100%;
+  }
+}
+
+/* Lab heading */
+
+.lp-head {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.lp-kicker {
+  margin: 0;
+  color: var(--text-b);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.lp-title {
+  margin: 0;
+  font-size: clamp(1.3rem, 3.6vw, 2rem);
+  font-weight: 800;
+  color: var(--text-a);
+  line-height: 1.25;
+}
+
+.lp-head__text {
+  min-width: 0;
+}
+
+/* Nav stays visible while inner panes scroll */
+
+.app-nav {
+  border-bottom: 1px solid var(--border);
+}
+
+/* ===================== Splash screen (phone launch) ===================== */
+
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(700px 380px at 50% 32%, rgba(16, 185, 129, 0.14), transparent 65%),
+    linear-gradient(150deg, #060d0b, #0d1a16 75%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.app-splash.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.app-splash.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-splash img {
+  width: clamp(88px, 24vw, 132px);
+  height: auto;
+  border-radius: 24px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(52, 211, 153, 0.2);
+  animation: splash-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+@keyframes splash-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-splash,
+  .app-splash img {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* =========================================================================
+   APP SHELL LAYOUT (v11)
+   Fixed-viewport shell: top-bar + nav stay put, the active page scrolls
+   inside its own container, and each page's main pane gets its own
+   scrollbar. No more whole-page scroll jumps or nav overlap.
+   ========================================================================= */
+
+/* The page container is the scroller: it starts below the fixed top-bar
+   + nav (via body padding) and never scrolls under them. */
+
+.app-pages {
+  height: calc(100dvh - var(--top-bar-h) - var(--qx-nav-h) - env(safe-area-inset-top, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+/* Every page is exactly the viewport height so its inner panes scroll
+   instead of growing the page. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Their grid children must fill the bounded height (implicit rows are
+   auto by default and would otherwise size to content). */
+
+.page--quantalab .lc-layout,
+.page--notes .np-layout,
+.page--lab .java-lab-layout {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+@media (max-width: 1100px) {
+  .page--lab .java-lab-layout {
+    grid-template-rows: minmax(0, 1fr) minmax(200px, 34dvh);
+  }
+}
+
+@media (max-width: 760px) {
+  .page--lab .java-lab-layout {
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------ Home page ------------------------------ */
+
+.page--quantalab .ql-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.page--quantalab .lc-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Problem list keeps its own scrollbar; it never moves the whole page. */
+
+.page--quantalab .lc-problem-list {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Detail pane scrolls its own content instead of being clipped. */
+
+.lc-detail {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Empty-state placeholder shown when no problem is selected (desktop). */
+
+.lc-detail-empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--text-b);
+  text-align: center;
+  padding: 24px;
+}
+
+.lc-detail-empty img {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  opacity: 0.75;
+}
+
+.lc-detail-empty p {
+  margin: 0;
+  max-width: 260px;
+  font-size: 0.9rem;
+}
+
+.lc-detail-empty[hidden] {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .lc-detail-empty {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  /* On phones the list flows naturally and the page scrolls. */
+  .page--quantalab .lc-layout {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+}
+
+/* ------------------------------- Notes page ---------------------------- */
+
+.page--notes .np-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.page--notes .np-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.page--notes .np-list-pane {
+  min-height: 0;
+}
+
+.page--notes .np-note-list {
+  flex: 1 1 auto;
+  min-height: 180px;
+  max-height: none;
+}
+
+.page--notes .np-editor-pane {
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .page--notes .np-layout {
+    flex: 0 0 auto;
+  }
+
+  .page--notes .np-list-pane {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .page--notes .np-note-list {
+    max-height: 34vh;
+    flex: 0 0 auto;
+  }
+}
+
+/* -------------------------------- Lab page ----------------------------- */
+
+.page--lab .lp-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.page--lab .java-lab-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.page--lab .java-editor-pane,
+.page--lab .java-output-pane {
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .page--lab .java-lab-layout {
+    min-height: 0;
+  }
+}
+
+/* Hero: bigger on desktop, unchanged feel on mobile. */
+
+.page-hero .brand-tag {
+  font-size: clamp(1.7rem, 5.2vw, 3.4rem);
+}
+
+.page-hero .brand-sub {
+  font-size: clamp(0.92rem, 2vw, 1.12rem);
+}
+
+/* Settings / About fill the viewport and scroll their own content. */
+
+.page--settings,
+.page--about {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ------------------------- Add Problem dialog -------------------------- */
+
+.lc-add-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 10, 8, 0.66);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.lc-add-overlay[hidden] {
+  display: none;
+}
+
+.lc-add-dialog {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card-1);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+
+.lc-add-dialog h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text-a);
+}
+
+.lc-add-sub {
+  margin: 0;
+  color: var(--text-b);
+  font-size: 0.85rem;
+}
+
+.lc-add-dialog input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--field);
+  color: var(--text-a);
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.lc-add-error {
+  margin: 0;
+  color: #fda4af;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.lc-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.lc-add-actions button {
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-a);
+  font-weight: 700;
+}
+
+.lc-add-actions .lc-add-confirm {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--success);
+}
+
+/* Phones: pages flow naturally and the page container scrolls. */
+
+@media (max-width: 900px) {
+  .page--quantalab,
+  .page--notes,
+  .page--lab {
+    height: auto;
+  }
+}
+
+
+/* =========================================================================
+   HOME PAGE LAYOUT (v12)
+   The home page scrolls as one page (single main scrollbar down to the
+   Contact section). Both program panes get generous, fixed heights with
+   their own independent scrollbars so the full problem list and the whole
+   program detail are reachable without shrinking the page.
+   ========================================================================= */
+
+.page--quantalab {
+  height: auto;
+}
+
+.page--quantalab .lc-layout {
+  flex: 0 0 auto;
+  align-items: stretch;
+}
+
+/* Left panel: tall, fixed height, own scrollbar. */
+
+.page--quantalab .lc-list-pane {
+  height: auto;
+  max-height: none;
+}
+
+.page--quantalab .lc-problem-list {
+  max-height: min(66vh, 620px);
+  min-height: 340px;
+}
+
+/* Right panel: matches the left panel height so the whole program
+   (header, tabs, notes/code, output) is visible and usable. */
+
+.page--quantalab .lc-detail {
+  max-height: min(66vh, 620px);
+  min-height: 340px;
+}
+
+.page--quantalab .lc-detail-empty {
+  max-height: min(66vh, 620px);
+  min-height: 340px;
+}
+
+/* Per-problem code editor gets a comfortable fixed height. */
+
+.ql-monaco-editor {
+  height: clamp(320px, 52vh, 620px);
+}
+
+@media (max-width: 900px) {
+  .page--quantalab .lc-problem-list {
+    max-height: 62vh;
+    min-height: 280px;
+  }
+
+  .page--quantalab .lc-detail {
+    max-height: none;
+    min-height: 0;
+  }
+
+  .page--quantalab .lc-detail-empty {
+    display: none;
+  }
+
+  .ql-monaco-editor {
+    height: 52vh;
+  }
+}
+
+/* Contact Me sits clearly below the program workspace. */
+
+.page--quantalab #contact {
+  margin-top: 34px;
+}
+
+.contact-panel__head p {
+  display: none;
+}
+
+/* -------------------------- Footer credit ------------------------------ */
+
+.app-footer p {
+  color: var(--text-a);
+}
+
+.footer-star {
+  color: #d4af37;
+  margin-right: 8px;
+}
+
+body[data-theme="beige"] .footer-star {
+  color: #b8860b;
+}
+
+/* ------------- Light theme: Add Problem must be clearly visible -------- */
+
+.lc-add-btn {
+  border: 1px solid rgba(0, 106, 78, 0.55);
+  background: linear-gradient(125deg, #006a4e, #0d9488 85%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 106, 78, 0.28);
+}
+
+.lc-add-btn:hover {
+  background: linear-gradient(125deg, #057a5d, #0fa88a 85%);
+  color: #ffffff;
+}
+
+/* =========================================================================
+   LAB PAGE LAYOUT (v12)
+   Fixed-height editor area with internal scrolling — the code is always
+   fully reachable, never cut off below the viewport.
+   ========================================================================= */
+
+.page--lab {
+  height: auto;
+}
+
+.page--lab .java-lab-layout {
+  flex: 0 0 auto;
+  height: calc(100dvh - 340px);
+  min-height: 520px;
+}
+
+.page--lab .java-editor-pane {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.page--lab .java-monaco-editor {
+  min-height: 380px;
+}
+
+@media (max-width: 1100px) {
+  .page--lab .java-lab-layout {
+    height: auto;
+    grid-template-rows: minmax(420px, 60dvh) minmax(200px, 30dvh);
+  }
+}
+
+@media (max-width: 760px) {
+  .page--lab .java-lab-layout {
+    grid-template-rows: minmax(360px, 58dvh);
+  }
+
+  .page--lab .java-monaco-editor {
+    min-height: 300px;
+  }
+}
+
+/* =========================================================================
+   LANGUAGE ACCENT THEMES
+   The Lab layout never changes — only accent colors follow the selected
+   language. Five distinct accents per app theme (dark / light).
+   ========================================================================= */
+
+/* --------------------------------- Java (orange) ----------------------- */
+
+body.lab-lang-java {
+  --lab-accent: #f89820;
+  --lab-accent-soft: rgba(248, 152, 32, 0.14);
+  --lab-accent-line: rgba(248, 152, 32, 0.45);
+  --lab-accent-text: #fbbf24;
+}
+
+body[data-theme="beige"].lab-lang-java {
+  --lab-accent: #c2410c;
+  --lab-accent-soft: rgba(194, 65, 12, 0.1);
+  --lab-accent-line: rgba(194, 65, 12, 0.45);
+  --lab-accent-text: #9a3412;
+}
+
+/* ------------------------------ JavaScript (yellow) -------------------- */
+
+body.lab-lang-javascript {
+  --lab-accent: #f7df1e;
+  --lab-accent-soft: rgba(247, 223, 30, 0.12);
+  --lab-accent-line: rgba(247, 223, 30, 0.42);
+  --lab-accent-text: #fde047;
+}
+
+body[data-theme="beige"].lab-lang-javascript {
+  --lab-accent: #a16207;
+  --lab-accent-soft: rgba(161, 98, 7, 0.1);
+  --lab-accent-line: rgba(161, 98, 7, 0.45);
+  --lab-accent-text: #854d0e;
+}
+
+/* ------------------------------- Python (blue) ------------------------- */
+
+body.lab-lang-python {
+  --lab-accent: #3776ab;
+  --lab-accent-soft: rgba(55, 119, 171, 0.16);
+  --lab-accent-line: rgba(96, 165, 250, 0.45);
+  --lab-accent-text: #7dd3fc;
+}
+
+body[data-theme="beige"].lab-lang-python {
+  --lab-accent: #1d4ed8;
+  --lab-accent-soft: rgba(29, 78, 216, 0.08);
+  --lab-accent-line: rgba(29, 78, 216, 0.4);
+  --lab-accent-text: #1e40af;
+}
+
+/* --------------------------------- C (indigo) -------------------------- */
+
+body.lab-lang-c {
+  --lab-accent: #7986cb;
+  --lab-accent-soft: rgba(121, 134, 203, 0.16);
+  --lab-accent-line: rgba(129, 140, 248, 0.45);
+  --lab-accent-text: #a5b4fc;
+}
+
+body[data-theme="beige"].lab-lang-c {
+  --lab-accent: #4338ca;
+  --lab-accent-soft: rgba(67, 56, 202, 0.08);
+  --lab-accent-line: rgba(67, 56, 202, 0.4);
+  --lab-accent-text: #3730a3;
+}
+
+/* ------------------------------- C++ (blue) ---------------------------- */
+
+body.lab-lang-cpp {
+  --lab-accent: #00599c;
+  --lab-accent-soft: rgba(0, 89, 156, 0.18);
+  --lab-accent-line: rgba(56, 152, 224, 0.5);
+  --lab-accent-text: #60a5fa;
+}
+
+body[data-theme="beige"].lab-lang-cpp {
+  --lab-accent: #0369a1;
+  --lab-accent-soft: rgba(3, 105, 161, 0.09);
+  --lab-accent-line: rgba(3, 105, 161, 0.42);
+  --lab-accent-text: #075985;
+}
+
+/* Defaults when no language is active (before a session exists). */
+
+body {
+  --lab-accent: var(--success);
+  --lab-accent-soft: var(--accent-soft);
+  --lab-accent-line: var(--accent-line);
+  --lab-accent-text: var(--success);
+}
+
+/* Lab surfaces pick up the accent. */
+
+.java-lab-layout {
+  transition: border-color var(--anim-mid);
+}
+
+.page--lab .java-monaco-editor {
+  border: 1px solid var(--lab-accent-line);
+}
+
+.java-output-pane {
+  border-color: var(--lab-accent-line);
+}
+
+.java-output-head h3 {
+  color: var(--lab-accent-text);
+}
+
+.run-status {
+  color: var(--lab-accent-text);
+}
+
+.java-stdin-label {
+  color: var(--lab-accent-text);
+}
+
+.java-create-form button {
+  background: linear-gradient(125deg, var(--lab-accent), color-mix(in srgb, var(--lab-accent) 72%, #000 28%));
+}
+
+.java-create-form button:hover {
+  background: linear-gradient(125deg, var(--lab-accent), color-mix(in srgb, var(--lab-accent) 82%, #fff 18%));
+}
+
+.java-session-tab {
+  border-color: var(--lab-accent-line);
+}
+
+.java-session-tab.is-active {
+  border-color: var(--lab-accent);
+  background: var(--lab-accent-soft);
+  color: var(--lab-accent-text);
+}
+
+body[data-theme="beige"] .java-session-tab.is-active {
+  background: var(--lab-accent-soft);
+  color: var(--lab-accent-text);
+}
+
+.lab-mobile-switch {
+  border-color: var(--lab-accent-line);
+}
+
+.lab-mobile-switch__btn.is-active {
+  color: var(--lab-accent-text);
+  background: var(--lab-accent-soft);
+}
+
+.run-btn {
+  border-color: var(--lab-accent-line);
+  background: var(--lab-accent-soft);
+  color: var(--lab-accent-text);
+}
+
+.run-btn:hover {
+  background: var(--lab-accent-line);
+  color: var(--lab-accent-text);
+}
+
+/* Home page code view follows the same per-language accent. */
+
+.ql-detail-tab.is-active {
+  color: var(--lab-accent-text);
+}
+
+.ql-code-bar select:focus {
+  border-color: var(--lab-accent-line);
+}
+
+body.lab-lang-java .ql-detail-tab.is-active,
+body.lab-lang-javascript .ql-detail-tab.is-active,
+body.lab-lang-python .ql-detail-tab.is-active,
+body.lab-lang-c .ql-detail-tab.is-active,
+body.lab-lang-cpp .ql-detail-tab.is-active {
+  background: var(--lab-accent-soft);
+}
+
+
+/* =========================================================================
+   LAB OUTPUT/EQUAL LAYOUT (v13)
+   1. Editor pane and output pane are exactly equal width.
+   2. Run button lives in the output header (status chip removed).
+   3. Diagnostics box removed from under the editor.
+   Appended at true end of file so these rules win the cascade.
+   ========================================================================= */
+
+.page--lab .java-lab-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.page--lab .java-editor-pane {
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+}
+
+.java-diagnostics {
+  display: none !important;
+}
+
+.java-output-head {
+  align-items: center;
+}
+
+.run-btn--head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--lab-accent-line);
+  background: var(--lab-accent-soft);
+  color: var(--lab-accent-text);
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--anim-fast), border-color var(--anim-fast);
+}
+
+.run-btn--head svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.run-btn--head:hover {
+  background: var(--lab-accent-line);
+}
+
+.run-btn--head.is-running {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.run-btn--head:disabled {
+  cursor: progress;
+}
+
+.run-btn--head.is-error {
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #f87171;
+}
+
+.run-btn--head.is-success {
+  border-color: rgba(16, 185, 129, 0.55);
+  color: #34d399;
+}
+
+/* Keep the run button readable in both themes. */
+
+body[data-theme="beige"] .run-btn--head.is-error {
+  color: #b91c1c;
+}
+
+body[data-theme="beige"] .run-btn--head.is-success {
+  color: #047857;
+}
+
+@media (max-width: 1100px) {
+  .page--lab .java-lab-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================================
+   LAB EDITOR FILL (v13.1)
+   The shared .java-monaco-editor clamp() height is for the home code view.
+   Inside the Lab the editor must fill its grid cell exactly, so the editor
+   box and the output box are the same size.
+   ========================================================================= */
+
+.page--lab .java-monaco-editor {
+  height: 100%;
+}
+
+/* =========================================================================
+   MOBILE RUN BUTTON (v13.2)
+   On phones the output pane starts hidden (editor/output switch), so the
+   Run button in the output header would be unreachable. A toolbar Run
+   button is shown ONLY on the small-screen layout; on desktop it stays
+   hidden so the header button is the single Run control.
+   ========================================================================= */
+
+.run-btn--mobile {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .run-btn--mobile {
+    display: inline-flex;
+  }
+}
+
+/* =========================================================================
+   MOBILE RUN BUTTON (v13.3) — specificity fix
+   .code-editor-actions button (0,1,1) beat the single-class rule, so the
+   desktop toolbar showed the mobile Run button. Scope by container.
+   ========================================================================= */
+
+.code-editor-actions .run-btn--mobile {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .code-editor-actions .run-btn--mobile {
+    display: inline-flex;
+  }
+}
+
+/* =========================================================================
+   SPLIT PROBLEM WORKSPACE (v14)
+   LeetCode-style solving layout inside the Code tab:
+   left = problem description, right = per-language coding workspace with
+   language select, solved badge, Save + Run. The editor fills the right
+   column and scrolls internally; the description scrolls independently.
+   Appended at true end of file so these rules win the cascade.
+   ========================================================================= */
+
+.ql-code-split {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 12px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.ql-problem-desc {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+
+.ql-desc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Badge that tells a saved copy apart from a freshly synchronized one. */
+.ql-desc-sync {
+  flex: 0 1 auto;
+  max-width: 55%;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.12);
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ql-desc-sync--synced {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+}
+
+.ql-desc-sync--cached {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+}
+
+.ql-desc-sync--syncing {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+}
+
+body[data-theme="beige"] .ql-desc-sync--synced {
+  border-color: rgba(4, 120, 87, 0.35);
+  background: rgba(4, 120, 87, 0.1);
+  color: #047857;
+}
+
+body[data-theme="beige"] .ql-desc-sync--cached {
+  border-color: rgba(146, 64, 14, 0.35);
+  background: rgba(146, 64, 14, 0.1);
+  color: #92400e;
+}
+
+body[data-theme="beige"] .ql-desc-sync--syncing {
+  border-color: rgba(30, 64, 175, 0.3);
+  background: rgba(30, 64, 175, 0.08);
+  color: #1d4ed8;
+}
+
+.ql-desc-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 14px 16px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.ql-desc-body p {
+  margin: 0 0 10px;
+}
+
+.ql-desc-body pre {
+  background: rgba(127, 127, 127, 0.12);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-size: 0.82rem;
+}
+
+.ql-desc-body pre code {
+  background: transparent;
+  padding: 0;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.ql-desc-body code {
+  background: rgba(127, 127, 127, 0.14);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.85em;
+}
+
+.ql-desc-body strong {
+  font-weight: 800;
+}
+
+.ql-desc-body ul,
+.ql-desc-body ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+
+.ql-desc-body .ql-desc-loading,
+.ql-desc-body .ql-desc-empty {
+  color: var(--text-b);
+  font-style: italic;
+}
+
+.ql-code-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.ql-code-main .ql-monaco-editor {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 420px;
+}
+
+.ql-code-solved-badge {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--text-b);
+  white-space: nowrap;
+}
+
+.ql-code-solved-badge.is-solved {
+  border-color: rgba(16, 185, 129, 0.55);
+  color: var(--success);
+  background: var(--accent-soft);
+}
+
+body[data-theme="beige"] .ql-code-solved-badge.is-solved {
+  color: #047857;
+}
+
+@media (max-width: 1100px) {
+  .ql-code-split {
+    grid-template-columns: 1fr;
+  }
+
+  .ql-problem-desc {
+    max-height: 300px;
+  }
+
+  .ql-code-main .ql-monaco-editor {
+    min-height: 380px;
+  }
+}
+
+/* =========================================================================
+   FULL-WIDTH DESKTOP LAYOUT (v15)
+   The old .app-pages cap (min(1180px, 100%)) left wide empty margins on
+   desktop. Pages now use the whole screen width with comfortable gutters;
+   mobile keeps its current look because everything below 1180px was
+   already full-width. Settings/About keep a readable reading measure.
+   ========================================================================= */
+
+.app-pages {
+  width: 100%;
+  max-width: none;
+  padding-left: clamp(14px, 2.5vw, 44px);
+  padding-right: clamp(14px, 2.5vw, 44px);
+}
+
+/* Give the problem list a little more room on very wide screens while the
+   detail/workspace takes the rest. */
+
+@media (min-width: 1500px) {
+  .page--quantalab .lc-layout {
+    grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+  }
+}
+
+/* Settings/About: wider than before but still a comfortable reading line. */
+
+@media (min-width: 1100px) {
+  .page--settings .settings-body,
+  .page--about .settings-body {
+    max-width: 1160px;
+  }
+}
+
+/* =========================================================================
+   v21 — EQUAL BOXES + DRAGGABLE DIVIDERS + SMALLER DESKTOP HERO
+   1) Notes view and Code view get the same height; inside the Code tab the
+      description and the workspace split evenly so all boxes feel equal.
+   2) Thin mouse/touch draggable dividers between boxes (vertical = width,
+      horizontal = height). Sizes persist in localStorage and every split
+      keeps minimum sizes so no box can vanish. No other UI changes.
+   3) Quanta Lab page title slightly smaller on desktop.
+   Appended at the true end of file so these rules win the cascade.
+   ========================================================================= */
+
+/* ---------- 1) equal heights for the Notes / Code boxes ------------------ */
+
+.lc-detail .ql-detail-view {
+  flex: 1 1 auto;
+  /* Shared floor so the Notes and Code boxes are the same size and the
+     workspace keeps a comfortable working height on desktop. */
+  min-height: min(560px, 62dvh);
+}
+
+.lc-detail .ql-detail-view[hidden] {
+  flex: 0 0 auto;
+  min-height: 0;
+  display: none;
+}
+
+/* Problem detail (Code tab): description | workspace split evenly.
+   --split-a is written inline by the drag divider JS (percent of width).
+   The single grid row is pinned to the container height so tall content
+   (e.g. a long description) scrolls inside its box instead of stretching
+   the row beyond the view. */
+.ql-code-split {
+  grid-template-columns: var(--split-a, 50%) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  height: 100%;
+}
+
+.ql-problem-desc,
+.ql-code-main {
+  min-height: 0;
+}
+
+/* Personal notes / code boxes inside the workspace keep a common min width. */
+.ql-problem-desc {
+  min-width: 220px;
+}
+
+.ql-code-main {
+  min-width: 380px;
+}
+
+/* ---------- 2) draggable dividers (invisible until hover/touch) ---------- */
+
+/* The Code-tab divider overlays the boundary between the two columns
+   instead of occupying a grid track, so the split stays a true 2-column
+   grid (description | workspace). */
+
+.ql-code-split {
+  position: relative;
+}
+
+.ql-code-split > .ql-col-resizer {
+  position: absolute;
+  left: calc(var(--split-a, 50%) - 5px);
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  margin: 0;
+  align-self: auto;
+  justify-self: auto;
+}
+
+.ql-col-resizer,
+.ql-row-resizer {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 5;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  touch-action: none;
+}
+
+.ql-col-resizer {
+  width: 10px;
+  margin: 0 -5px;
+  cursor: col-resize;
+  align-self: stretch;
+}
+
+.ql-row-resizer {
+  height: 12px;
+  margin: -6px 0;
+  cursor: row-resize;
+  justify-self: stretch;
+  width: auto;
+}
+
+.ql-col-resizer::after,
+.ql-row-resizer::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: var(--border);
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  pointer-events: none;
+}
+
+.ql-col-resizer::after {
+  top: 8px;
+  bottom: 8px;
+  left: 4px;
+  width: 2px;
+}
+
+.ql-row-resizer::after {
+  left: 8px;
+  right: 8px;
+  top: 5px;
+  height: 2px;
+}
+
+.ql-col-resizer:hover::after,
+.ql-col-resizer.is-dragging::after,
+.ql-row-resizer:hover::after,
+.ql-row-resizer.is-dragging::after {
+  opacity: 1;
+  background: var(--success);
+}
+
+.ql-col-resizer.is-dragging,
+.ql-row-resizer.is-dragging {
+  background: rgba(52, 211, 153, 0.08);
+}
+
+body.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Problem list | detail on the Quanta Lab home page: divider sits in the
+   gap between the two panes (10px wide, centered on the 12px grid gap). */
+.lc-layout {
+  grid-template-columns: var(--split-a, minmax(300px, 380px)) 10px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.lc-layout .ql-col-resizer {
+  width: 10px;
+  margin: 0;
+  align-self: stretch;
+}
+
+.lc-layout .ql-col-resizer::after {
+  top: 12px;
+  bottom: 12px;
+  left: 4px;
+}
+
+/* Lab page: editor | output width (vertical divider, desktop). */
+.java-lab-layout {
+  grid-template-columns: var(--split-a, minmax(0, 1fr)) 10px minmax(280px, 380px);
+  gap: 12px;
+}
+
+.java-lab-layout .ql-col-resizer {
+  align-self: stretch;
+}
+
+/* Lab page on narrow screens: editor | output height (horizontal divider). */
+@media (max-width: 1100px) {
+  .java-lab-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--split-row-a, minmax(0, 1fr)) 10px minmax(200px, 34dvh);
+  }
+
+  .java-lab-layout .ql-col-resizer {
+    display: none;
+  }
+
+  .java-lab-layout .ql-row-resizer {
+    display: block;
+    justify-self: stretch;
+    width: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Phone Lab uses the Editor/Output tab switch — hide dividers. */
+  .java-lab-layout .ql-col-resizer,
+  .java-lab-layout .ql-row-resizer {
+    display: none;
+  }
+
+  .java-lab-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  /* Home page back to simple two-pane switching on phones. */
+  .lc-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lc-layout .ql-col-resizer {
+    display: none;
+  }
+}
+
+/* Extra safety: below 760px the list/detail divider never participates in
+   the grid (single-column switching, no width drag on phones). */
+@media (max-width: 760px) {
+  #lc-list-resizer {
+    display: none !important;
+  }
+}
+
+/* ---------- 3) Quanta Lab hero slightly smaller on desktop --------------- */
+
+@media (min-width: 1100px) {
+  .page-hero .brand-tag {
+    font-size: clamp(1.6rem, 2.6vw, 2.35rem);
+  }
+
+  .page-hero .brand-sub {
+    font-size: clamp(0.9rem, 1.4vw, 1rem);
+  }
+}
+
+/* =========================================================================
+   v21b — page-scoped split templates (specificity fixes)
+   Earlier page-scoped rules (.page--lab .java-lab-layout etc.) outrank the
+   plain v21 selectors above. These page-scoped copies at the true end of
+   the file win the cascade while keeping the same defaults: the Lab keeps
+   its equal editor/output boxes until the user drags the divider.
+   ========================================================================= */
+
+.page--quantalab .lc-layout {
+  grid-template-columns: var(--split-a, minmax(300px, 380px)) 10px minmax(0, 1fr);
+}
+
+.page--lab .java-lab-layout {
+  grid-template-columns: var(--split-a, minmax(0, 1fr)) 10px minmax(0, 1fr);
+}
+
+@media (max-width: 1100px) {
+  .page--lab .java-lab-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--split-row-a, minmax(0, 1fr)) 10px minmax(200px, 34dvh);
+  }
+
+  .page--lab .java-lab-layout .ql-col-resizer {
+    display: none;
+  }
+
+  .page--lab .java-lab-layout .ql-row-resizer {
+    display: block;
+    justify-self: stretch;
+    width: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .page--lab .java-lab-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .page--lab .java-lab-layout .ql-row-resizer {
+    display: none;
+  }
+
+  .page--quantalab .lc-layout {
+    grid-template-columns: 1fr;
+  }
+
+  #lc-list-resizer {
+    display: none !important;
+  }
+}
+
+/* =========================================================================
+   v21c — Lab divider placement corrections
+   Both Lab dividers live between the editor and output panes in the DOM:
+   desktop uses the vertical one (middle 10px column), narrow screens use
+   the horizontal one (middle 10px row). The unused divider is removed
+   from grid placement entirely.
+   ========================================================================= */
+
+@media (min-width: 1101px) {
+  .java-lab-layout .ql-row-resizer,
+  .page--lab .java-lab-layout .ql-row-resizer {
+    display: none;
+  }
+}
+
+/* =========================================================================
+   v21d — mobile corrections for the split workspace
+   The v21 equal-split rules sit later in the cascade than the original
+   <=1100px stacking rules, so they must be explicitly undone on small
+   screens: description stacks above the workspace at full width, desktop
+   min-widths are released, and the width divider is hidden.
+   ========================================================================= */
+
+@media (max-width: 1100px) {
+  .ql-code-split {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    height: auto;
+    position: static;
+  }
+
+  .ql-code-split > .ql-col-resizer {
+    display: none;
+  }
+
+  .ql-problem-desc,
+  .ql-code-main {
+    min-width: 0;
+  }
+
+  .ql-code-main .ql-monaco-editor {
+    min-height: 380px;
+  }
+}
+
+/* =========================================================================
+   v23 — MAXIMIZE BUTTON + NATIVE SCROLL CHAINING (home page boxes)
+   1) Icon-only maximize/restore button next to the existing detail actions.
+   2) The detail box expands over the problem list while maximized; the
+      problem list keeps its own scrollbar but sits collapsed behind it.
+   3) Nested scrollers drop "overscroll-behavior: contain" so reaching the
+      top/bottom of a box hands the wheel to the main page automatically
+      (native browser scroll chaining) — no need to move the mouse out.
+   ========================================================================= */
+
+/* ---------- 1) maximize / restore icon button --------------------------- */
+
+/* On phones the detail box is already full-screen — no maximize there. */
+@media (max-width: 900px) {
+  button.lc-max-btn {
+    display: none;
+  }
+}
+
+.lc-max-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+  cursor: pointer;
+}
+
+.lc-max-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.lc-max-btn:hover {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+/* Icon swap: maximize shown normally, restore (minimize) while maximized. */
+
+.lc-max-btn .lc-min-icon {
+  display: none;
+}
+
+body.lc-detail-maximized .lc-max-btn .lc-max-icon {
+  display: none;
+}
+
+body.lc-detail-maximized .lc-max-btn .lc-min-icon {
+  display: inline-flex;
+}
+
+/* ---------- 2) maximized layout ----------------------------------------- */
+
+@media (min-width: 901px) {
+  /* Maximized = the Notes/Code box alone: the problem list and its divider
+     are removed from the grid entirely, so no part of the Programs section
+     is visible and the workspace uses the full window width. */
+  body.lc-detail-maximized .page--quantalab .lc-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  body.lc-detail-maximized .page--quantalab .lc-list-pane,
+  body.lc-detail-maximized .page--quantalab #lc-list-resizer {
+    display: none;
+  }
+
+  /* The detail box owns the row height while maximized. */
+  body.lc-detail-maximized .page--quantalab .lc-detail {
+    max-height: none;
+    overflow-y: hidden;
+  }
+
+  body.lc-detail-maximized .page--quantalab .lc-detail .ql-detail-view {
+    min-height: min(720px, 78dvh);
+  }
+}
+
+/* ---------- 3) native scroll chaining on the nested boxes --------------- */
+/* Overscroll reaching a box edge is forwarded to the main page scroller,
+   exactly like the user asked: box scrolls first, main page takes over
+   at the top/bottom limit, mouse stays inside the box. Monaco already
+   runs with alwaysConsumeMouseWheel: false and chains natively. */
+
+.lc-problem-list,
+.lc-detail .notes-sections-list,
+.ql-desc-body,
+.lc-detail,
+.java-output,
+.notes-topic-list,
+.np-note-list {
+  overscroll-behavior: auto;
+}
+
+/* The main page keeps its own containment so chained scroll stops there. */
+.app-pages {
+  overscroll-behavior: contain;
+}
+
+/* =========================================================================
+   v23b — aligned box heights on the home page (desktop)
+   The old min(66vh, 620px) caps made the two boxes end at different
+   heights (the list pane adds its own header on top of the cap). The grid
+   row now gets a definite height so both columns stretch to it: the
+   Programs box and the Notes/Code box share top and bottom edges, each
+   with its own nested scrollbar. The page scrolls normally below them.
+   While maximized the workspace grows taller as well as wider.
+   ========================================================================= */
+
+@media (min-width: 901px) {
+  .page--quantalab .lc-layout {
+    height: min(72vh, 660px);
+  }
+
+  .page--quantalab .lc-problem-list,
+  .page--quantalab .lc-detail,
+  .page--quantalab .lc-detail-empty {
+    max-height: none;
+    min-height: 0;
+  }
+
+  body.lc-detail-maximized .page--quantalab .lc-layout {
+    height: min(86vh, 800px);
+  }
+}
+
+/* =========================================================================
+   v26 — code column must fill exactly, never overflow the box
+   The editor's old min-height (420px) could exceed the space left by the
+   toolbar + stdin label + output, pushing the code content below the
+   description box's bottom edge (visible on shorter screens). The editor
+   now shrinks with the column so description box and code box always end
+   at the same line.
+   ========================================================================= */
+
+@media (min-width: 1101px) {
+  .ql-code-main .ql-monaco-editor {
+    min-height: 220px;
+  }
+}
+
+/* =========================================================================
+   v29 — header button / divider containment hardening
+   The detail header (Open LeetCode, Solved, Maximize, Delete) sits ABOVE
+   the split area, so the description divider must never paint over it.
+   The header gets its own stacking context above the divider, and the
+   divider overlay is clipped to the split box it belongs to.
+   ========================================================================= */
+
+.lc-detail-head {
+  position: relative;
+  z-index: 8;
+}
+
+.ql-code-split {
+  z-index: auto;
+}
+
+/* Belt-and-braces: the divider overlay lives strictly inside the split
+   and under the header, whatever geometry transitions do. */
+.ql-code-split > .ql-col-resizer {
+  clip-path: inset(0 0 0 0);
+}
+/* =========================================================================
+   v30 — DIVIDER CONTAINMENT + BUTTON AUTO-FIT + SETTINGS/ABOUT UPGRADE
+   1) The Code-tab divider overlay is derived from real pane geometry by
+      syncDescDividerOverlay() (lab-notes.js) and is clamped strictly
+      between the Notes and Code panes: it can never sit inside the Code
+      area, never cross the panes, and is parked off-screen on stacked
+      (mobile) layouts where there is no vertical seam.
+   2) The Open LeetCode button repositions/resizes with its section: it is
+      pinned inside the detail header with zero risk of overflow, shrinks
+      before anything else (icon-only on very narrow headers), and keeps a
+      fully readable long label whenever there is room (desktop + maximized).
+   3) Settings: Minimap toggle + Reset layout button; About: live workspace
+      stats, quick links, data-safety hint, responsive developer links.
+   Appended at the true end of file so these rules win the cascade.
+   ========================================================================= */
+
+/* ---------- 1) divider containment hardening (desktop + mobile) ---------- */
+
+/* The overlay divider is only valid for the side-by-side split; the JS
+   parks it (left:-9999px, no hit area) whenever the panes are stacked. */
+.ql-code-split > .ql-col-resizer {
+  max-width: 10px;
+  max-height: 100%;
+}
+
+/* Mobile/tablet stacked split: the width divider can never participate. */
+@media (max-width: 1100px) {
+  .ql-code-split > .ql-col-resizer {
+    display: none !important;
+  }
+}
+
+/* Touch always keeps a visible affordance while dragging, even if the gap
+   is tight: a translucent band shows the active seam. */
+.ql-code-split > .ql-col-resizer.is-dragging {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  background: rgba(52, 211, 153, 0.08);
+}
+
+/* ---------- 2) Open LeetCode button: auto-fit, fully contained ---------- */
+
+/* The header rows keep every control inside the box; buttons shrink to
+   fit instead of pushing the row wider than the section. */
+.lc-detail-head {
+  min-width: 0;
+}
+
+.lc-detail-actions {
+  min-width: 0;
+}
+
+.lc-detail-actions > * {
+  min-width: 0;
+}
+
+.lc-link-btn {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.lc-link-btn .lc-link-btn__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The long label is the default; the short one is hidden until needed. */
+.lc-link-btn .lc-link-btn__text--short {
+  display: none;
+}
+
+/* Below 1220px headers get tight: switch to the short label. */
+@media (max-width: 1220px) {
+  .lc-link-btn .lc-link-btn__text--full {
+    display: none;
+  }
+
+  .lc-link-btn .lc-link-btn__text--short {
+    display: inline;
+  }
+}
+
+/* Inside a maximized workspace the header is wide again: always show the
+   full label there so the button never shrinks below readable. */
+@media (min-width: 1221px) {
+  body.lc-detail-maximized .lc-link-btn .lc-link-btn__text--full {
+    display: inline;
+  }
+
+  body.lc-detail-maximized .lc-link-btn .lc-link-btn__text--short {
+    display: none;
+  }
+}
+
+/* Extra-narrow headers (e.g. maximized on a small window): icon-only. */
+@media (max-width: 480px) {
+  .lc-link-btn .lc-link-btn__text--full,
+  .lc-link-btn .lc-link-btn__text--short {
+    display: none;
+  }
+
+  .lc-link-btn {
+    padding: 9px 11px;
+  }
+}
+
+/* The description header's "Open on LeetCode" link stays one line too. */
+.ql-desc-head .lc-link-btn {
+  max-width: 100%;
+}
+
+/* ---------- 3) Settings additions ---------------------------------------- */
+
+.settings-row .settings-action-btn {
+  flex: 0 0 auto;
+}
+
+/* ---------- 4) About page additions -------------------------------------- */
+
+.about-refresh__row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.about-refresh__hint {
+  margin: 12px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-b);
+}
+
+.about-links a {
+  color: var(--success);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.about-links a:hover {
+  text-decoration: underline;
+}
+
+/* Developer links wrap cleanly on phones instead of overflowing. */
+.about-dev__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.about-dev__links a {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-a);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.about-dev__links a:hover {
+  border-color: var(--success);
+  color: var(--success);
+}
+/* =========================================================================
+   v31 — VISIBLE DRAG LINE + PANEL BOUNDARY HARDENING (Notes/Code split)
+   1) Every drag divider shows a permanent subtle line (bright on hover/drag)
+      so the Notes|Code, list|detail and Lab dividers are discoverable.
+   2) The code column can never escape its grid track (min-width released —
+      the JS clamp already guarantees the pane a >=380px share), and the
+      Monaco canvas is clipped to its container so it can never paint over
+      the description panel.
+   3) The editor header (language dropdown, badges, Save/Run) shrinks and
+      wraps INSIDE the editor panel; the description header wraps instead of
+      colliding, so the language dropdown and the Open on LeetCode button
+      are always fully visible and separated.
+   Appended at the true end of file so these rules win the cascade.
+   ========================================================================= */
+
+/* ---------- 1) always-visible drag lines --------------------------------- */
+
+.ql-col-resizer::after,
+.ql-row-resizer::after {
+  opacity: 1;
+}
+
+.ql-col-resizer:hover::after,
+.ql-col-resizer.is-dragging::after,
+.ql-row-resizer:hover::after,
+.ql-row-resizer.is-dragging::after {
+  opacity: 1;
+}
+
+/* ---------- 2) code column stays strictly on the right ------------------- */
+
+.ql-code-main {
+  min-width: 0;
+}
+
+.ql-code-main .ql-monaco-editor {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* ---------- 3) editor header + description header containment ------------ */
+
+.ql-code-bar {
+  min-width: 0;
+  max-width: 100%;
+  row-gap: 6px;
+}
+
+.ql-code-bar > * {
+  min-width: 0;
+}
+
+.ql-code-bar select {
+  flex: 0 1 220px;
+  max-width: 100%;
+}
+
+.ql-desc-head {
+  min-width: 0;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.ql-desc-head .lc-link-btn {
+  flex: 0 1 auto;
+}
+/* =========================================================================
+   v32 — DESCRIPTION PANEL WINS THE PAINT ORDER + BUTTON ALWAYS VISIBLE
+   The user screenshot: description dragged to its minimum width -> the
+   code pane (language dropdown, editor canvas) paints ON TOP of the
+   description header, cutting the "Open on LeetCode" button in half.
+   Fix, in layers:
+   1) Stacking: the description pane gets position: relative + a higher
+      z-index than the code pane, so the editor/dropdown can never paint
+      over it. The split clips anything that still tries to escape.
+   2) The description header button gets a short label on narrow panes.
+      lab-notes.js adds .is-narrow to #ql-problem-desc whenever the pane
+      is too tight for the full label; CSS just obeys the class.
+   3) Belt-and-braces: header rows never exceed their pane; panes clip
+      their own content.
+   Appended at the true end of file so these rules win the cascade.
+   ========================================================================= */
+
+/* ---------- 1) paint order: description above code pane ------------------ */
+
+.ql-problem-desc {
+  position: relative;
+  z-index: 2;
+}
+
+.ql-code-main {
+  position: relative;
+  z-index: 1;
+}
+
+.ql-code-split {
+  overflow: hidden;
+}
+
+/* Monaco's absolutely positioned widgets/layers must stay inside the code
+   pane; the pane itself is the clipping box. */
+.ql-code-main .ql-monaco-editor {
+  position: relative;
+  z-index: 0;
+}
+
+/* ---------- 2) description header link: short label on narrow panes ----- */
+
+.ql-problem-desc .lc-link-btn .lc-link-btn__text--short {
+  display: none;
+}
+
+.ql-problem-desc.is-narrow .lc-link-btn .lc-link-btn__text--full {
+  display: none !important;
+}
+
+.ql-problem-desc.is-narrow .lc-link-btn .lc-link-btn__text--short {
+  display: inline !important;
+}
+
+.ql-desc-head .lc-link-btn {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* ---------- 3) header rows never exceed their pane ------------------------ */
+
+.ql-desc-head,
+.ql-code-bar {
+  max-width: 100%;
+}
+
+.ql-problem-desc,
+.ql-code-main {
+  overflow: hidden;
+}
+/* =========================================================================
+   v33 — MOBILE SHELL: SAFE-AREA HEADER, HAMBURGER DRAWER, EXIT DIALOG,
+         LAB TOUCH-SCROLL FIX, QUANTA-HOME SCROLL RESET
+   Mobile-only redesign of the app shell. Desktop (>760px) is untouched:
+   the burger is hidden, the nav row renders as before, the theme toggle
+   stays in the top bar.
+   1) Safe area: on Android 15+ edge-to-edge the WebView extends under the
+      status bar, so the fixed top bar now pads itself by
+      env(safe-area-inset-top) and the app shell offset accounts for it.
+   2) Hamburger drawer (<=760px): three-bar button on the left of the top
+      bar; the nav becomes a full-height left slide-in panel with the
+      QUANTA title, the Quanta Lab / Notes / Lab sections, and a bottom
+      group with a Settings icon button, About and the theme toggle
+      (moved in by JS). Tapping the dim layer / outside / a nav item /
+      Escape closes.
+   3) Exit confirmation dialog replaces the double-tap exit.
+   4) Lab page scrolls even when the editor is empty: the empty Monaco
+      touch-target no longer traps scrolling (touch-action) and the mobile
+      editor pane gets a bounded height with the page free to scroll.
+   Appended at the true end of file so these rules win the cascade.
+   ========================================================================= */
+
+/* ---------- 1) safe-area-aware top bar + shell offset -------------------- */
+
+:root {
+  /* Never less than 4px clearance of our own, even on devices that report a
+     0 inset — the header must visibly sit below the status bar. */
+  --safe-top: max(4px, env(safe-area-inset-top, 0px));
+}
+
+.top-bar {
+  top: var(--safe-top);
+  height: auto;
+  min-height: calc(var(--top-bar-h));
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+body {
+  padding-top: calc(var(--top-bar-h) + var(--qx-nav-h) + var(--safe-top));
+}
+
+/* ---------- 2) burger button (hidden on desktop) -------------------------- */
+
+.nav-burger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--text-a);
+  cursor: pointer;
+}
+
+.nav-burger svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.nav-burger:active {
+  border-color: var(--accent-line);
+}
+
+/* ---------- drawer + dim (mobile only) ------------------------------------ */
+
+.nav-dim {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .nav-burger {
+    display: inline-flex;
+  }
+
+  /* Nav row becomes a full-height slide-in drawer: it starts at the very
+     top edge of the app area (the status bar itself stays native, handled
+     by the wrapper spacer / env inset via the padding below) and runs to
+     the bottom, exactly like the main screen. */
+  .app-nav {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: min(78vw, 300px);
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: max(12px, env(safe-area-inset-top, 0px)) 10px calc(16px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    transform: translateX(-104%);
+    transition: transform 0.24s ease;
+    background: var(--panel-top);
+    border-right: 1px solid var(--border);
+    z-index: 120;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+    /* While closed the drawer sits translated off-screen but must never
+       intercept taps. When open it is fully interactive again. */
+    pointer-events: none;
+  }
+
+  body.nav-open .app-nav {
+    pointer-events: auto;
+  }
+
+  /* While the drawer is open — or animating out — the page and the top bar
+     are completely inert: nothing underneath can be hit-tested, so no
+     element can enter :active, show a pressed/ripple style, take focus or
+     flash on tap. This removes the visible tap feedback that used to appear
+     on problem rows and the Exit button through the dim layer. */
+  body.nav-open .app-pages,
+  body.nav-open .top-bar,
+  body.nav-closing .app-pages,
+  body.nav-closing .top-bar {
+    pointer-events: none;
+  }
+
+  /* The burger lives inside the top bar; it must stay tappable so a quick
+     tap can close and immediately reopen the panel. */
+  body.nav-open .nav-burger,
+  body.nav-closing .nav-burger {
+    pointer-events: auto;
+  }
+
+  body.nav-open .app-nav {
+    transform: translateX(0);
+  }
+
+  /* On phones the drawer shows only Quanta Lab / Notes / Lab as the middle
+     section; Settings and About live in the bottom group instead. */
+  .app-nav > .nav-btn[data-page="settings"],
+  .app-nav > .nav-btn[data-page="about"] {
+    display: none;
+  }
+
+  .nav-btn {
+    text-align: left;
+    padding: 13px 16px;
+    font-size: 0.98rem;
+    border-radius: 12px;
+  }
+
+  /* Drawer app title: the very first element at the top of the panel,
+     followed by a clear divider, then the navigation sections. Reuses the
+     top-bar home-button look for consistency. */
+  .nav-drawer-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 14px;
+    margin: 2px 0 10px;
+    border-bottom: 2px solid var(--accent-line, var(--border));
+  }
+
+  .nav-drawer-title img {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    flex: 0 0 auto;
+  }
+
+  .nav-drawer-title span {
+    font-size: 1.16rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: var(--text-a);
+  }
+
+  /* Extra drawer content: bottom group (Settings icon, About, Theme),
+     pinned to the bottom of the panel behind a plain divider line. */
+  .nav-drawer-extra {
+    margin-top: auto;
+    display: grid;
+    gap: 10px;
+    padding: 14px 6px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Settings: icon-only button in the bottom group. Stretched to the full
+     row with the icon on the shared left line — the same x as the section
+     labels above and the About/Theme rows below it. */
+  .nav-btn--bottom[data-page="settings"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    height: 42px;
+    padding: 0 12px 0 10px;
+  }
+
+  .nav-btn--bottom[data-page="settings"] svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+    /* Optical alignment: the gear glyph is inset inside its viewBox, so
+       nudge it left so the icon's visible edge sits exactly on the shared
+       text line (26px from the screen edge, like every label). */
+    margin-left: -2px;
+  }
+
+  .nav-btn--bottom[data-page="settings"] .nav-btn__label {
+    display: none;
+  }
+
+  /* About: compact text-only button on the shared left line. */
+  .nav-btn--bottom.nav-btn--about {
+    padding: 9px 16px 9px 10px;
+    font-size: 0.92rem;
+  }
+
+  /* Theme row: label starts on the same shared left line (the toggle
+     stays on the right). */
+  .nav-drawer-theme {
+    padding-left: 10px;
+  }
+
+  .nav-drawer-theme {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--text-b);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .nav-drawer-theme .theme-toggle {
+    flex: none;
+  }
+
+  /* Dim layer over the rest of the app while the drawer is open. */
+  body.nav-open .nav-dim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(2, 10, 8, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  /* Keep the dim on screen while the drawer slides out so it keeps painting
+     the backdrop, but make it tap-through: the close already happened, and
+     the same tap must never land on anything underneath (JS swallows the
+     trailing click as well). */
+  body.nav-closing .nav-dim {
+    display: block;
+    pointer-events: none;
+  }
+
+  /* Reserve only the top bar height on phones — no second nav row, no
+     empty band under the header. */
+  :root {
+    --qx-nav-h: 0px;
+  }
+
+  body {
+    padding-top: calc(var(--top-bar-h) + var(--safe-top));
+  }
+}
+
+@media (min-width: 761px) {
+  .nav-drawer-extra {
+    display: none;
+  }
+
+  /* Exit is a mobile-only control: in the desktop browser the tab/window
+     close button already exists, so the header shows just the theme toggle. */
+  #exit-btn {
+    display: none;
+  }
+
+  /* Drawer title is a mobile-drawer element; never rendered on desktop. */
+  .nav-drawer-title {
+    display: none;
+  }
+}
+
+/* ---------- 3) exit confirmation dialog ----------------------------------- */
+
+.exit-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  padding-top: calc(24px + var(--safe-top));
+  background: rgba(2, 10, 8, 0.6);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.exit-confirm-overlay[hidden] {
+  display: none;
+}
+
+.exit-confirm {
+  width: min(340px, 100%);
+  max-width: 100%;
+  box-sizing: border-box;
+  background: var(--panel-top);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px 20px 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.exit-confirm h3 {
+  margin: 0 0 18px;
+  font-size: 1.02rem;
+  line-height: 1.45;
+  color: var(--text-a);
+  text-align: center;
+}
+
+.exit-confirm__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.exit-confirm__actions button {
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-a);
+  font-size: 0.95rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.exit-confirm__actions #exit-confirm-yes {
+  border: none;
+  background: linear-gradient(125deg, #ef4444, #b91c1c 90%);
+  color: #fff;
+}
+
+/* ---------- 4) Lab page touch scrolling on phones ------------------------- */
+
+@media (max-width: 760px) {
+  /* The Lab page is taller than the viewport and scrolls in .app-pages;
+     the editor is a bounded block, NOT a viewport-filling pane. */
+  .page--lab {
+    height: auto;
+    min-height: 0;
+  }
+
+  .page--lab .java-lab-layout {
+    grid-template-rows: none;
+  }
+
+  .page--lab .java-editor-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .page--lab .java-monaco-editor {
+    height: 52dvh;
+    min-height: 260px;
+    max-height: 480px;
+    flex: 0 0 auto;
+    touch-action: pan-y;
+  }
+
+  /* Empty Monaco must not trap touches: let vertical pans through so the
+     page scrolls. pan-x pan-y keeps two-finger pinch-zoom working inside
+     the editor, and when code IS present Monaco's own scroller handles
+     wheel/touch drags natively (it only bubbles when it cannot scroll). */
+  .page--lab .java-monaco-editor .monaco-editor,
+  .page--lab .java-monaco-editor .overflow-guard {
+    touch-action: pan-x pan-y;
+  }
+
+  .page--lab .java-output-pane {
+    max-height: 34dvh;
+  }
+}
+
+/* ---------- mobile fit hardening (no horizontal scroll, no cut-offs) ------ */
+
+@media (max-width: 760px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .app-pages {
+    padding-left: 12px;
+    padding-right: 12px;
+    height: calc(100dvh - var(--top-bar-h) - var(--safe-top));
+    overflow-y: auto;
+  }
+
+  .top-bar__actions {
+    gap: 8px;
+  }
+
+  .topbar-home span {
+    max-width: 34vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .icon-btn {
+    width: 42px;
+    height: 42px;
+  }
+
+  .exit-confirm__actions button {
+    min-height: 48px;
+  }
+}
+
+/* ---------- 5) native shell: one source of truth for the safe area --------
+
+   In the Android wrapper, MainActivity puts a NATIVE spacer between the
+   status bar and the WebView, sized from the real window insets, and then
+   CONSUMES the top inset — so inside the wrapper env(safe-area-inset-top)
+   reports 0. The :root rule above would still inject its 4px minimum on
+   top of the native spacer's clearance, doubling the gap again.
+
+   build.sh tags <html class="quanta-native-shell"> when it detects the
+   wrapper user agent; this rule zeroes --safe-top so the native spacer is
+   the single source of truth for status-bar clearance. Regular browsers
+   never get the class and keep the env()-based spacing unchanged. */
+html.quanta-native-shell {
+  --safe-top: 0px;
+}

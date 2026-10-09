@@ -1,0 +1,19 @@
+{
+  "name": "LeetCode Dashboard",
+  "short_name": "LeetCode",
+  "description": "Quanta — your personal coding workspace: Quanta Lab problem dashboard with per-problem notes and code, personal language notes, and a multi-language programming lab.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/image.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,328 @@
+# Quanta
+
+A personal coding workspace: problem tracker with full statements, a multi-language Code Lab, notes, and a study assistant — running from one Node/Express server on your PC, from a hosted API on the internet, or fully offline from the Android app.
+
+## What you get
+
+- **Problem catalog** — 782 problems seeded from the app, with real LeetCode numbers, titles, difficulties and statements stored in MySQL.
+- **Online + offline** — statements are fetched from Quanta's database first, saved on the device afterwards, and shown instantly from that saved copy whenever there is no internet.
+- **Code Lab** — Java, JavaScript, Python, C and C++ in a Monaco editor, with JavaScript running locally in a sandboxed worker and the rest compiled on your PC.
+- **Notes workspace** — topics, sections, rich-text tools, find/replace, export.
+- **Assistant** — local fallback endpoint (safe, no external calls).
+- **One API, two clients** — the desktop browser and the Android app call the same Express API.
+
+## Architecture
+
+```
+Desktop browser ─┐                                ┌─→ MySQL (local, or hosted with TLS)
+Android app ─────┼─→ Express API (LAN or HTTPS) ──┤
+                 │        /api/problems/*         └─→ LeetCode (live, for statements
+                 │        /api/run, /api/assistant     not yet in the catalog)
+                 └─→ /health
+```
+
+Two addresses, deliberately separate:
+
+| Setting | Purpose | Where |
+|---|---|---|
+| **Online API (problem database)** | Statements and catalog (`/api/problems`) | Settings → Connection |
+| **Compiler server** | Java / C / C++ / Python execution | Settings → Connection |
+
+Leave both empty when the app is served from the same machine as the server. On a phone, the compiler server points at your PC's LAN address and the online API points at the hosted HTTPS backend.
+
+## Project layout
+
+```
+server.js               Express API + static hosting
+db/pool.js              MySQL connection pool, TLS, health probe
+db/migrate.js           versioned migrations (npm run migrate)
+db/migrations/          *.sql, additive only
+db/problems.js          catalog repository (parameterized queries)
+scripts/import-problems.js   repeatable catalog import from LeetCode
+scripts/verify-catalog.js    compare catalog against LeetCode's index
+scripts/test-api.js     integration test suite (npm run test:api)
+android-apk/            APK wrapper, build.sh, keystore
+render.yaml             optional Render blueprint
+```
+
+---
+
+## 1. Install dependencies
+
+Requirements: Node.js 18+ (this machine has Node 24) and npm.
+
+```bash
+npm install
+```
+
+If PowerShell blocks npm scripts on your machine:
+
+```powershell
+npm.cmd install
+```
+
+## 2. Install and configure MySQL locally
+
+This machine already has MySQL 9.4 installed and running as the `MySQL94` Windows service. To check:
+
+```powershell
+Get-Service *mysql*
+```
+
+If it is missing, download the MySQL Community ZIP archive, unzip it, and initialize it:
+
+```powershell
+mysqld --initialize-insecure --basedir=C:\mysql --datadir=C:\mysql\data
+mysqld --install MySQL94
+net start MySQL94
+```
+
+## 3. Create the database and apply migrations
+
+The database `Quanta-Leetcode` already exists on this machine and is used as-is. If it is ever missing, create it first:
+
+```sql
+CREATE DATABASE IF NOT EXISTS `Quanta-Leetcode`
+  DEFAULT CHARACTER SET utf8mb4
+  DEFAULT COLLATE utf8mb4_unicode_ci;
+```
+
+Then apply the schema:
+
+```bash
+npm run migrate            # apply pending migrations
+npm run migrate -- --status   # show what is applied, changes nothing
+```
+
+Migrations are additive (`CREATE TABLE IF NOT EXISTS`), recorded in `schema_migrations`, and never drop, truncate or delete data. Re-running is harmless.
+
+Tables created: `problems`, `problem_examples`, `categories`, `problem_categories`, `schema_migrations`.
+
+> The database name contains a hyphen, so it must always be written as `` `Quanta-Leetcode` `` inside SQL. `.env` needs no quoting for it.
+
+## 4. Configure `.env`
+
+```powershell
+copy .env.example .env
+```
+
+Then fill in your own values:
+
+| Variable | Meaning |
+|---|---|
+| `PORT` | Server port (default `3000`; the OS value wins, so hosting providers can inject it) |
+| `HOST` | Interface to listen on (default `0.0.0.0`, so phones on the LAN can connect) |
+| `DB_HOST`, `DB_PORT` | MySQL address (default `localhost`, `3306`) |
+| `DB_USER`, `DB_PASSWORD` | MySQL credentials |
+| `DB_NAME` | Database name (default `Quanta-Leetcode`) |
+| `DB_SSL` | `true` for hosted MySQL with TLS |
+| `DB_SSL_CA` | Path to the provider's CA bundle |
+| `RATE_LIMIT_MAX` | Requests per minute per IP for `/api/*` (`0` disables) |
+| `CORS_ORIGINS` | Extra browser origins allowed to call the API, comma separated |
+
+> **Important:** dotenv treats `#` as the start of a comment. If your password contains `#` or `$`, quote it: `DB_PASSWORD="Mysql@#123"`. An unquoted value is silently truncated and every connection fails with "Access denied".
+
+`.env` is gitignored. Never commit it.
+
+## 5. Import problem data
+
+The catalog is imported from your own app data and verified against LeetCode's official problem index. Nothing is invented: problems LeetCode does not know are imported without a statement, and the app says so instead of making one up.
+
+```bash
+npm run import:problems                     # seed list from lab-notes.js + statements
+npm run import:problems -- --no-descriptions   # metadata only (one request, fast)
+npm run import:problems -- --from backups\leetcode-dashboard-backup-2026-01-01.json
+npm run import:problems -- --limit 20
+npm run import:problems -- --refresh-descriptions
+```
+
+Results on this machine: **782 catalog rows, 674 statements stored** (~3 MB).
+
+Re-running is safe: existing rows are updated, existing statements are never overwritten unless you pass `--refresh-descriptions`.
+
+Statements also trickle in by themselves — every statement the app fetches live from LeetCode is written back into the catalog for next time.
+
+## 6. Run and test the API locally
+
+```bash
+npm start            # http://localhost:3000
+```
+
+On start you should see:
+
+```
+Server running on http://localhost:3000 (listening on 0.0.0.0)
+Database OK — Quanta-Leetcode (latency 1ms)
+```
+
+Verify with the test suite (starts real servers on throwaway ports, read-only against your data):
+
+```bash
+npm run test:api
+```
+
+## 7. Test from a phone on the same Wi-Fi
+
+1. Find the PC's LAN address: `ipconfig` → IPv4 Address (for example `192.168.1.5`).
+2. The server already listens on every interface, so nothing else is needed on the server side.
+3. Allow Node through Windows Firewall (Private networks is enough):
+   - **Windows Security → Firewall & network protection → Allow an app through firewall → Change settings → Allow another app → Node.js JavaScript Runtime**, tick **Private**.
+   - Or a one-off rule:
+     ```powershell
+     netsh advfirewall firewall add rule name="Quanta dev server" dir=in action=allow protocol=TCP localport=3000
+     ```
+4. On the phone, open `http://<PC-IP>:3000` in the browser, or use the APK.
+5. Settings → Connection:
+   - **Compiler server** = `http://<PC-IP>:3000` → **Test** (lists the available toolchains).
+   - **Online API** = leave empty (same server) → **Test** shows `API online — database OK`.
+
+## 8. Create a hosted MySQL database
+
+Local MySQL only answers on your own network, and only while the PC is on. For anything else you need a database on the internet.
+
+Recommended: **TiDB Cloud Serverless** — MySQL protocol compatible, so the existing `mysql2` code works unchanged, with a TLS endpoint and a free tier.
+
+1. Sign up at `tidbcloud.com` → create a **Serverless** project.
+2. Copy the connection parameters: host, port (usually `4000`), user, password. Download the provider's CA bundle if one is offered.
+3. Create the database:
+   ```sql
+   CREATE DATABASE IF NOT EXISTS `Quanta-Leetcode`
+     DEFAULT CHARACTER SET utf8mb4
+     DEFAULT COLLATE utf8mb4_unicode_ci;
+   ```
+4. Apply the schema from your PC by pointing `.env` at it temporarily:
+   ```powershell
+   $env:DB_HOST="gateway01.<region>.tidbcloud.com"; $env:DB_PORT="4000"
+   $env:DB_USER="..."; $env:DB_PASSWORD="..."; $env:DB_SSL="true"
+   npm run migrate
+   npm run import:problems
+   ```
+5. **Verify the limits before you rely on it** — free tiers change. Check the provider's current storage allowance, connection count, and inactivity policy on their pricing page, and confirm the connection works:
+   ```bash
+   npm run test:api
+   ```
+
+Alternatives with a free entry point: Aiven for MySQL (trial), AWS RDS (12-month free tier), Railway or Fly with a MySQL add-on. Postgres-only services (Supabase, Neon) will not work without a code change, because this backend speaks MySQL.
+
+## 9. Deploy the Express backend
+
+Render is the simplest fit: it runs the same `server.js`, and `render.yaml` describes the service.
+
+1. Push this repository to GitHub (confirm `.env` is **not** in the pushed files — it is gitignored).
+2. In Render: **New → Blueprint** → pick the repo → it reads `render.yaml`.
+3. Type the database values in the service's **Environment** tab (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL=true`). They are stored by Render, never in git.
+4. Deploy. The service exposes `https://<name>.onrender.com`; `/health` must report `"ok": true`.
+
+Alternatives: Railway (`railway up`), Fly (`fly launch`), or any host that runs `npm start` and injects `PORT`.
+
+## 10. Production environment variables
+
+Set these on the hosting provider (dashboard or CLI), not in `.env`:
+
+```
+DB_HOST=gateway01.<region>.tidbcloud.com
+DB_PORT=4000
+DB_USER=<user>
+DB_PASSWORD=<password>
+DB_NAME=Quanta-Leetcode
+DB_SSL=true
+RATE_LIMIT_MAX=300
+CORS_ORIGINS=
+```
+
+Do not set `HOST` (the default `0.0.0.0` is what the provider needs). `PORT` is injected by the provider and now takes priority over `.env`.
+
+After the first deploy, apply the schema and import the catalog once against the hosted database (step 8.4), because the hosting container has no MySQL client of its own.
+
+## 11. Set the public API URL in Quanta
+
+1. Open Quanta → **Settings → Connection → Online API (problem database)**.
+2. Enter `https://<your-service>.onrender.com` → **Save** → **Test** → `API online — database OK`.
+3. Statements now come from the hosted database on any network, and keep working on the PC when the phone is on mobile data.
+
+The **Compiler server** field is independent and still points at your PC's LAN address, so code execution keeps working on the same Wi-Fi and stays off on other networks.
+
+## 12. Rebuild and install the Android APK
+
+`android-apk/Quanta.apk` was **not** rebuilt for these changes. The web app inside the APK picks them up on the next build, and the new Settings field works there too.
+
+```bash
+cd android-apk
+QUANTA_LAN_IP=<your-pc-ip> QUANTA_API_URL=https://<your-service>.onrender.com ./build.sh
+```
+
+- `QUANTA_LAN_IP` only sets the **compiler-server** default. It is never used as the online endpoint.
+- `QUANTA_API_URL` sets the **online API** default inside the wrapper; it is optional, and Settings can override it at any time.
+- The manifest already allows internet access and cleartext HTTP for local addresses, so both `https://…` and `http://192.168.x.x:3000` work.
+- `fixzip.py`, the keystore and the signing steps are unchanged (keystore password `quanta123`).
+
+Then install over USB: copy `android-apk/Quanta.apk` to the phone, allow "install unknown apps", open it. The same keystore must sign every future update.
+
+## 13. Test on a different Wi-Fi network or mobile data
+
+1. On the PC, stop the server (`npm start` no longer running).
+2. On the phone (mobile data or a friend's Wi-Fi), open the app: statements must still load from the hosted API.
+3. In Settings → Connection, the **Online API** Test must still say `API online — database OK`, while the **Compiler server** Test fails — that is expected, because the PC is not reachable from outside your network.
+4. Back on your own Wi-Fi, the compiler server works again.
+
+## 14. Test offline mode
+
+1. With the app open on a problem, turn on airplane mode (or stop both the server and the internet).
+2. Re-open a problem you have already read: it appears instantly with **Saved on this device**.
+3. Open a problem you have never read: you get an explicit "Description unavailable right now" message — never a blank pane and never a fake statement.
+4. Notes, Code Lab programs and JavaScript runs keep working fully offline.
+
+The cache lives in `localStorage` under `quantaDescCacheV1` (newest 400 statements). Cached statements are refreshed in the background after 7 days, without blocking the view.
+
+## 15. Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `Access denied for user 'root'@'localhost'` | `.env` password contains `#` or `$` and was truncated. Quote it: `DB_PASSWORD="…"`. |
+| `Database unavailable` on `/health` | Wrong `DB_HOST`/`DB_PORT`, MySQL service stopped, or the hosted database asleep. `npm run migrate -- --status` shows the same error with more detail. |
+| `ECONNREFUSED` with the hosted DB | TLS required: set `DB_SSL=true`, and `DB_SSL_CA` if the provider supplies a CA bundle. |
+| Phone cannot open `http://<PC-IP>:3000` | Windows Firewall: allow Node.js on Private networks (step 7). Also check both devices are on the same SSID and that the router is not isolating clients ("AP/client isolation"). |
+| Statements do not load on mobile data | The Online API URL is missing or wrong, or the host is asleep. Test it in Settings; free hosts wake in ~30s. |
+| First hosted request is very slow | Free hosting services sleep after inactivity. The second request is fast. |
+| `npm` blocked by execution policy | Use `npm.cmd` (or `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`). |
+| Statements show as unavailable although online | A stale or wrong Online API value. Clear the field to fall back to the app's own server, then Test. |
+| Duplicate statements after importing twice | Not possible: rows are keyed by unique slug and imports are idempotent. |
+| APK does not reflect new code | The APK embeds a snapshot of the web files. Rebuild it (step 12). |
+
+---
+
+## API reference
+
+| Endpoint | Notes |
+|---|---|
+| `GET /health` | `{ ok, uptime, timestamp, database: { configured, ok, latencyMs } }` |
+| `GET /api/problems?q=&difficulty=&category=&num=&limit=&offset=` | Search + pagination (max 100 per page) |
+| `GET /api/problems/:id` | By database id (digits) or LeetCode slug; includes the statement |
+| `GET /api/categories` | Category list |
+| `GET /api/lc-description?slug=` | Statement from the catalog, falling back to LeetCode |
+| `GET /api/lc-lookup?slug=` | Live LeetCode metadata |
+| `GET /api/lc-skeleton?slug=` | Live LeetCode starter code |
+| `GET /api/run/capabilities` | Which languages this server can execute |
+| `POST /api/run` | `{ language, code, stdin }` → compile/run |
+| `POST /api/assistant` | `{ message }` → reply (local fallback) |
+
+Errors use one shape: `{ ok: false, error: "…" }`, with `400` for bad input, `404` for unknown records, `429` when rate limited, `503` when the database is unreachable. Credentials, stack traces and connection details are never returned.
+
+Security notes: database credentials live only in the backend `.env` or the host's environment; every query is parameterized; `/api/*` is rate limited per IP; CORS is restricted to the Android wrapper, localhost, private LAN origins and any extra origin in `CORS_ORIGINS`; `server.js`, `db/`, `scripts/`, `.env*`, `keys.txt` and `*.log` are never served statically.
+
+## Quality commands
+
+```bash
+npm run check      # syntax check of all JavaScript
+npm run migrate -- --status
+npm run import:problems -- --dry-run
+npm run test:api   # integration tests against a real server + database
+```
+
+`npm run test:api` covers: health and database reporting, pagination and search, invalid input, missing records, numeric id and slug lookup, statement delivery from the database, existing run/assistant endpoints, static file protection, CORS rules, the client-side cache wiring, rate limiting, and graceful behaviour when the database is down. All tests currently pass (52/52).
+
+`scripts/verify-catalog.js` compares the catalog against LeetCode's official index and reports any row that disagrees; `--repair` rewrites those fields with LeetCode's own values.
+
+## Assistant endpoint
+
+The assistant currently returns local fallback replies only. Adding a hosted model needs two things: put the key in the backend environment (`HF_API_KEY` in `.env`, or the provider's dashboard after deploying) and implement the call in `server.js` where `getAssistantFallback` is used today. The key must stay on the server — never in `index.html`, `lab-notes.js` or the APK.
