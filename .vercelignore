@@ -1,0 +1,33 @@
+# Everything the web app needs (index.html, lab-notes.js, lab-notes.css,
+# style.css, script.js, manifest.json, image.jpg, leeticon.png, vendor/monaco)
+# stays in the repo root, so the output directory is "." — this file removes
+# everything that must NOT be published on the frontend domain:
+#
+#   - the Express backend (runs on Render, never on Vercel)
+#   - the database migrations and maintenance scripts
+#   - the 72 MB Android project, which contains its own copy of this web app
+#   - environment files, keys, logs and build artifacts
+#
+# Vercel reads this at deploy time; the files are still in git for local use.
+
+node_modules/
+android-apk/
+db/
+scripts/
+backend/
+.freebuff/
+
+server.js
+render.yaml
+README.md
+package.json
+package-lock.json
+.vercelignore
+
+.env
+.env.*
+*.log
+keys.txt
+*.apk
+*.keystore
+*.idsig

@@ -247,6 +247,46 @@ After the first deploy, apply the schema and import the catalog once against the
 
 The **Compiler server** field is independent and still points at your PC's LAN address, so code execution keeps working on the same Wi-Fi and stays off on other networks.
 
+## 11b. Deploy the web app to Vercel (optional)
+
+The frontend is plain HTML/CSS/JavaScript — no framework, no build step — so Vercel hosts it as a static site. Two files in the repo do the work:
+
+- `vercel.json` rewrites `/api/*` and `/health` to the Render backend, so the app keeps using its normal same-origin API address. No Settings entry is needed on any device.
+- `.vercelignore` keeps the backend (`server.js`, `db/`, `scripts/`), the 72 MB `android-apk/` folder, `.env*` and `keys.txt` off the public site.
+
+**Vercel → New Project → import `Rkshah123/Quanta-LeetCode`, then:**
+
+| Setting | Value |
+|---|---|
+| Framework Preset | **Other** |
+| Root Directory | `.` |
+| Build Command | *(leave empty — there is nothing to build)* |
+| Output Directory | `.` |
+| Install Command | *(leave empty)* |
+| Environment Variables | *(none — the API address lives in `vercel.json`)* |
+| Node Version | *(not used)* |
+
+Commit the repo first: `vercel.json` and `.vercelignore` must be on GitHub for Vercel to see them.
+
+**CORS (one line, only for the direct-connect fallback):** the proxied setup is same-origin, so CORS is not involved. If you ever point **Settings → Online API** straight at Render from the Vercel site instead, add your Vercel domain on Render:
+
+```
+CORS_ORIGINS=https://<your-project>.vercel.app
+```
+
+**What works on Vercel, and what still needs the PC:**
+
+| Feature | On Vercel |
+|---|---|
+| Problem list, search, difficulty filter, pagination | ✅ via the Render API |
+| Full problem statements | ✅ from TiDB Cloud |
+| Notes, per-problem code, goals (stored in the browser) | ✅ unchanged, per device |
+| Run **C / C++ / Python** | ✅ Render's container has those compilers |
+| Run **Java** | ❌ needs the PC — set **Compiler server** to `http://<pc-ip>:3000` while on the same Wi-Fi |
+| Refresh / deep link | ✅ `vercel.json` serves `index.html` for unknown paths |
+
+`localhost` and the LAN setup keep working exactly as before — Vercel is an extra host, not a replacement.
+
 ## 12. Rebuild and install the Android APK
 
 `android-apk/Quanta.apk` was **not** rebuilt for these changes. The web app inside the APK picks them up on the next build, and the new Settings field works there too.
