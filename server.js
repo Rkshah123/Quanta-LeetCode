@@ -281,6 +281,21 @@ const executeRun = async (language, code, stdin) => {
 /* ------------------------------- express ------------------------------- */
 
 app.disable("x-powered-by");
+
+/* Render (and most PaaS hosts) terminate TLS in front of the app. Without
+   trusting that hop, req.ip is the proxy's address for every visitor — so all
+   clients would share one rate-limit bucket and 429 each other — and
+   req.protocol would wrongly report http. Only enabled when the platform
+   (RENDER=true) or an explicit TRUST_PROXY value says a proxy exists. */
+const trustProxySetting = String(process.env.TRUST_PROXY ?? (process.env.RENDER ? "1" : "")).trim();
+if (trustProxySetting) {
+  const asNumber = Number(trustProxySetting);
+  app.set(
+    "trust proxy",
+    Number.isInteger(asNumber) ? asNumber : trustProxySetting === "true" ? true : trustProxySetting
+  );
+}
+
 app.use(express.json({ limit: "256kb" }));
 
 /* -------------------------------- CORS -------------------------------- */
@@ -329,6 +344,8 @@ app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  /* Only meaningful over TLS (LAN http:// use is unaffected). */
+  if (req.secure) res.setHeader("Strict-Transport-Security", "max-age=31536000");
 
   const origin = req.headers.origin;
   if (origin && isAllowedOrigin(req, origin)) {
@@ -397,8 +414,8 @@ const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 300);
 const rateBuckets = new Map();
 
-const rateLimit = (req, res, next) => {
-  if (!Number.isFinite(RATE_LIMIT_MAX) || RATE_LIMIT_MAX <= 0) {
+const createRateLimit = (maxPerWindow) => (req, res, next) => {
+  if (!Number.isFinite(maxPerWindow) || maxPerWindow <= 0) {
     next();
     return;
   }
@@ -415,13 +432,25 @@ const rateLimit = (req, res, next) => {
       if (value.resetAt <= now) rateBuckets.delete(bucketKey);
     }
   }
-  if (bucket.count > RATE_LIMIT_MAX) {
+  if (bucket.count > maxPerWindow) {
     res.setHeader("Retry-After", String(Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))));
     res.status(429).json({ ok: false, error: "Too many requests. Please wait a moment and try again." });
     return;
   }
   next();
 };
+
+const rateLimit = createRateLimit(RATE_LIMIT_MAX);
+
+/* Compiling and running code costs far more than serving JSON, so it gets its
+   own tighter per-IP budget (RUN_RATE_LIMIT_MAX, 0 disables). */
+const runRateLimit = createRateLimit(Number(process.env.RUN_RATE_LIMIT_MAX || 30));
+
+/* One shared CPU cannot absorb many parallel compilations, so only this many
+   runs execute at once; the rest are told to retry instead of queueing up
+   processes until the instance times out. */
+const MAX_CONCURRENT_RUNS = Number(process.env.MAX_CONCURRENT_RUNS || 4);
+let activeRuns = 0;
 
 /* ---------------------------- shared helpers --------------------------- */
 
@@ -439,11 +468,18 @@ const respondDatabaseError = (res, error) => {
 
 app.get("/health", async (_req, res) => {
   const databaseStatus = await database.checkDatabase();
+  /* Driver messages can name the database host and user (e.g. "Access denied
+     for user ..."), so the detail is logged here and the client only ever
+     sees a generic flag — the same rule the catalog endpoints follow. */
+  if (databaseStatus.error) console.error(`[health] database: ${databaseStatus.error}`);
+  const publicStatus = databaseStatus.error
+    ? { configured: databaseStatus.configured, ok: false, error: "Connection failed." }
+    : databaseStatus;
   res.json({
     ok: true,
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
-    database: databaseStatus
+    database: publicStatus
   });
 });
 
@@ -455,7 +491,7 @@ app.get("/health", async (_req, res) => {
 const LC_LOOKUP_TIMEOUT_MS = 8000;
 const lcLookupCache = new Map();
 
-app.get("/api/lc-lookup", async (req, res) => {
+app.get("/api/lc-lookup", rateLimit, async (req, res) => {
   const slug = typeof req.query.slug === "string" ? req.query.slug.trim().toLowerCase() : "";
   if (!/^[a-z0-9-]+$/.test(slug)) {
     res.status(400).json({ ok: false, error: "Invalid slug." });
@@ -496,7 +532,7 @@ app.get("/api/lc-lookup", async (req, res) => {
    function signature instead of a generic template. */
 const lcSkeletonCache = new Map();
 
-app.get("/api/lc-skeleton", async (req, res) => {
+app.get("/api/lc-skeleton", rateLimit, async (req, res) => {
   const slug = typeof req.query.slug === "string" ? req.query.slug.trim().toLowerCase() : "";
   if (!/^[a-z0-9-]+$/.test(slug)) {
     res.status(400).json({ ok: false, error: "Invalid slug." });
@@ -546,7 +582,7 @@ app.get("/api/lc-skeleton", async (req, res) => {
    real problem statements instead of copies of them. */
 const lcDescCache = new Map();
 
-app.get("/api/lc-description", async (req, res) => {
+app.get("/api/lc-description", rateLimit, async (req, res) => {
   const slug = typeof req.query.slug === "string" ? req.query.slug.trim().toLowerCase() : "";
   if (!/^[a-z0-9-]+$/.test(slug)) {
     res.status(400).json({ ok: false, error: "Invalid slug." });
@@ -686,12 +722,12 @@ app.get("/api/problems/:id", rateLimit, async (req, res) => {
   }
 });
 
-app.get("/api/run/capabilities", async (_req, res) => {
+app.get("/api/run/capabilities", runRateLimit, async (_req, res) => {
   const capabilities = await getRunCapabilities();
   res.json({ javascript: "browser", ...capabilities });
 });
 
-app.post("/api/run", async (req, res) => {
+app.post("/api/run", runRateLimit, async (req, res) => {
   const language = typeof req.body?.language === "string" ? req.body.language.trim().toLowerCase() : "";
   const code = typeof req.body?.code === "string" ? req.body.code : "";
   const stdin = typeof req.body?.stdin === "string" ? req.body.stdin.slice(0, MAX_STDIN_LENGTH) : "";
@@ -709,15 +745,23 @@ app.post("/api/run", async (req, res) => {
     return;
   }
 
+  if (activeRuns >= MAX_CONCURRENT_RUNS) {
+    res.setHeader("Retry-After", "5");
+    res.status(503).json({ ok: false, error: "All run slots are busy. Please try again in a moment." });
+    return;
+  }
+  activeRuns += 1;
   try {
     const result = await executeRun(language, code, stdin);
     res.json(result);
   } catch (error) {
     res.status(500).json({ ok: false, phase: "server", stderr: error?.message || "Run failed." });
+  } finally {
+    activeRuns -= 1;
   }
 });
 
-app.post("/api/assistant", (req, res) => {
+app.post("/api/assistant", runRateLimit, (req, res) => {
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
 
   if (!message) {

@@ -22,12 +22,11 @@
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "mysql2": "^3.24.5",
-    "openai": "^6.25.0"
+    "mysql2": "^3.24.5"
   }
 }

@@ -118,6 +118,9 @@ Then fill in your own values:
 | `DB_SSL` | `true` for hosted MySQL with TLS |
 | `DB_SSL_CA` | Path to the provider's CA bundle |
 | `RATE_LIMIT_MAX` | Requests per minute per IP for `/api/*` (`0` disables) |
+| `RUN_RATE_LIMIT_MAX` | Requests per minute per IP for `/api/run` and `/api/assistant` (default `30`) |
+| `MAX_CONCURRENT_RUNS` | How many code runs may execute at once (default `4`) |
+| `TRUST_PROXY` | Hops to trust from `X-Forwarded-For` (auto-enabled on Render) |
 | `CORS_ORIGINS` | Extra browser origins allowed to call the API, comma separated |
 
 > **Important:** dotenv treats `#` as the start of a comment. If your password contains `#` or `$`, quote it: `DB_PASSWORD="Mysql@#123"`. An unquoted value is silently truncated and every connection fails with "Access denied".
@@ -227,10 +230,12 @@ DB_PASSWORD=<password>
 DB_NAME=Quanta-Leetcode
 DB_SSL=true
 RATE_LIMIT_MAX=300
+RUN_RATE_LIMIT_MAX=30
+MAX_CONCURRENT_RUNS=4
 CORS_ORIGINS=
 ```
 
-Do not set `HOST` (the default `0.0.0.0` is what the provider needs). `PORT` is injected by the provider and now takes priority over `.env`.
+Do not set `HOST` (the default `0.0.0.0` is what the provider needs). `PORT` is injected by the provider and now takes priority over `.env`. On Render, `TRUST_PROXY` is enabled automatically (Render terminates TLS in front of your app); on another host behind a proxy, set `TRUST_PROXY=1` yourself — without it every visitor shares one rate-limit bucket.
 
 After the first deploy, apply the schema and import the catalog once against the hosted database (step 8.4), because the hosting container has no MySQL client of its own.
 
@@ -308,7 +313,7 @@ The cache lives in `localStorage` under `quantaDescCacheV1` (newest 400 statemen
 
 Errors use one shape: `{ ok: false, error: "…" }`, with `400` for bad input, `404` for unknown records, `429` when rate limited, `503` when the database is unreachable. Credentials, stack traces and connection details are never returned.
 
-Security notes: database credentials live only in the backend `.env` or the host's environment; every query is parameterized; `/api/*` is rate limited per IP; CORS is restricted to the Android wrapper, localhost, private LAN origins and any extra origin in `CORS_ORIGINS`; `server.js`, `db/`, `scripts/`, `.env*`, `keys.txt` and `*.log` are never served statically.
+Security notes: database credentials live only in the backend `.env` or the host's environment; every query is parameterized; `/api/*` is rate limited per IP (code execution has a tighter budget and a concurrency cap); `/health` reports database failures generically instead of echoing driver errors; CORS is restricted to the Android wrapper, localhost, private LAN origins and any extra origin in `CORS_ORIGINS`; `server.js`, `db/`, `scripts/`, `.env*`, `keys.txt` and `*.log` are never served statically.
 
 ## Quality commands
 
