@@ -268,12 +268,12 @@ The frontend is plain HTML/CSS/JavaScript — no framework, no build step — so
 
 Commit the repo first: `vercel.json` and `.vercelignore` must be on GitHub for Vercel to see them.
 
-**Live deployment:** `https://quanta-leet-code.vercel.app` — project `quanta-leet-code`, connected to `Rkshah123/Quanta-LeetCode` (branch `main`), so every push redeploys automatically.
+**Live deployment:** `https://quanta-leetcode.vercel.app` — project `quanta-leetcode`, connected to `Rkshah123/Quanta-LeetCode` (branch `main`), so every push redeploys automatically. The earlier `quanta-leet-code.vercel.app` address is kept as a redirect.
 
 **CORS (one line, only for the direct-connect fallback):** the proxied setup is same-origin, so CORS is not involved. If you ever point **Settings → Online API** straight at Render from the Vercel site instead, add your Vercel domain on Render:
 
 ```
-CORS_ORIGINS=https://<your-project>.vercel.app
+CORS_ORIGINS=https://quanta-leetcode.vercel.app
 ```
 
 **What works on Vercel, and what still needs the PC:**
