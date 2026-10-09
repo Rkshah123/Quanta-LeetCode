@@ -6,7 +6,7 @@ A personal coding workspace: problem tracker with full statements, a multi-langu
 
 - **Problem catalog** — 782 problems seeded from the app, with real LeetCode numbers, titles, difficulties and statements stored in MySQL.
 - **Online + offline** — statements are fetched from Quanta's database first, saved on the device afterwards, and shown instantly from that saved copy whenever there is no internet.
-- **Code Lab** — Java, JavaScript, Python, C and C++ in a Monaco editor, with JavaScript running locally in a sandboxed worker and the rest compiled on your PC.
+- **Code Lab** — Java, JavaScript, Python, C and C++ in a Monaco editor, with JavaScript running locally in a sandboxed worker and the rest compiled on your PC — or in the free Judge0 cloud runner when the server has no compiler (a hosted server has no JDK).
 - **Notes workspace** — topics, sections, rich-text tools, find/replace, export.
 - **Assistant** — local fallback endpoint (safe, no external calls).
 - **One API, two clients** — the desktop browser and the Android app call the same Express API.
@@ -120,6 +120,9 @@ Then fill in your own values:
 | `RATE_LIMIT_MAX` | Requests per minute per IP for `/api/*` (`0` disables) |
 | `RUN_RATE_LIMIT_MAX` | Requests per minute per IP for `/api/run` and `/api/assistant` (default `30`) |
 | `MAX_CONCURRENT_RUNS` | How many code runs may execute at once (default `4`) |
+| `JUDGE0_URL` | Cloud runner used when a language has no local compiler (default `https://ce.judge0.com`, `""` disables) |
+| `JUDGE0_TOKEN` | Optional Bearer token for a private or RapidAPI Judge0 instance — never sent to clients |
+| `JUDGE0_TIMEOUT_MS` | How long a cloud run may take (default `60000`) |
 | `TRUST_PROXY` | Hops to trust from `X-Forwarded-For` (auto-enabled on Render) |
 | `CORS_ORIGINS` | Extra browser origins allowed to call the API, comma separated |
 
@@ -284,8 +287,10 @@ CORS_ORIGINS=https://quanta-leetcode.vercel.app
 | Full problem statements | ✅ from TiDB Cloud |
 | Notes, per-problem code, goals (stored in the browser) | ✅ unchanged, per device |
 | Run **C / C++ / Python** | ✅ Render's container has those compilers |
-| Run **Java** | ❌ needs the PC — set **Compiler server** to `http://<pc-ip>:3000` while on the same Wi-Fi |
+| Run **Java** | ✅ Render has no JDK, so the run goes to the free Judge0 cloud runner (~2 s) |
 | Refresh / deep link | ✅ `vercel.json` serves `index.html` for unknown paths |
+
+**Code execution (Run button):** the server compiles locally whenever the toolchain exists (your PC), and automatically falls back to the free public Judge0 instance for any language it cannot compile — that is what makes **Java work on Render**, where there is no JDK. Nothing about a run is stored, and `JUDGE0_TOKEN`, if you use one, never leaves the server. Set `JUDGE0_URL=""` to switch the cloud runner off, or point it at your own instance.
 
 `localhost` and the LAN setup keep working exactly as before — Vercel is an extra host, not a replacement.
 

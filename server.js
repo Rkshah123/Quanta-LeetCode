@@ -35,6 +35,18 @@ const MAX_CODE_LENGTH = Number(process.env.MAX_CODE_LENGTH || 100000);
 const MAX_STDIN_LENGTH = Number(process.env.MAX_STDIN_LENGTH || 20000);
 const MAX_OUTPUT_BYTES = 200 * 1024;
 
+/* --------------------------- cloud run fallback -------------------------- */
+/* Some hosts (a free container) have no JDK. When a language cannot be
+   compiled locally, the run is submitted to a Judge0 instance instead. The
+   free public instance https://ce.judge0.com needs no key; set JUDGE0_URL=""
+   to switch this off, or point it at your own/private instance. An optional
+   JUDGE0_TOKEN is sent as a Bearer header and never leaves the server. */
+const JUDGE0_URL = String(process.env.JUDGE0_URL ?? "https://ce.judge0.com").trim().replace(/\/+$/, "");
+const JUDGE0_TOKEN = String(process.env.JUDGE0_TOKEN || "").trim();
+const JUDGE0_TIMEOUT_MS = Number(process.env.JUDGE0_TIMEOUT_MS || 60000);
+/* Judge0 language ids for exactly the languages Quanta supports. */
+const JUDGE0_LANGUAGE_IDS = Object.freeze({ c: 103, cpp: 105, java: 91, python: 100 });
+
 /* ------------------------------ assistant ------------------------------ */
 
 const getAssistantFallback = (message) => {
@@ -106,10 +118,12 @@ const resolvePythonCommand = async () => {
 };
 
 const getRunCapabilities = async () => ({
-  c: Boolean(await checkTool("gcc")),
-  cpp: Boolean(await checkTool("g++")),
-  java: Boolean(await checkTool("javac")) && Boolean(await checkTool("java", ["-version"])),
-  python: Boolean(await resolvePythonCommand())
+  c: Boolean(await checkTool("gcc")) || judge0Configured("c"),
+  cpp: Boolean(await checkTool("g++")) || judge0Configured("cpp"),
+  java:
+    (Boolean(await checkTool("javac")) && Boolean(await checkTool("java", ["-version"]))) ||
+    judge0Configured("java"),
+  python: Boolean(await resolvePythonCommand()) || judge0Configured("python")
 });
 
 const truncate = (text) => {
@@ -119,6 +133,75 @@ const truncate = (text) => {
     text: `${value.slice(0, MAX_OUTPUT_BYTES)}\n...[output truncated]`,
     truncated: true
   };
+};
+
+/* Is a cloud runner available for this language on this server? */
+const judge0Configured = (language) => Boolean(JUDGE0_URL && JUDGE0_LANGUAGE_IDS[language]);
+
+const JUDGE0_STATUS = Object.freeze({ QUEUED: 1, PROCESSING: 2, ACCEPTED: 3, TIME_LIMIT: 5, COMPILE_ERROR: 6 });
+
+const judge0Headers = () => {
+  const headers = { "Content-Type": "application/json" };
+  if (JUDGE0_TOKEN) headers.Authorization = `Bearer ${JUDGE0_TOKEN}`;
+  return headers;
+};
+
+/* Submits the code to Judge0 and maps the answer onto Quanta's normal run
+   shape, so the editor shows it exactly like a local run. Never leaks the
+   token, and every failure becomes a plain message instead of a stack. */
+const runOnJudge0 = async (language, code, stdin) => {
+  if (!judge0Configured(language)) {
+    return { ok: false, phase: "setup", stderr: "No local compiler for this language and no cloud runner configured." };
+  }
+  const deadline = Date.now() + JUDGE0_TIMEOUT_MS;
+  try {
+    const submit = await fetch(`${JUDGE0_URL}/submissions?base64_encoded=false&wait=true`, {
+      method: "POST",
+      headers: judge0Headers(),
+      body: JSON.stringify({ source_code: code, language_id: JUDGE0_LANGUAGE_IDS[language], stdin: stdin || "" }),
+      signal: AbortSignal.timeout(Math.min(JUDGE0_TIMEOUT_MS, 30000))
+    });
+    if (!submit.ok) throw new Error(`the runner answered HTTP ${submit.status}`);
+    let result = await submit.json();
+
+    /* wait=true answers quickly; a still-queued submission is polled. */
+    while (
+      (result?.status?.id === JUDGE0_STATUS.QUEUED || result?.status?.id === JUDGE0_STATUS.PROCESSING) &&
+      result.token &&
+      Date.now() < deadline
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const poll = await fetch(
+        `${JUDGE0_URL}/submissions/${encodeURIComponent(result.token)}?base64_encoded=false&fields=stdout,stderr,compile_output,message,status,time,memory,token`,
+        { headers: judge0Headers(), signal: AbortSignal.timeout(15000) }
+      );
+      if (!poll.ok) break;
+      result = await poll.json();
+    }
+
+    const statusId = result?.status?.id;
+    const description = result?.status?.description || "run failed";
+    const out = truncate(result?.stdout || "");
+    const err = truncate(
+      [result?.stderr, result?.compile_output, statusId === JUDGE0_STATUS.COMPILE_ERROR ? result?.message : ""]
+        .filter(Boolean)
+        .join("\n")
+    );
+    const accepted = statusId === JUDGE0_STATUS.ACCEPTED;
+    return {
+      ok: accepted,
+      phase: statusId === JUDGE0_STATUS.COMPILE_ERROR ? "compile" : "run",
+      stdout: out.text,
+      stderr: err.text || (accepted ? "" : `Cloud runner: ${description}.`),
+      exitCode: accepted ? 0 : 1,
+      truncated: out.truncated || err.truncated,
+      timedOut: statusId === JUDGE0_STATUS.TIME_LIMIT,
+      time: result?.time,
+      memory: result?.memory
+    };
+  } catch (error) {
+    return { ok: false, phase: "run", stderr: `Cloud runner unavailable: ${error?.message || "request failed"}.` };
+  }
 };
 
 const runProcess = (command, args, options = {}) =>
@@ -189,6 +272,10 @@ const executeRun = async (language, code, stdin) => {
       const isCpp = language === "cpp";
       const compiler = isCpp ? "g++" : "gcc";
       const sourceName = isCpp ? "main.cpp" : "main.c";
+
+      /* No local compiler (common on a hosted container) → run in the cloud. */
+      if (!(await checkTool(compiler))) return runOnJudge0(language, code, stdin);
+
       const outputName = process.platform === "win32" ? "prog.exe" : "prog";
       const sourcePath = path.join(workDir, sourceName);
       const outputPath = path.join(workDir, outputName);
@@ -221,6 +308,9 @@ const executeRun = async (language, code, stdin) => {
     }
 
     if (language === "java") {
+      /* A hosted server usually has no JDK — Judge0 compiles it instead. */
+      if (!(await checkTool("javac"))) return runOnJudge0(language, code, stdin);
+
       const className = extractJavaPublicClassName(code);
       const sourcePath = path.join(workDir, `${className}.java`);
       fs.writeFileSync(sourcePath, code, "utf8");
@@ -247,9 +337,7 @@ const executeRun = async (language, code, stdin) => {
 
     if (language === "python") {
       const pythonCommand = await resolvePythonCommand();
-      if (!pythonCommand) {
-        return { ok: false, phase: "setup", stderr: "Python interpreter not found on this machine." };
-      }
+      if (!pythonCommand) return runOnJudge0(language, code, stdin);
 
       const sourcePath = path.join(workDir, "main.py");
       fs.writeFileSync(sourcePath, code, "utf8");
