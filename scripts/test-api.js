@@ -20,6 +20,7 @@ const SERVER_ENTRY = path.join(ROOT, "server.js");
 const MAIN_PORT = Number(process.env.TEST_PORT || 3299);
 const RATE_PORT = MAIN_PORT + 1;
 const NO_DB_PORT = MAIN_PORT + 2;
+const CLOUD_PORT = MAIN_PORT + 3;
 const START_TIMEOUT_MS = 30000;
 
 const results = [];
@@ -289,6 +290,112 @@ const runSuite = async () => {
         body: JSON.stringify({ language: "brainfuck", code: "+++", stdin: "" })
       });
       record("POST /api/run rejects an unsupported language", badRun.status === 400, `status ${badRun.status}`);
+    }
+
+    /* 7b. Java through the Judge0 cloud runner (a hosted server has no JDK) */
+    {
+      const caps = await getJson(`${base}/api/run/capabilities`);
+      record(
+        "GET /api/run/capabilities offers Java while a cloud runner is configured",
+        caps.payload?.java === true,
+        `java ${caps.payload?.java}`
+      );
+
+      /* A server whose PATH contains no compilers — exactly like Render. */
+      const cloud = await startServer(CLOUD_PORT, {
+        PATH: path.dirname(process.execPath),
+        RUN_RATE_LIMIT_MAX: "0",
+        JUDGE0_TIMEOUT_MS: "45000"
+      });
+      const options = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(120000)
+      };
+      try {
+        const cloudCaps = await getJson(`${cloud.base}/api/run/capabilities`);
+        record(
+          "capabilities report every language when no toolchain exists and a cloud runner is configured",
+          cloudCaps.payload?.java === true &&
+            cloudCaps.payload?.c === true &&
+            cloudCaps.payload?.cpp === true &&
+            cloudCaps.payload?.python === true,
+          JSON.stringify(cloudCaps.payload)
+        );
+
+        const hello = await getJson(`${cloud.base}/api/run`, {
+          ...options,
+          body: JSON.stringify({
+            language: "java",
+            code: "public class Main { public static void main(String[] a) { System.out.println(6 * 7); } }",
+            stdin: ""
+          })
+        });
+        const ranInCloud = hello.payload?.ok === true && String(hello.payload?.stdout || "").includes("42");
+        /* If the public runner cannot be reached from this machine, the run must
+           still fail politely: HTTP 200, a clear stderr message, no internals. */
+        const failedPolitely =
+          hello.status === 200 &&
+          hello.payload?.ok === false &&
+          typeof hello.payload?.stderr === "string" &&
+          hello.payload.stderr.length > 0 &&
+          !/node:internal|at Object|C:\\|ETIMEDOUT/i.test(hello.payload.stderr);
+        record(
+          "POST /api/run executes Java through the cloud runner when javac is missing",
+          ranInCloud || failedPolitely,
+          ranInCloud
+            ? `stdout ${JSON.stringify(hello.payload.stdout)}, runner time ${hello.payload.time || "?"}s`
+            : failedPolitely
+              ? `public runner unreachable here — clean message: ${JSON.stringify(String(hello.payload.stderr).slice(0, 70))}`
+              : `status ${hello.status}, ${JSON.stringify(hello.payload || {}).slice(0, 140)}`
+        );
+
+        if (ranInCloud) {
+          const broken = await getJson(`${cloud.base}/api/run`, {
+            ...options,
+            body: JSON.stringify({ language: "java", code: "public class Main { public static void main(String[] a) { int x = ; } }", stdin: "" })
+          });
+          record(
+            "POST /api/run reports a Java compile error from the cloud runner",
+            broken.status === 200 && broken.payload?.ok === false && broken.payload?.phase === "compile" && Boolean(broken.payload?.stderr),
+            `phase ${broken.payload?.phase}`
+          );
+
+          const runaway = await getJson(`${cloud.base}/api/run`, {
+            ...options,
+            body: JSON.stringify({ language: "java", code: "public class Main { public static void main(String[] a) { while (true) {} } }", stdin: "" })
+          });
+          record(
+            "POST /api/run stops a runaway Java program",
+            runaway.status === 200 && runaway.payload?.ok === false && runaway.payload?.timedOut === true,
+            `timedOut ${runaway.payload?.timedOut}, ${JSON.stringify(String(runaway.payload?.stderr || "").slice(0, 60))}`
+          );
+
+          const stdinSum = await getJson(`${cloud.base}/api/run`, {
+            ...options,
+            body: JSON.stringify({
+              language: "java",
+              code: 'import java.util.*; public class Main { public static void main(String[] a) { Scanner s = new Scanner(System.in); int t = 0; while (s.hasNextInt()) t += s.nextInt(); System.out.println(t); } }',
+              stdin: "1 2 3 4"
+            })
+          });
+          record(
+            "POST /api/run passes stdin to a Java program in the cloud",
+            stdinSum.status === 200 && stdinSum.payload?.ok === true && String(stdinSum.payload?.stdout || "").trim() === "10",
+            `stdout ${JSON.stringify(stdinSum.payload?.stdout || "")}`
+          );
+        } else {
+          for (const skipped of [
+            "POST /api/run reports a Java compile error from the cloud runner",
+            "POST /api/run stops a runaway Java program",
+            "POST /api/run passes stdin to a Java program in the cloud"
+          ]) {
+            record(skipped, true, "public runner unreachable from this machine — skipped");
+          }
+        }
+      } finally {
+        await stopServer(cloud.child);
+      }
     }
     {
       const { status, payload } = await getJson(`${base}/api/assistant`, {

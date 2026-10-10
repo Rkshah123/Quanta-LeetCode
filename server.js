@@ -146,39 +146,62 @@ const judge0Headers = () => {
   return headers;
 };
 
+/* Turns an HTTP status from the runner into a message a student can act on. */
+const judge0HttpError = (status) => {
+  if (status === 429) return "The free Judge0 instance is rate-limiting requests. Wait a few seconds and run again.";
+  if (status === 401 || status === 403) return "The Judge0 instance refused this request (a key is required, or access was denied).";
+  if (status >= 500) return "The Judge0 instance is having server trouble. Please try again shortly.";
+  return `The Judge0 instance answered HTTP ${status}.`;
+};
+
 /* Submits the code to Judge0 and maps the answer onto Quanta's normal run
-   shape, so the editor shows it exactly like a local run. Never leaks the
-   token, and every failure becomes a plain message instead of a stack. */
+   shape, so the editor shows it exactly like a local run. The submission is
+   queued (wait=false) and its token is polled until it finishes, the
+   JUDGE0_TIMEOUT_MS budget runs out, or the runner answers with an error.
+   Never leaks the token; every failure becomes a plain message, never a stack. */
 const runOnJudge0 = async (language, code, stdin) => {
   if (!judge0Configured(language)) {
     return { ok: false, phase: "setup", stderr: "No local compiler for this language and no cloud runner configured." };
   }
   const deadline = Date.now() + JUDGE0_TIMEOUT_MS;
+  const pollFields = "stdout,stderr,compile_output,message,status,time,memory,token";
+
   try {
-    const submit = await fetch(`${JUDGE0_URL}/submissions?base64_encoded=false&wait=true`, {
+    /* 1. Queue the submission and collect its token. */
+    const submit = await fetch(`${JUDGE0_URL}/submissions?base64_encoded=false&wait=false`, {
       method: "POST",
       headers: judge0Headers(),
       body: JSON.stringify({ source_code: code, language_id: JUDGE0_LANGUAGE_IDS[language], stdin: stdin || "" }),
-      signal: AbortSignal.timeout(Math.min(JUDGE0_TIMEOUT_MS, 30000))
+      signal: AbortSignal.timeout(Math.min(JUDGE0_TIMEOUT_MS, 20000))
     });
-    if (!submit.ok) throw new Error(`the runner answered HTTP ${submit.status}`);
-    let result = await submit.json();
+    if (!submit.ok) return { ok: false, phase: "run", stderr: judge0HttpError(submit.status) };
+    const queued = await submit.json();
+    const token = typeof queued?.token === "string" ? queued.token : "";
+    if (!token) return { ok: false, phase: "run", stderr: "The Judge0 instance did not return a submission token." };
 
-    /* wait=true answers quickly; a still-queued submission is polled. */
-    while (
-      (result?.status?.id === JUDGE0_STATUS.QUEUED || result?.status?.id === JUDGE0_STATUS.PROCESSING) &&
-      result.token &&
-      Date.now() < deadline
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+    /* 2. Poll the token until the run leaves the queue. */
+    let result = null;
+    for (;;) {
       const poll = await fetch(
-        `${JUDGE0_URL}/submissions/${encodeURIComponent(result.token)}?base64_encoded=false&fields=stdout,stderr,compile_output,message,status,time,memory,token`,
+        `${JUDGE0_URL}/submissions/${encodeURIComponent(token)}?base64_encoded=false&fields=${pollFields}`,
         { headers: judge0Headers(), signal: AbortSignal.timeout(15000) }
       );
-      if (!poll.ok) break;
+      if (!poll.ok) return { ok: false, phase: "run", stderr: judge0HttpError(poll.status) };
       result = await poll.json();
+      const statusId = result?.status?.id;
+      if (statusId !== JUDGE0_STATUS.QUEUED && statusId !== JUDGE0_STATUS.PROCESSING) break;
+      if (Date.now() >= deadline) {
+        return {
+          ok: false,
+          phase: "run",
+          stderr: `The cloud run did not finish within ${Math.round(JUDGE0_TIMEOUT_MS / 1000)} seconds.`,
+          timedOut: true
+        };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
+    /* 3. Map the finished result onto the local-run shape. */
     const statusId = result?.status?.id;
     const description = result?.status?.description || "run failed";
     const out = truncate(result?.stdout || "");
