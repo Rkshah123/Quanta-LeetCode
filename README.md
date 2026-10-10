@@ -319,7 +319,7 @@ Render is the simplest fit: it runs the same `server.js`, and `render.yaml` desc
 2. In Render: **New → Blueprint** → pick the repo → it reads `render.yaml`.
 3. Type the database values in the service's **Environment** tab (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL=true`). They are stored by Render, never in git.
 4. Deploy. The service exposes `https://<name>.onrender.com`; `/health` must report `"ok": true`.
-5. **After every later push**, make sure the service actually picked it up: open the service in Render and check that "Last successfully deployed commit" matches your newest commit on GitHub. If it does not, click **Manual Deploy → Deploy latest commit** (a few seconds of clicking). Push-triggered deploys depend on Render's GitHub webhook reaching your account; when it does not, the manual button is the reliable path and the result is identical.
+5. **After every later push**, Render deploys automatically — this requires the **Render GitHub App** to be installed on the GitHub account (GitHub → Settings → Applications → Installed GitHub Apps → Render). Without it, GitHub has no way to notify Render and every push sits undeployed. To confirm a push landed: open the service in Render and check that the deployed commit matches your newest commit on GitHub. If it does not, click **Manual Deploy → Clear build cache & deploy** (a few seconds of clicking); the result is identical.
 
 Alternatives: Railway (`railway up`), Fly (`fly launch`), or any host that runs `npm start` and injects `PORT`.
 
