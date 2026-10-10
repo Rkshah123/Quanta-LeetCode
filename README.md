@@ -5,7 +5,7 @@ A personal coding workspace: problem tracker with full statements, a multi-langu
 ## What you get
 
 - **Problem catalog** — 782 problems seeded from the app, with real LeetCode numbers, titles, difficulties and statements stored in MySQL.
-- **Online + offline** — statements are fetched from Quanta's database first, saved on the device afterwards, and shown instantly from that saved copy whenever there is no internet.
+- **Online + offline** — statements are fetched from Quanta's database first, saved on the device afterwards, and shown instantly from that saved copy whenever there is no internet; a bundled offline pack covers all 679 stored statements even on a fresh device with no server anywhere.
 - **Code Lab** — Java, JavaScript, Python, C and C++ in a Monaco editor, with JavaScript running locally in a sandboxed worker and the rest compiled on your PC — or in the free Judge0 cloud runner when the server has no compiler (a hosted server has no JDK).
 - **Notes workspace** — topics, sections, rich-text tools, find/replace, export.
 - **Assistant** — local fallback endpoint (safe, no external calls).
@@ -28,7 +28,7 @@ Two addresses, deliberately separate:
 | **Online API (problem database)** | Statements and catalog (`/api/problems`) | Settings → Connection |
 | **Compiler server** | Java / C / C++ / Python execution | Settings → Connection |
 
-Leave both empty when the app is served from the same machine as the server. On a phone, the compiler server points at your PC's LAN address and the online API points at the hosted HTTPS backend.
+Leave both empty when the app is served from the same machine as the server. On a phone, the compiler server points at your PC's LAN address and the online API points at the hosted HTTPS backend; if the PC does not answer, runs automatically fall back to the online API.
 
 ## Project layout
 
@@ -89,24 +89,26 @@ localStorage     quanta-api-2i9a.onrender.com ────► TiDB Cloud (MySQL 
    │                 ├─ /api/problems, /api/lc-description → catalog, live LeetCode fallback (written back)
    │                 ├─ /api/run → local toolchain if present, else Judge0 (submit → token → poll → result)
    │                 └─ /health
-   └─ programs, notes, per-problem code, settings, statement cache (quantaDescCacheV1, newest 400)
+   └─ programs, notes, per-problem code, settings, statement cache (quantaDescCacheV1, newest 400), bundled offline statements (offline-pack.js, 679)
 ```
 
 ### Run flow (the Run button)
 
-1. `GET /api/run/capabilities` (cached in memory) reports what this server can execute.
+1. `GET /api/run/capabilities` (cached in memory) reports what the configured compiler server can execute. A custom `http://` address gets a short probe timeout so a switched-off PC cannot stall Run for a minute.
 2. **JavaScript** runs in a sandboxed Web Worker in the browser — it works even when no server is reachable.
-3. **Java / C / C++ / Python** go to `POST /api/run`:
+3. **Java / C / C++ / Python** go to `POST /api/run` on the configured compiler server (the PC on the same Wi-Fi: fastest, unlimited, works with no internet):
    - **Local toolchain present (your PC, `npm start`)** → compiled and executed on the spot; temp files are removed afterwards.
    - **No toolchain (Render's container)** → the free public Judge0 CE instance: submitted with `wait=false`, the returned token is polled until the program finishes or `JUDGE0_TIMEOUT_MS` elapses. Compile errors return `phase: "compile"`, timeouts `timedOut: true`, and rate limits / HTTP failures return plain-language messages. A Java class not named `Main` is renamed to `Main` for the cloud run only — string literals and comments are never touched.
-4. Every mode answers with the same shape: `{ ok, phase, stdout, stderr, exitCode, truncated, timedOut, time?, memory? }`.
+4. **If the configured server cannot take the job** (PC off, wrong address, or no toolchain for that language), the client automatically retries on a *different* runner — the **Online API** address (hosted API → Judge0), or on the website this origin's own runner. That second step is what lets a phone run all four compiled languages with the laptop off, as long as there is internet. Only when both runners fail does Run report it, naming both addresses.
+5. Every mode answers with the same shape: `{ ok, phase, stdout, stderr, exitCode, truncated, timedOut, time?, memory? }`.
 
 ### Statement flow
 
 1. Opening a problem checks the device cache (`quantaDescCacheV1`).
 2. On a miss, `GET /api/problems/:id` / `/api/lc-description?slug=` answers from the catalog first and falls back to LeetCode live.
 3. A statement fetched live is written back into the catalog, so every device benefits next time.
-4. Offline with nothing cached shows an explicit *"Description unavailable right now"* — never a blank pane, never an invented statement.
+4. If **both network sources fail** (airplane mode, no server anywhere), the bundled `offline-pack.js` — every one of the 679 stored statements, shipped inside the app and loaded lazily only at this point — provides the copy, labelled **Bundled with the app** and saved into the device cache for next time.
+5. Only when even the bundle has no entry (103 problems never had a stored statement) does the app show an explicit *"Description unavailable right now"* — never a blank pane, never an invented statement.
 
 ### Where data lives
 
@@ -122,10 +124,10 @@ localStorage     quanta-api-2i9a.onrender.com ────► TiDB Cloud (MySQL 
 | Mode | Address | Statements | Java / C / C++ / Python | JavaScript |
 |---|---|---|---|---|
 | **Laptop, online** | `https://quanta-leetcode.vercel.app` | ✅ catalog + live LeetCode | ✅ Render → toolchain or Judge0 | ✅ browser |
-| **Laptop, offline** | `npm start` → `http://localhost:3000` | ✅ already-read ones; new ones need internet | ✅ compiled on your PC | ✅ browser |
-| **Phone, online** | the same Vercel URL | ✅ | ✅ | ✅ browser |
-| **Phone, offline (LAN)** | APK or `http://<PC-IP>:3000` with the PC running on the same Wi-Fi | ✅ already-read ones | ✅ compiled on your PC | ✅ browser |
-| **Phone, offline (no PC)** | APK with no reachable server | ✅ already-read ones (up to 400) | ❌ needs a compiler somewhere | ✅ browser |
+| **Laptop, offline** | `npm start` → `http://localhost:3000` | ✅ from your local database | ✅ compiled on your PC | ✅ browser |
+| **Phone, online (PC off)** | APK with internet | ✅ hosted API + bundled pack | ✅ auto-fallback → hosted API → Judge0 | ✅ browser |
+| **Phone, offline (LAN)** | APK with the PC running on the same Wi-Fi | ✅ bundled pack + already-read ones (the PC's database too, if Online API is empty) | ✅ compiled on your PC | ✅ browser |
+| **Phone, offline (no PC)** | APK, no internet anywhere | ✅ bundled pack (679) + already-read ones (up to 400) | ❌ needs a compiler somewhere — there is no device or network to compile on | ✅ browser |
 
 Keep **Settings → Online API** and **Settings → Compiler server** empty in the normal setup: empty means "this app's own server", which is exactly right on localhost and on Vercel (the rewrite makes it same-origin).
 
@@ -421,8 +423,8 @@ Then install over USB: copy `android-apk/Quanta.apk` to the phone, allow "instal
 
 1. With the app open on a problem, turn on airplane mode (or stop both the server and the internet).
 2. Re-open a problem you have already read: it appears instantly with **Saved on this device**.
-3. Open a problem you have never read: you get an explicit "Description unavailable right now" message — never a blank pane and never a fake statement.
-4. Notes, Code Lab programs and JavaScript runs keep working fully offline.
+3. Open a problem you have never read: on the app (and the website) its statement comes from the bundled pack, labelled **Bundled with the app**; for the 103 problems that never had a stored statement you get an explicit "Description unavailable right now" message — never a blank pane and never a fake statement.
+4. Notes, Code Lab programs and JavaScript runs keep working fully offline; Java / C / C++ / Python runs report that no runner answered (a compiled language needs a compiler somewhere — offline there is none) instead of hanging.
 
 The cache lives in `localStorage` under `quantaDescCacheV1` (newest 400 statements). Cached statements are refreshed in the background after 7 days, without blocking the view.
 

@@ -648,6 +648,10 @@
      claiming a toolchain is missing — that message sent people hunting for a
      JDK that was never the problem. */
   let runServerUnreachable = false;
+  /* Base whose last capabilities probe failed (either runner), so Run can tell
+     "the online runner is unreachable too" apart from "it answered but has no
+     toolchain for this language". */
+  let lastCapabilitiesFailureBase = null;
   let isRunning = false;
   let lastFocusedElement = null;
   let activeNotesEditable = null;
@@ -1083,27 +1087,73 @@
     return API_BASE;
   };
 
-  const fetchRunCapabilities = async () => {
-    if (runCapabilities) return runCapabilities;
-    const base = getRunServerBase();
-    if (!base && window.location.protocol === "file:") {
-      runCapabilities = { javascript: "browser", c: false, cpp: false, java: false, python: false };
-      return runCapabilities;
+  /* A DIFFERENT runner to try when the configured compiler server cannot take
+     the job: the Online API address (a hosted server compiles through Judge0
+     even with no toolchain of its own), or — on the website, when a custom
+     compiler server is configured — this origin's own runner. Returns null
+     when there is nothing different to try, so Run reports the real problem
+     instead of probing the same dead address twice. This is what lets a phone
+     run Java/C/C++/Python with the laptop off, as long as there is internet. */
+  const getRunFallbackBase = () => {
+    const runBase = getRunServerBase();
+    const configured = getConfiguredApiBase();
+    if (configured && configured !== runBase) return configured;
+    const isWrapper =
+      document.documentElement.classList.contains("quanta-native-shell") ||
+      /QuantaAndroid\//.test(navigator.userAgent);
+    if (!isWrapper && (window.location.protocol === "http:" || window.location.protocol === "https:") && runBase) {
+      return "";
     }
+    return null;
+  };
+
+  /* Capabilities probe for one runner base. The primary (configured) base is
+     cached in memory; a probe of an alternate base is never cached, so a
+     runner that comes back is picked up on the very next Run. A custom
+     http:// address (a machine on the LAN) gets a short timeout so a
+     switched-off PC cannot stall Run for a minute; hosted addresses get a
+     long one because a free server may be cold-starting. */
+  const fetchRunCapabilities = async (baseOverride) => {
+    const primaryBase = getRunServerBase();
+    const base = baseOverride !== undefined ? baseOverride : primaryBase;
+    const isPrimary = base === primaryBase;
+    if (isPrimary && runCapabilities) return runCapabilities;
+    const closedCaps = { javascript: "browser", c: false, cpp: false, java: false, python: false };
+    if (!base && window.location.protocol === "file:") {
+      if (isPrimary) runCapabilities = closedCaps;
+      return closedCaps;
+    }
+    const timeoutMs = base.startsWith("http://") ? 10000 : 75000;
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
-      const response = await fetch(`${base}/api/run/capabilities`, { cache: "no-store" });
+      const response = await fetch(`${base}/api/run/capabilities`, {
+        cache: "no-store",
+        signal: controller ? controller.signal : undefined
+      });
       if (!response.ok) throw new Error("capabilities unavailable");
-      runCapabilities = await response.json();
-      runServerUnreachable = false;
+      const caps = await response.json();
+      if (isPrimary) {
+        runCapabilities = caps;
+        runServerUnreachable = false;
+      }
+      if (lastCapabilitiesFailureBase === base) lastCapabilitiesFailureBase = null;
+      return caps;
     } catch {
       /* The server did not answer. The languages stay closed for this attempt,
          but the failure is remembered so Run can report "cannot reach the
-         server". It is deliberately not cached as a permanent answer: fixing
-         the address in Settings must recover on the next Run, with no reload. */
-      runServerUnreachable = true;
-      runCapabilities = { javascript: "browser", c: false, cpp: false, java: false, python: false };
+         server". The primary answer is deliberately not cached as a permanent
+         truth: fixing the address in Settings must recover on the next Run,
+         with no reload. */
+      lastCapabilitiesFailureBase = base;
+      if (isPrimary) {
+        runServerUnreachable = true;
+        runCapabilities = closedCaps;
+      }
+      return closedCaps;
+    } finally {
+      if (timer) window.clearTimeout(timer);
     }
-    return runCapabilities;
   };
 
   const appendOutput = (text) => {
@@ -1177,8 +1227,8 @@
       worker.postMessage({ code: String(code || ""), stdin: String(stdin || "") });
     });
 
-  const runOnServer = async (language, code, stdin) => {
-    const base = getRunServerBase();
+  const runOnServer = async (language, code, stdin, baseOverride) => {
+    const base = baseOverride !== undefined ? baseOverride : getRunServerBase();
     let response;
     try {
       response = await fetch(`${base}/api/run`, {
@@ -1190,10 +1240,25 @@
       /* Network-level failure (PC off, wrong LAN IP, no Wi-Fi): the phone
          showed a raw "Unexpected error: Failed to fetch" before. Now a
          short, friendly line — your code is still auto-saved. */
+      if (baseOverride === undefined) {
+        /* This runner stopped answering after an earlier successful probe
+           (the PC went to sleep). Drop the cached capabilities so the next
+           Run re-probes with its short timeout — and falls back — instead of
+           hanging again on the dead address. */
+        runCapabilities = null;
+        runServerUnreachable = true;
+      }
       return {
         ok: false,
         stdout: "",
-        stderr: `Cannot reach the compiler server (${base || "same origin"}). Check that the PC is running Quanta and both devices are on the same Wi-Fi. Your code is saved on this device.`,
+        stderr:
+          `Cannot reach the compiler server (${base || "same origin"}). ` +
+          (baseOverride !== undefined
+            ? "Check your internet connection and try again. "
+            : base
+              ? "Check that the PC is running Quanta and both devices are on the same Wi-Fi. "
+              : "Check your connection and try again. ") +
+          "Your code is saved on this device.",
         timedOut: false,
         phase: "network"
       };
@@ -1217,15 +1282,44 @@
     );
   };
 
-  /* Shared executor used by both the Lab page and per-problem code view. */
+  /* Shared executor used by both the Lab page and per-problem code view.
+     Runner chain: JavaScript always runs in this browser; compiled languages
+     go to the configured compiler server first (the PC on the same Wi-Fi is
+     fastest, unlimited, and works with no internet at all), then — when it
+     cannot run the language or does not answer — to a different runner: the
+     Online API address, which compiles through Judge0 even from a hosted
+     server with no toolchain. That second step is what lets a phone run
+     Java/C/C++/Python with the laptop off, as long as there is internet. */
   const executeCode = async (language, code, stdin) => {
     if (language === "javascript") {
       return runJavaScriptLocally(code, stdin);
     }
     const capabilities = await fetchRunCapabilities();
     if (capabilities[language]) {
-      return runOnServer(language, code, stdin);
+      const result = await runOnServer(language, code, stdin);
+      if (result.phase !== "network") return result;
+      /* Probed OK earlier but the run could not be delivered (the PC went
+         away in between). Try the other runner once before reporting. */
+      const fallbackBase = getRunFallbackBase();
+      if (fallbackBase !== null) {
+        const fallbackCapabilities = await fetchRunCapabilities(fallbackBase);
+        if (fallbackCapabilities[language]) return runOnServer(language, code, stdin, fallbackBase);
+      }
+      return result;
     }
+
+    /* The configured server is unreachable or has no toolchain for this
+       language — try the other runner before giving up. */
+    const fallbackBase = getRunFallbackBase();
+    let fallbackTried = false;
+    let fallbackDown = false;
+    if (fallbackBase !== null) {
+      fallbackTried = true;
+      const fallbackCapabilities = await fetchRunCapabilities(fallbackBase);
+      fallbackDown = lastCapabilitiesFailureBase === fallbackBase;
+      if (fallbackCapabilities[language]) return runOnServer(language, code, stdin, fallbackBase);
+    }
+
     if (runServerUnreachable) {
       /* Nothing was actually compiled — the configured server never answered.
          Say where it was looking and how to point it back at the built-in
@@ -1235,15 +1329,18 @@
         ok: false,
         stdout: "",
         stderr:
-          `Cannot reach the compiler server (${base || "this website's own runner"}). ` +
-          (base
-            ? "Check the address in Settings → Compiler server, or clear the field to use this website's own runner. "
-            : "Check your connection and try again. ") +
-          "Your code is saved on this device.",
+          fallbackTried && fallbackDown
+            ? `No runner answered — neither the compiler server (${base || "same origin"}) nor the online runner (${fallbackBase}) replied. Check your internet connection, or run Quanta on the PC on the same Wi-Fi. Your code is saved on this device.`
+            : `Cannot reach the compiler server (${base || "this website's own runner"}). ` +
+              (base
+                ? "Check the address in Settings → Compiler server, or clear the field to use this website's own runner. "
+                : "Check your connection and try again. ") +
+              "Your code is saved on this device.",
         timedOut: false,
         phase: "network"
       };
     }
+    /* Both runners answered, but neither can run this language. */
     return { ok: false, stdout: "", stderr: missingToolchainMessage(language), timedOut: false };
   };
 
@@ -3261,6 +3358,29 @@
     throw lastError;
   };
 
+  /* Bundled offline statements: offline-pack.js (generated by
+     scripts/export-offline-pack.js) holds every statement the database has,
+     so they can be read with no internet, no laptop and no server at all.
+     It is loaded lazily — only after both network sources have already
+     failed — so online sessions never pay for parsing it. */
+  let offlinePackPromise = null;
+  const loadOfflinePack = () => {
+    if (window.QUANTA_OFFLINE_PACK) return Promise.resolve(window.QUANTA_OFFLINE_PACK);
+    if (offlinePackPromise) return offlinePackPromise;
+    offlinePackPromise = new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "offline-pack.js";
+      script.async = true;
+      script.onload = () => resolve(window.QUANTA_OFFLINE_PACK || null);
+      script.onerror = () => {
+        offlinePackPromise = null; /* retried on the next statement */
+        resolve(null);
+      };
+      document.head.appendChild(script);
+    });
+    return offlinePackPromise;
+  };
+
   /* One shared in-flight promise per slug, so switching tabs/problems quickly
      never fires duplicate requests for the same statement. */
   const requestDescription = (slug) => {
@@ -3285,7 +3405,15 @@
           return { html: String(payload.html), source: payload.source === "database" ? "database" : "leetcode" };
         }
       } catch {
-        /* both sources unavailable — the caller falls back to the cache */
+        /* both sources unavailable → the bundled copy below is the last resort */
+      }
+
+      /* 3) Bundled offline copy — used only when the network failed, so an
+         offline device (no laptop, no server, airplane mode) still shows the
+         statement instead of an error. */
+      const pack = await loadOfflinePack();
+      if (pack && typeof pack[slug] === "string" && pack[slug]) {
+        return { html: pack[slug], source: "offline-pack" };
       }
       return null;
     })().finally(() => {
@@ -3361,8 +3489,12 @@
         rememberDescription(slug, result.html, result.source);
         renderDescHtml(result.html);
         setDescStatus(
-          result.source === "database" ? "Synced from database" : "Synced from LeetCode",
-          "synced"
+          result.source === "offline-pack"
+            ? "Bundled with the app"
+            : result.source === "database"
+              ? "Synced from database"
+              : "Synced from LeetCode",
+          result.source === "offline-pack" ? "cached" : "synced"
         );
       } else {
         setDescStatus("");

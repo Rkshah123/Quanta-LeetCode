@@ -765,7 +765,7 @@
     (function () {
       try {
         var isWrapper = /QuantaAndroid\/[0-9]/.test(navigator.userAgent);
-        if (isWrapper) { document.documentElement.classList.add(quanta-native-shell); }
+        if (isWrapper) { document.documentElement.classList.add("quanta-native-shell"); }
         if (isWrapper && !localStorage.getItem("quantaRunServerUrl")) {
           localStorage.setItem("quantaRunServerUrl", "http://192.168.0.5:3000");
         }

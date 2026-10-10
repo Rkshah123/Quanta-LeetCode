@@ -16,7 +16,7 @@ LAN_IP="${QUANTA_LAN_IP:-192.168.0.5}"
 API_URL="${QUANTA_API_URL:-}"
 
 echo "==> Syncing web app into assets"
-cp ../index.html ../style.css ../script.js ../lab-notes.js ../lab-notes.css ../manifest.json ../leeticon.png ../image.jpg app/src/main/assets/
+cp ../index.html ../style.css ../script.js ../lab-notes.js ../lab-notes.css ../manifest.json ../leeticon.png ../image.jpg ../offline-pack.js app/src/main/assets/
 mkdir -p app/src/main/assets/vendor/monaco
 cp -r ../vendor/monaco/min app/src/main/assets/vendor/monaco/
 
@@ -36,7 +36,7 @@ if ! grep -q "quantaRunServerUrl" app/src/main/assets/index.html; then
       '    (function () {\\n' +
       '      try {\\n' +
       '        var isWrapper = /QuantaAndroid\\\\/[0-9]/.test(navigator.userAgent);\\n' +
-      '        if (isWrapper) { document.documentElement.classList.add("quanta-native-shell"); }\\n' +
+      '        if (isWrapper) { document.documentElement.classList.add(\"quanta-native-shell\"); }\\n' +
       '        if (isWrapper && !localStorage.getItem(\"quantaRunServerUrl\")) {\\n' +
       '          localStorage.setItem(\"quantaRunServerUrl\", \"http://${LAN_IP}:3000\");\\n' +
       '        }\\n' +
