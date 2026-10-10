@@ -362,8 +362,8 @@ body[data-theme="beige"] .top-bar {
 .theme-toggle {
   position: relative;
   display: inline-flex;
-  width: 44px;
-  height: 24px;
+  width: 68px;
+  height: 34px;
   flex: none;
 }
 
@@ -387,13 +387,13 @@ body[data-theme="beige"] .top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 7px;
+  padding: 0 15px;
   pointer-events: none;
 }
 
 .theme-stops i {
-  width: 3px;
-  height: 3px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: currentColor;
   opacity: 0.45;
@@ -407,10 +407,10 @@ body[data-theme="beige"] .top-bar {
 
 .theme-knob {
   position: absolute;
-  left: 2px;
-  top: 2px;
-  width: 18px;
-  height: 18px;
+  left: 5px;
+  top: 4px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: #050505;
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -418,7 +418,7 @@ body[data-theme="beige"] .top-bar {
   pointer-events: none;
   z-index: 1;
   transition: transform var(--anim-mid), background-color var(--anim-mid), box-shadow var(--anim-mid);
-  transform: translateX(calc(var(--theme-pos, 0) * 11px));
+  transform: translateX(calc(var(--theme-pos, 0) * 16px));
 }
 
 body[data-theme="beige"] .theme-knob {
