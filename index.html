@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="style.css?v=12" />
   <link rel="stylesheet" href="lab-notes.css?v=42" />
 
 </head>
@@ -32,10 +32,12 @@
       <button id="exit-btn" class="icon-btn icon-btn--danger" type="button" aria-label="Exit dashboard">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13v-2H7.8l1.6-1.6L8 8l-4 4 4 4 1.4-1.4L7.8 13H16Zm3-9H5a2 2 0 0 0-2 2v3h2V6h14v12H5v-3H3v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"/></svg>
       </button>
-      <label class="theme-toggle" for="theme-toggle-input" aria-label="Toggle theme">
-        <input id="theme-toggle-input" type="checkbox" />
-        <span class="theme-slider"></span>
-      </label>
+      <div id="theme-symbols" class="theme-toggle theme-symbols">
+        <button id="theme-slider" class="theme-slider" type="button" role="slider" aria-label="Theme" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1" aria-valuetext="Emerald Night" data-pos="0">
+          <span class="theme-stops" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="theme-knob" aria-hidden="true"></span>
+        </button>
+      </div>
     </div>
   </header>  <nav id="app-nav" class="app-nav" aria-label="Primary">
     <div class="nav-drawer-title" aria-hidden="true">
@@ -55,7 +57,7 @@
       <button class="nav-btn nav-btn--bottom nav-btn--about" type="button" data-page="about">About</button>
       <div id="nav-drawer-theme-slot" class="nav-drawer-theme">
         <span>Theme</span>
-        <!-- the theme toggle moves here on phones (JS) -->
+        <!-- the theme symbols move here on phones (JS) -->
       </div>
     </div>
   </nav>
@@ -771,7 +773,7 @@
   </div>
 
   <script src="vendor/monaco/min/vs/loader.js"></script>
-  <script src="script.js?v=13"></script>
-  <script src="lab-notes.js?v=36"></script>
+  <script src="script.js?v=14"></script>
+  <script src="lab-notes.js?v=37"></script>
 </body>
 </html>

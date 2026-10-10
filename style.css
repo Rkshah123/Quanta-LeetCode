@@ -355,46 +355,91 @@ body[data-theme="beige"] .top-bar {
   stroke-linecap: round;
 }
 
+/* Three-stop theme slider — left = black (Emerald Night), middle = white
+   (Pearl Light), right = ember. One control: it sits in the top bar on
+   desktop and moves into the left nav drawer on phones (JS). The knob both
+   shows and selects the theme by sliding or clicking a position. */
 .theme-toggle {
   position: relative;
   display: inline-flex;
   width: 44px;
   height: 24px;
   flex: none;
-  cursor: pointer;
-}
-
-.theme-toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
 }
 
 .theme-slider {
   position: absolute;
   inset: 0;
+  padding: 0;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--field);
+  color: var(--text-c);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
   transition: background var(--anim-fast);
 }
 
-.theme-slider::before {
-  content: "";
+.theme-stops {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7px;
+  pointer-events: none;
+}
+
+.theme-stops i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+.theme-slider[data-pos="0"] .theme-stops i:nth-child(1),
+.theme-slider[data-pos="1"] .theme-stops i:nth-child(2),
+.theme-slider[data-pos="2"] .theme-stops i:nth-child(3) {
+  opacity: 1;
+}
+
+.theme-knob {
   position: absolute;
   left: 2px;
   top: 2px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 10px var(--emerald-glow);
-  transition: transform var(--anim-mid), background-color var(--anim-mid);
+  background: #050505;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 1;
+  transition: transform var(--anim-mid), background-color var(--anim-mid), box-shadow var(--anim-mid);
+  transform: translateX(calc(var(--theme-pos, 0) * 11px));
 }
 
-.theme-toggle input:checked + .theme-slider::before {
-  transform: translateX(20px);
-  background: var(--soft-beige);
+body[data-theme="beige"] .theme-knob {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+body[data-theme="ember"] .theme-knob {
+  background: #f97316;
+  border-color: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
+}
+
+.theme-slider:active .theme-knob {
+  transition: background-color var(--anim-mid), box-shadow var(--anim-mid);
+}
+
+.theme-slider:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
 }
 
 /* -------------------------------- FABs -------------------------------- */
