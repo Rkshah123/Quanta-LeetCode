@@ -5,8 +5,10 @@
 
   const themeToggle = document.getElementById("theme-toggle-input");
 
+  const THEMES = ["dark", "beige", "ember"];
+
   const applyTheme = (theme, shouldPersist = true) => {
-    const nextTheme = theme === "beige" ? "beige" : "dark";
+    const nextTheme = THEMES.includes(theme) ? theme : "dark";
     document.body.setAttribute("data-theme", nextTheme);
     if (themeToggle) themeToggle.checked = nextTheme === "beige";
 
@@ -22,6 +24,7 @@
     try {
       const saved = localStorage.getItem(THEME_KEY);
       if (saved === "beige" || saved === "light") return "beige";
+      if (saved === "ember") return "ember";
       return "dark";
     } catch {
       return "dark";

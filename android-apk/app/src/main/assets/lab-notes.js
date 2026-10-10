@@ -159,7 +159,7 @@
       if (page === "about") {
         const buildEl = byId("about-build-date");
         if (buildEl && !buildEl.textContent) buildEl.textContent = new Date().toISOString().slice(0, 10);
-        updateAboutStats();
+        refreshAboutInfo();
         showPage("about");
         return;
       }
@@ -182,6 +182,7 @@
   const lcDetailMeta = byId("lc-detail-meta");
   const lcDetailLink = byId("lc-detail-link");
   const lcDetailSolvedBtn = byId("lc-detail-solved");
+  const lcDetailStarBtn = byId("lc-detail-star");
   const lcDetailDeleteBtn = byId("lc-detail-delete");
   const lcDetailMaxBtn = byId("lc-detail-maximize");
   const lcDetailBackBtn = byId("lc-detail-back");
@@ -244,6 +245,7 @@
   const settingsThemeDarkBtn = byId("settings-theme-dark");
   const settingsLangThemeToggle = byId("settings-langtheme-toggle");
   const settingsThemeBeigeBtn = byId("settings-theme-beige");
+  const settingsThemeEmberBtn = byId("settings-theme-ember");
   const settingsGlowToggle = byId("settings-glow-toggle");
   const settingsAutosaveToggle = byId("settings-autosave-toggle");
   const settingsDiagnosticsToggle = byId("settings-diagnostics-toggle");
@@ -448,10 +450,15 @@
   const syncSettingsUi = () => {
     const theme = document.body.getAttribute("data-theme");
     if (settingsLangThemeToggle) settingsLangThemeToggle.checked = labState.languageThemes !== false;
-    settingsThemeDarkBtn?.setAttribute("aria-checked", String(theme !== "beige"));
-    settingsThemeBeigeBtn?.setAttribute("aria-checked", String(theme === "beige"));
-    settingsThemeDarkBtn?.classList.toggle("is-active", theme !== "beige");
-    settingsThemeBeigeBtn?.classList.toggle("is-active", theme === "beige");
+    /* Three themes now: the active chip is the exact match, so only one chip
+       is ever highlighted. Unknown/legacy values fall back to Emerald Night. */
+    const activeTheme = theme === "beige" || theme === "ember" ? theme : "dark";
+    settingsThemeDarkBtn?.setAttribute("aria-checked", String(activeTheme === "dark"));
+    settingsThemeBeigeBtn?.setAttribute("aria-checked", String(activeTheme === "beige"));
+    settingsThemeEmberBtn?.setAttribute("aria-checked", String(activeTheme === "ember"));
+    settingsThemeDarkBtn?.classList.toggle("is-active", activeTheme === "dark");
+    settingsThemeBeigeBtn?.classList.toggle("is-active", activeTheme === "beige");
+    settingsThemeEmberBtn?.classList.toggle("is-active", activeTheme === "ember");
     if (settingsGlowToggle) settingsGlowToggle.checked = getGlowPreference();
     if (settingsAutosaveToggle) settingsAutosaveToggle.checked = labState.autoSave;
     if (settingsDiagnosticsToggle) settingsDiagnosticsToggle.checked = labState.inlineExplain;
@@ -948,6 +955,35 @@
     window.monaco.editor.defineTheme("quanta-python", { base: "vs-dark", inherit: true, rules: pyRules, colors: { "editor.background": "#101a21" } });
     window.monaco.editor.defineTheme("quanta-c", { base: "vs-dark", inherit: true, rules: cRules, colors: { "editor.background": "#161419" } });
     window.monaco.editor.defineTheme("quanta-cpp", { base: "vs-dark", inherit: true, rules: [...cRules, rule("type", "4ec9b0")], colors: { "editor.background": "#141a1e" } });
+    /* Ember app theme: charcoal editor with warm orange/amber tokens so the
+       code pane matches the rest of the Ember chrome. */
+    window.monaco.editor.defineTheme("quanta-ember", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [
+        rule("keyword", "fb923c"),
+        rule("keyword.control", "f97316"),
+        rule("string", "fcd34d"),
+        rule("string.escape", "fdba74"),
+        rule("number", "fdba74"),
+        rule("type", "fbbf24"),
+        rule("type.identifier", "fbbf24"),
+        rule("comment", "9c9186"),
+        rule("delimiter", "e7e5e4"),
+        rule("identifier", "f5efe8")
+      ],
+      colors: {
+        "editor.background": "#171310",
+        "editor.foreground": "#f5efe8",
+        "editor.lineHighlightBackground": "#201a15",
+        "editor.selectionBackground": "#7c3f14",
+        "editorCursor.foreground": "#fb923c",
+        "editorLineNumber.foreground": "#6f655b",
+        "editorLineNumber.activeForeground": "#fb923c",
+        "editorIndentGuide.background": "#2b231c",
+        "editorIndentGuide.activeBackground": "#4a3c30"
+      }
+    });
   };
 
   /* Lab accent theming: five language accents (CSS vars), layout untouched. */
@@ -965,13 +1001,17 @@
     if (!window.monaco?.editor) return;
     defineLanguageThemes();
     applyLanguageAccent(language);
-    const appIsBeige = document.body.getAttribute("data-theme") === "beige";
+    const appTheme = document.body.getAttribute("data-theme");
     const customPref = labState.editorTheme && labState.editorTheme !== "auto" ? labState.editorTheme : "";
     let theme;
     if (customPref) {
       theme = customPref;
-    } else if (appIsBeige) {
+    } else if (appTheme === "beige") {
       theme = "vs";
+    } else if (appTheme === "ember") {
+      /* The chosen app theme wins over per-language colors, exactly like the
+         light theme does — Ember keeps its own charcoal + warm editor. */
+      theme = "quanta-ember";
     } else if (labState.languageThemes !== false) {
       theme = { java: "quanta-java", javascript: "quanta-js", python: "quanta-python", c: "quanta-c", cpp: "quanta-cpp" }[language] || "vs-dark";
     } else {
@@ -982,7 +1022,10 @@
 
   const syncMonacoTheme = () => {
     if (!window.monaco?.editor) return;
-    const appTheme = document.body.getAttribute("data-theme") === "beige" ? "vs" : "vs-dark";
+    defineLanguageThemes(); /* idempotent — ensures quanta-ember exists */
+    const appThemeAttr = document.body.getAttribute("data-theme");
+    const appTheme =
+      appThemeAttr === "beige" ? "vs" : appThemeAttr === "ember" ? "quanta-ember" : "vs-dark";
     const resolved = labState.editorTheme && labState.editorTheme !== "auto" ? labState.editorTheme : appTheme;
     window.monaco.editor.setTheme(resolved);
   };
@@ -2462,6 +2505,7 @@
         difficulty: ["Easy", "Medium", "Hard"].includes(item.difficulty) ? item.difficulty : "Medium",
         solved: Boolean(item.solved),
         added: Boolean(item.added),
+        bookmarked: item.bookmarked === true,
         langSolved: item.langSolved && typeof item.langSolved === "object" ? item.langSolved : {},
         code: item.code && typeof item.code === "object" ? item.code : {},
         notes: Array.isArray(item.notes) && item.notes.length
@@ -2498,6 +2542,7 @@
             ...seed,
             solved: Boolean(saved.solved),
             added: Boolean(saved.added),
+            bookmarked: saved.bookmarked === true,
             langSolved: saved.langSolved && typeof saved.langSolved === "object" ? saved.langSolved : {},
             code: saved.code && typeof saved.code === "object" ? saved.code : {},
             notes: Array.isArray(saved.notes) && saved.notes.length
@@ -2576,6 +2621,7 @@
       if (lcFilter.difficulty !== "all" && problem.difficulty !== lcFilter.difficulty) return false;
       if (lcFilter.status === "solved" && !problemIsSolved(problem)) return false;
       if (lcFilter.status === "unsolved" && problemIsSolved(problem)) return false;
+      if (lcFilter.status === "starred" && problem.bookmarked !== true) return false;
       if (!query) return true;
       // Exact program-number search: "51" matches only problem 51, never 151/251/2051.
       if (/^#?\d+$/.test(query)) return String(problem.num) === query.replace(/^#/, "");
@@ -2908,6 +2954,16 @@
         metaRow.append(solvedTick);
       }
 
+      /* Star toggle — marks a problem for revision without opening it. */
+      const starBtn = document.createElement("button");
+      starBtn.type = "button";
+      starBtn.className = `lc-row-star${problem.bookmarked === true ? " is-starred" : ""}`;
+      starBtn.textContent = problem.bookmarked === true ? "★" : "☆";
+      starBtn.title = problem.bookmarked === true ? "Remove star" : "Star for revision";
+      starBtn.setAttribute("aria-label", `${starBtn.title} — ${problem.name}`);
+      starBtn.setAttribute("aria-pressed", String(problem.bookmarked === true));
+      metaRow.append(starBtn);
+
       const openLink = document.createElement("a");
       openLink.className = "lc-problem-link";
       openLink.href = problem.url;
@@ -2944,6 +3000,13 @@
     const langSolvedNow = Boolean(problem.langSolved?.[qlActiveLanguage]);
     lcDetailSolvedBtn.textContent = langSolvedNow ? `Unsolved (${currentLangLabel()})` : `Solved (${currentLangLabel()})`;
     lcDetailSolvedBtn.classList.toggle("is-solved", langSolvedNow);
+    const starredNow = problem.bookmarked === true;
+    if (lcDetailStarBtn) {
+      lcDetailStarBtn.textContent = starredNow ? "★ Starred" : "☆ Star";
+      lcDetailStarBtn.classList.toggle("is-active", starredNow);
+      lcDetailStarBtn.setAttribute("aria-pressed", String(starredNow));
+      lcDetailStarBtn.title = starredNow ? "Remove star" : "Star for revision";
+    }
     const savedBadge = byId("lc-detail-saved");
     if (savedBadge) savedBadge.hidden = !getProblemCode(problem, qlActiveLanguage).trim();
     renderNotesSections();
@@ -3138,6 +3201,23 @@
     persistLcState();
     renderLcProblemList();
     renderLcDetail();
+  };
+
+  /* Star problems for revision. Stored as `bookmarked` on the problem so old
+     backups and older app versions simply see "not starred" — no migration. */
+  const toggleLcStar = (problemId) => {
+    const problem = lcState.problems.find((entry) => entry.id === problemId);
+    if (!problem) return;
+    problem.bookmarked = problem.bookmarked !== true;
+    persistLcState();
+    renderLcProblemList();
+    renderLcDetail();
+    showLabToast(problem.bookmarked ? `Starred ${problem.name}` : `Removed star from ${problem.name}`);
+  };
+
+  const toggleActiveLcStar = () => {
+    const problem = getActiveLcProblem();
+    if (problem) toggleLcStar(problem.id);
   };
 
   /* ----------------- per-problem code (per-language) --------------------- */
@@ -3667,6 +3747,11 @@
       const row = event.target.closest(".lc-problem-row");
       if (!row) return;
       if (event.target.closest("a")) return;
+      /* Star buttons toggle in place instead of opening the problem. */
+      if (event.target.closest(".lc-row-star")) {
+        toggleLcStar(row.dataset.problemId || "");
+        return;
+      }
       selectLcProblem(row.dataset.problemId || "");
     });
   }
@@ -3693,6 +3778,7 @@
 
   lcDetailBackBtn?.addEventListener("click", backToLcList);
   lcDetailSolvedBtn?.addEventListener("click", toggleActiveLcSolved);
+  lcDetailStarBtn?.addEventListener("click", toggleActiveLcStar);
   lcDetailDeleteBtn?.addEventListener("click", deleteActiveLcProblem);
 
   /* --------- Maximize / restore the Notes & Code workspace --------------- */
@@ -4554,6 +4640,7 @@
 
   settingsThemeDarkBtn?.addEventListener("click", () => selectThemeFromSettings("dark"));
   settingsThemeBeigeBtn?.addEventListener("click", () => selectThemeFromSettings("beige"));
+  settingsThemeEmberBtn?.addEventListener("click", () => selectThemeFromSettings("ember"));
 
   settingsGlowToggle?.addEventListener("change", (event) => applyGlowPreference(event.target.checked));
 
@@ -4657,6 +4744,7 @@
     ).length;
     const lab = readJson(JAVA_STATE_KEY, () => ({}));
     const programCount = Array.isArray(lab.sessions) ? lab.sessions.length : 0;
+    const starred = problemList.filter((item) => item && typeof item === "object" && item.bookmarked === true).length;
     const personal = readJson(NP_STATE_KEY, () => ({}));
     let noteCount = 0;
     if (personal.languages && typeof personal.languages === "object") {
@@ -4666,18 +4754,104 @@
     }
     set("about-stat-problems", problemList.length);
     set("about-stat-solved", solved);
+    set("about-stat-starred", starred);
     set("about-stat-programs", programCount);
     set("about-stat-notes", noteCount);
+  };
+
+  const formatStorageBytes = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  /* Real localStorage usage — measured, never a placeholder. */
+  const updateAboutStorage = () => {
+    const node = byId("about-storage-usage");
+    if (!node) return;
+    try {
+      let bytes = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i) || "";
+        bytes += (key.length + (localStorage.getItem(key) || "").length) * 2;
+      }
+      node.textContent = `${formatStorageBytes(bytes)} used`;
+      node.title = `${localStorage.length} items in localStorage on this device`;
+    } catch {
+      node.textContent = "Unavailable";
+      node.title = "Browser storage cannot be read";
+    }
+  };
+
+  /* Where statements actually come from: the bundle shipped with the app plus
+     whatever has been cached on this device. Loading the bundle here also
+     primes it, so statements keep working with no network afterwards. */
+  const updateAboutStatements = async () => {
+    const node = byId("about-statements-source");
+    if (!node) return;
+    const cached = readDescCache().size;
+    const pack = await loadOfflinePack();
+    const bundled = pack ? Object.keys(pack).length : 0;
+    if (bundled) {
+      node.textContent = `${bundled} bundled · ${cached} saved`;
+      node.title = "Bundled = offline pack shipped with the app; saved = cached on this device";
+    } else if (cached) {
+      node.textContent = `${cached} saved on this device`;
+      node.title = "The offline bundle could not load right now — showing the device cache only";
+    } else {
+      node.textContent = "None cached yet";
+      node.title = "Statements load from the online database and are saved on this device";
+    }
+  };
+
+  /* Checked against the API's /health endpoint every time About opens, so
+     this box never claims a database connection that was not verified. */
+  const refreshAboutDatabase = async () => {
+    const node = byId("about-db-status");
+    if (!node) return;
+    const base = getApiBase();
+    node.textContent = "Checking…";
+    const startedAt = Date.now();
+    const hasTimeout = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function";
+    try {
+      const response = await fetch(`${base}/health`, {
+        cache: "no-store",
+        signal: hasTimeout ? AbortSignal.timeout(8000) : undefined
+      });
+      if (!response.ok) throw new Error("bad status");
+      const payload = await response.json();
+      if (!payload || payload.ok !== true) throw new Error("unexpected payload");
+      const elapsed = Date.now() - startedAt;
+      const db = payload.database;
+      node.title = `${base || window.location.origin} · checked at ${new Date().toLocaleTimeString()}`;
+      if (db && db.ok === true) {
+        node.textContent = `Connected · ${elapsed} ms`;
+      } else if (db && db.configured === false) {
+        node.textContent = "API online · database not configured";
+      } else {
+        node.textContent = "API online · database unreachable";
+      }
+    } catch {
+      node.title = base;
+      node.textContent = "Could not verify right now";
+    }
+  };
+
+  const refreshAboutInfo = () => {
+    updateAboutStats();
+    updateAboutStorage();
+    void updateAboutStatements();
+    void refreshAboutDatabase();
   };
 
   const settingsRunServerInput = byId("settings-run-server");
   const settingsRunServerSave = byId("settings-run-server-save");
   const settingsRunServerTest = byId("settings-run-server-test");
 
-  /* About page actions: refresh the live stats, jump back to the workspace. */
+  /* About page actions: refresh the live info, jump back to the workspace. */
   byId("about-refresh-stats")?.addEventListener("click", () => {
-    updateAboutStats();
-    showLabToast("Workspace stats refreshed");
+    refreshAboutInfo();
+    showLabToast("About info refreshed");
   });
   byId("about-open-quantalab")?.addEventListener("click", goHome);
 
