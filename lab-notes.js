@@ -1240,11 +1240,39 @@
     return { ok: false, stdout: "", stderr: missingToolchainMessage(language), timedOut: false };
   };
 
+  const uniqueUntitledName = (language) => {
+    const base = "Untitled";
+    let candidate = base;
+    let counter = 2;
+    const isTaken = () =>
+      labState.sessions.some((session) => session.name.toLowerCase() === getProgramFileName(candidate, language).toLowerCase());
+    while (isTaken()) {
+      candidate = `${base} ${counter}`;
+      counter += 1;
+    }
+    return candidate;
+  };
+
   const runActiveSession = async () => {
-    const active = getActiveSession();
+    let active = getActiveSession();
+    if (!active && labEditor) {
+      /* The editor is on screen and editable before any program exists, so a
+         program typed straight into it used to be refused with "Create or open
+         a program first." Take what was written and save it as a program —
+         that is what the person typing obviously intended. */
+      const draft = String(labEditor.getValue() || "");
+      if (draft.trim()) {
+        const language = normalizeLanguage(labLanguageSelect.value);
+        const session = createSession(uniqueUntitledName(language), language, draft);
+        renderTabs();
+        activateSession(session.id);
+        active = session;
+      }
+    }
     if (!active) {
       setRunStatus("No program", "error");
-      labOutput.textContent = "Create or open a program first.";
+      labOutput.textContent =
+        "Create or open a program first — or type your code in the editor and press Run; it will be saved as a new program.";
       return;
     }
     if (isRunning) return;
