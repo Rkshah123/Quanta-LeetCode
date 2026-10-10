@@ -9,6 +9,31 @@
   --emerald: #006a4e;
   --emerald-bright: #10b981;
   --emerald-glow: rgba(16, 185, 129, 0.35);
+  /* Accent tint triplets (comma-separated rgb). The defaults below ARE the
+     emerald values, so the dark and beige themes keep their exact current
+     colors; body[data-theme="ember"] redefines them to warm oranges and
+     every hard-coded tint in the stylesheets follows the active theme. */
+  --tint-bright: 16, 185, 129;
+  --tint-light: 52, 211, 153;
+  --tint-deep: 0, 106, 78;
+  --tint-deep-a: 4, 120, 87;
+  --tint-teal: 13, 148, 136;
+  --tint-surface: 6, 34, 27;
+  --tint-btn: 36, 87, 74;
+  --text-c: #7fb3a4;
+  --text-d: #d1fae5;
+  --accent-text: #34d399;
+  /* Near-black green surfaces (top bar, toasts, popovers, modal scrims,
+     shadows). Defaults ARE the current emerald-scope values so the dark and
+     beige themes stay byte-identical; ember redefines them to warm charcoal. */
+  --tint-topbar: 4, 20, 16;
+  --tint-dark: 4, 22, 17;
+  --tint-pop: 4, 22, 18;
+  --tint-scrim: 2, 10, 8;
+  --tint-shadow: 1, 16, 12;
+  --tint-shade: 1, 12, 9;
+  --tint-low: 2, 16, 13;
+  --tint-teal-surface: 6, 30, 24;
 }
 
 body[data-theme="dark"] {
@@ -58,7 +83,53 @@ body[data-theme="beige"] {
   --shadow-lift: 0 16px 30px rgba(0, 106, 78, 0.16);
   --danger: #dc2626;
   --success: #059669;
+  --accent-text: #059669;
   color-scheme: light;
+}
+
+body[data-theme="ember"] {
+  /* Deep charcoal surfaces with warm orange accents and amber highlights. */
+  --bg-a: #14100d;
+  --bg-b: #191411;
+  --bg-c: #1f1813;
+  --panel: rgba(28, 22, 17, 0.86);
+  --panel-top: rgba(33, 26, 20, 0.92);
+  --card-0: rgba(36, 28, 22, 0.9);
+  --card-1: rgba(26, 21, 16, 0.93);
+  --field: rgba(22, 17, 13, 0.95);
+  --text-a: #f7efe6;
+  --text-b: #ad9f91;
+  --text-c: #a3988b;
+  --border: rgba(217, 160, 107, 0.16);
+  --gold: #fbbf24;
+  --brown: #7c2d12;
+  --soft-beige: #fb923c;
+  --accent-grad: linear-gradient(125deg, #f97316, #c2410c 78%);
+  --accent-soft: rgba(249, 115, 22, 0.12);
+  --accent-line: rgba(251, 191, 36, 0.38);
+  --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --shadow-lift: 0 20px 44px rgba(0, 0, 0, 0.62);
+  --danger: #f87171;
+  --success: #34d399;
+  --emerald-glow: rgba(249, 115, 22, 0.3);
+  --tint-bright: 249, 115, 22;
+  --tint-light: 251, 146, 60;
+  --tint-deep: 124, 45, 18;
+  --tint-deep-a: 146, 52, 17;
+  --tint-teal: 190, 90, 24;
+  --tint-surface: 36, 26, 19;
+  --tint-btn: 84, 43, 17;
+  --text-d: #f6ece1;
+  --accent-text: #fbbf24;
+  --tint-topbar: 14, 11, 8;
+  --tint-dark: 17, 13, 10;
+  --tint-pop: 20, 15, 11;
+  --tint-scrim: 5, 4, 3;
+  --tint-shadow: 3, 2, 2;
+  --tint-shade: 6, 5, 4;
+  --tint-low: 14, 10, 8;
+  --tint-teal-surface: 34, 24, 16;
+  color-scheme: dark;
 }
 
 *,
@@ -79,8 +150,8 @@ body {
   font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "Trebuchet MS", sans-serif;
   line-height: 1.45;
   background:
-    radial-gradient(1100px 500px at 85% -10%, rgba(16, 185, 129, 0.07), transparent 60%),
-    radial-gradient(900px 480px at -10% 30%, rgba(0, 106, 78, 0.1), transparent 55%),
+    radial-gradient(1100px 500px at 85% -10%, rgba(var(--tint-bright), 0.07), transparent 60%),
+    radial-gradient(900px 480px at -10% 30%, rgba(var(--tint-deep), 0.1), transparent 55%),
     linear-gradient(135deg, var(--bg-a), var(--bg-b) 48%, var(--bg-c));
   background-attachment: fixed;
   transition: background var(--anim-mid), color var(--anim-mid);
@@ -211,7 +282,7 @@ a:focus-visible {
   padding: 0 14px;
   padding-left: max(14px, env(safe-area-inset-left));
   padding-right: max(14px, env(safe-area-inset-right));
-  background: rgba(4, 20, 16, 0.82);
+  background: rgba(var(--tint-topbar), 0.82);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -338,7 +409,7 @@ body[data-theme="beige"] .top-bar {
   border-radius: 17px;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 14px 30px rgba(1, 16, 12, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: 0 14px 30px rgba(var(--tint-shadow), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   transition: transform var(--anim-fast), filter var(--anim-fast), box-shadow var(--anim-fast);
   bottom: calc(18px + env(safe-area-inset-bottom));
 }
@@ -389,8 +460,8 @@ body[data-theme="beige"] .top-bar {
     left: calc(100% + 10px);
     top: 50%;
     transform: translateY(-50%) translateX(-6px);
-    background: rgba(4, 22, 17, 0.95);
-    border: 1px solid rgba(52, 211, 153, 0.35);
+    background: rgba(var(--tint-dark), 0.95);
+    border: 1px solid rgba(var(--tint-light), 0.35);
     color: #ecfdf5;
     font-size: 0.74rem;
     font-weight: 700;
@@ -401,7 +472,7 @@ body[data-theme="beige"] .top-bar {
     opacity: 0;
     pointer-events: none;
     transition: opacity var(--anim-fast), transform var(--anim-fast);
-    box-shadow: 0 10px 24px rgba(1, 16, 12, 0.5);
+    box-shadow: 0 10px 24px rgba(var(--tint-shadow), 0.5);
   }
 
   .fab:hover::after {
@@ -520,7 +591,7 @@ body.no-glow .brand-star {
 @keyframes glow-breathe {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+    box-shadow: 0 0 0 0 rgba(var(--tint-light), 0);
   }
   50% {
     box-shadow: 0 0 26px 2px var(--emerald-glow);
@@ -550,14 +621,14 @@ body.no-glow .brand-tag {
   transform: translateX(-50%) translateY(16px);
   z-index: 400;
   max-width: min(92vw, 480px);
-  background: rgba(4, 22, 17, 0.96);
-  border: 1px solid rgba(52, 211, 153, 0.4);
+  background: rgba(var(--tint-dark), 0.96);
+  border: 1px solid rgba(var(--tint-light), 0.4);
   color: #ecfdf5;
   font-size: 0.9rem;
   font-weight: 650;
   padding: 12px 18px;
   border-radius: var(--radius-md);
-  box-shadow: 0 18px 40px rgba(1, 16, 12, 0.55);
+  box-shadow: 0 18px 40px rgba(var(--tint-shadow), 0.55);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--anim-mid), transform var(--anim-mid);
@@ -600,15 +671,15 @@ body[data-theme="beige"] .toast {
   height: 64px;
   border-radius: 18px;
   object-fit: cover;
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(var(--tint-light), 0.35);
+  box-shadow: 0 10px 24px rgba(var(--tint-bright), 0.25);
 }
 
 .about-name {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 850;
-  background: linear-gradient(120deg, #ecfdf5, #34d399 90%);
+  background: linear-gradient(120deg, #ecfdf5, rgb(var(--tint-light)) 90%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -616,7 +687,7 @@ body[data-theme="beige"] .toast {
 
 .about-tag {
   margin: 2px 0 0;
-  color: #7fb3a4;
+  color: var(--text-c);
   font-size: 0.88rem;
 }
 
@@ -642,12 +713,12 @@ body[data-theme="beige"] .about-tag {
   gap: 2px;
   padding: 10px 12px;
   border-radius: var(--radius-md, 11px);
-  border: 1px solid rgba(52, 211, 153, 0.2);
-  background: rgba(6, 34, 27, 0.55);
+  border: 1px solid rgba(var(--tint-light), 0.2);
+  background: rgba(var(--tint-surface), 0.55);
 }
 
 .about-fact span {
-  color: #7fb3a4;
+  color: var(--text-c);
   font-size: 0.72rem;
   font-weight: 750;
   letter-spacing: 0.08em;
@@ -675,7 +746,7 @@ body[data-theme="beige"] .about-fact strong {
 .about-features {
   margin: 0;
   padding-left: 20px;
-  color: #d1fae5;
+  color: var(--text-d);
   font-size: 0.88rem;
   display: grid;
   gap: 6px;
@@ -695,7 +766,7 @@ body[data-theme="beige"] .about-features {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--gold, #10b981);
+  color: var(--gold, rgb(var(--tint-bright)));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -708,7 +779,7 @@ body[data-theme="beige"] .about-features {
 
 .about-dev__role {
   margin: 0;
-  color: #7fb3a4;
+  color: var(--text-c);
   font-size: 0.85rem;
 }
 
@@ -722,8 +793,8 @@ body[data-theme="beige"] .about-features {
 .about-dev__links a {
   padding: 7px 13px;
   border-radius: 999px;
-  border: 1px solid rgba(52, 211, 153, 0.3);
-  color: #d1fae5;
+  border: 1px solid rgba(var(--tint-light), 0.3);
+  color: var(--text-d);
   font-size: 0.78rem;
   font-weight: 700;
   text-decoration: none;
@@ -1234,7 +1305,7 @@ body[data-theme="beige"] .category-move-btn {
 }
 
 .progress-fill--goal {
-  background: linear-gradient(90deg, #006a4e, #34d399);
+  background: linear-gradient(90deg, rgb(var(--tint-deep)), rgb(var(--tint-light)));
 }
 
 .advanced-stats {
@@ -1463,7 +1534,7 @@ body[data-theme="beige"] .badge--hard { color: #b91c1c; }
 
 .card__actions button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 15px rgba(1, 16, 12, 0.35);
+  box-shadow: 0 8px 15px rgba(var(--tint-shadow), 0.35);
 }
 
 .btn-open,

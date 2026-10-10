@@ -70,11 +70,11 @@ The frontend is deliberately framework-free: no React, no bundler, no browser-si
 
 | Page | What it holds |
 |---|---|
-| **Quanta Lab** (home) | 782-problem catalog: search, difficulty chips, status filter, progress chip; list ⇄ detail split with a draggable divider; detail = statement (Notes tab) + workspace (Code tab: language select, Monaco, stdin, Run/Save, per-language code); maximized mode; add-problem dialog |
+| **Quanta Lab** (home) | 782-problem catalog: search, difficulty chips, status filter (all / solved / unsolved / starred), star-to-revise toggle on every row, progress chip; list ⇄ detail split with a draggable divider; detail = statement (Notes tab) + workspace (Code tab: language select, Monaco, stdin, Run/Save, per-language code); maximized mode; add-problem dialog |
 | **Notes** | Per-language notes: title, rich-text editor, section list, find/replace, word count, save, export (.html / .txt), delete |
 | **Lab** | Multi-program Code Lab: create / rename / delete programs as tabs, language picker (Java, JavaScript, Python, C, C++), Monaco editor, stdin, Run, save-to-file, font size A− / A+, auto-save; editor ⇄ output panes split by a draggable divider (stacked on phones with an Editor / Output switch) |
-| **Settings** | Theme, glow, editor font, default language, tab size, word wrap, line numbers, Monaco theme, minimap, layout reset, connection (Online API + Compiler server, each with Save / Test), backup export, reset dashboard |
-| **About** | Build date, live stats (problems / solved / programs / notes), refresh, quick links, contact |
+| **Settings** | Theme (Emerald Night / Pearl Light / Ember), glow, editor font, default language, tab size, word wrap, line numbers, Monaco theme, minimap, layout reset, connection (Online API + Compiler server, each with Save / Test), backup export, reset dashboard |
+| **About** | App facts (build date, measured localStorage usage, bundled vs. device-cached statement counts, online-database status verified against `/health` on every visit), accurate feature list, live stats (problems / solved / starred / programs / notes), refresh, quick links, contact |
 
 Around them: the mobile nav drawer (≤ 760 px), the add-problem and exit-confirm dialogs, and toasts.
 

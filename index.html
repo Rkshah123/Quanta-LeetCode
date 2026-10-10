@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=10" />
-  <link rel="stylesheet" href="lab-notes.css?v=41" />
+  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="lab-notes.css?v=42" />
 
 </head>
 <body data-theme="dark">
@@ -85,6 +85,7 @@
             <option value="all">All</option>
             <option value="solved">Solved</option>
             <option value="unsolved">Unsolved</option>
+            <option value="starred">Starred</option>
           </select>
         </div>
 
@@ -123,6 +124,7 @@
                   All saved
                 </span>
                 <button id="lc-detail-solved" class="lc-solve-btn" type="button">Mark solved</button>
+                <button id="lc-detail-star" class="lc-star-btn" type="button" aria-pressed="false" aria-label="Star this problem for revision" title="Star for revision">☆ Star</button>
                 <button id="lc-detail-maximize" class="lc-max-btn" type="button" aria-label="Maximize notes and code" title="Maximize">
                   <svg class="lc-max-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3Zm-2-4h2V7h3V5H5v5Zm12 7h-3v2h5v-5h-2v3ZM14 5v2h3v3h2V5h-5Z"/></svg>
                   <svg class="lc-min-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h3v3h2v-5H5v2Zm3-8H5v2h5V5H8v3Zm6 11h2v-3h3v-2h-5v5Zm2-11V5h-2v5h5V8h-3Z"/></svg>
@@ -471,6 +473,7 @@
               <div class="theme-picker" role="radiogroup" aria-label="Theme">
                 <button id="settings-theme-dark" class="theme-chip" type="button" role="radio" aria-checked="false">Emerald Night</button>
                 <button id="settings-theme-beige" class="theme-chip" type="button" role="radio" aria-checked="false">Pearl Light</button>
+                <button id="settings-theme-ember" class="theme-chip" type="button" role="radio" aria-checked="false">Ember</button>
               </div>
             </div>
             <div class="settings-row">
@@ -674,18 +677,25 @@
           <div class="about-facts">
             <div class="about-fact"><span>Version</span><strong>1.0.0</strong></div>
             <div class="about-fact"><span>Build</span><strong id="about-build-date"></strong></div>
-            <div class="about-fact"><span>Offline storage</span><strong>localStorage</strong></div>
+            <div class="about-fact"><span>Offline storage</span><strong id="about-storage-usage">Checking…</strong></div>
+            <div class="about-fact"><span>Statements</span><strong id="about-statements-source">Checking…</strong></div>
+            <div class="about-fact"><span>Online database</span><strong id="about-db-status" title="">Checking…</strong></div>
             <div class="about-fact"><span>Languages</span><strong>Java · JavaScript · Python · C · C++</strong></div>
           </div>
         </section>
         <section class="settings-group">
           <h3>Features</h3>
           <ul class="about-features">
-            <li>Quanta Lab tracker with per-problem rich-text notes and code</li>
-            <li>Multi-language Code Lab with real compile &amp; run</li>
-            <li>Category progress, streaks &amp; weekly goals</li>
-            <li>Works offline — all data stays on your device</li>
-            <li>Export / import backup of everything</li>
+            <li>Quanta Lab tracker — search, difficulty &amp; status filters, per-problem rich-text notes and saved code</li>
+            <li>Full problem statements from the online database, cached on this device and bundled for offline reading</li>
+            <li>Code Lab with Monaco editor and real compile &amp; run for Java, JavaScript, Python, C and C++</li>
+            <li>Runs automatically fall back to a second runner when the first cannot answer</li>
+            <li>Star problems for revision and track solved progress per language</li>
+            <li>Three themes — Emerald Night, Pearl Light and Ember — plus per-language editor colors</li>
+            <li>Notes workspace with rich text, word count and export to Quanta Lab or text/HTML files</li>
+            <li>Works offline — statements, notes, code and stats stay on this device (localStorage)</li>
+            <li>Hosted catalog sync — statements fetched online are written back to the database for other devices</li>
+            <li>Export a full JSON backup of everything, plus custom API and runner addresses with connection tests</li>
           </ul>
         </section>
         <section class="settings-group about-refresh">
@@ -693,11 +703,12 @@
           <div class="about-facts about-stats" id="about-stats">
             <div class="about-fact"><span>Problems tracked</span><strong id="about-stat-problems">–</strong></div>
             <div class="about-fact"><span>Solved</span><strong id="about-stat-solved">–</strong></div>
+            <div class="about-fact"><span>Starred</span><strong id="about-stat-starred">–</strong></div>
             <div class="about-fact"><span>Lab programs</span><strong id="about-stat-programs">–</strong></div>
             <div class="about-fact"><span>Personal notes</span><strong id="about-stat-notes">–</strong></div>
           </div>
           <div class="about-refresh__row">
-            <button id="about-refresh-stats" class="settings-action-btn" type="button">Refresh stats</button>
+            <button id="about-refresh-stats" class="settings-action-btn" type="button">Refresh info</button>
             <button id="about-open-quantalab" class="settings-action-btn" type="button">Open Quanta Lab</button>
           </div>
           <p class="about-refresh__hint">Your data lives only on this device — clearing browser storage erases it. Export a backup from Settings first.</p>
@@ -760,7 +771,7 @@
   </div>
 
   <script src="vendor/monaco/min/vs/loader.js"></script>
-  <script src="script.js?v=12"></script>
-  <script src="lab-notes.js?v=35"></script>
+  <script src="script.js?v=13"></script>
+  <script src="lab-notes.js?v=36"></script>
 </body>
 </html>
