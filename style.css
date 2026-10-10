@@ -417,7 +417,7 @@ body[data-theme="beige"] .top-bar {
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
   pointer-events: none;
   z-index: 1;
-  transition: transform var(--anim-mid), background-color var(--anim-mid), box-shadow var(--anim-mid);
+  will-change: transform;
   transform: translateX(calc(var(--theme-pos, 0) * 16px));
 }
 
@@ -433,8 +433,17 @@ body[data-theme="ember"] .theme-knob {
   box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
 }
 
-.theme-slider:active .theme-knob {
-  transition: background-color var(--anim-mid), box-shadow var(--anim-mid);
+/* The knob glides between stops on a soft ease-out. While a finger is actually
+   dragging (class set by JS once the pointer moves) the animation is dropped so
+   the knob tracks the finger exactly, then slides home when it lifts. */
+.theme-knob {
+  will-change: transform;
+  transition: transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1),
+    background-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.theme-slider.is-dragging .theme-knob {
+  transition: background-color 0.22s ease, box-shadow 0.22s ease;
 }
 
 .theme-slider:focus-visible {

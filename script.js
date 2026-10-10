@@ -58,9 +58,11 @@
 
   let themeDragging = false;
   let themeDragChoice = null;
+  let themeDragOrigin = null;
 
   themeSlider?.addEventListener("pointerdown", (event) => {
     themeDragging = true;
+    themeDragOrigin = { x: event.clientX, y: event.clientY };
     try {
       themeSlider.setPointerCapture(event.pointerId);
     } catch {
@@ -73,6 +75,14 @@
 
   themeSlider?.addEventListener("pointermove", (event) => {
     if (!themeDragging) return;
+    /* Only a real movement switches the knob to finger-tracking; a simple tap
+       keeps the smooth slide so the bar never jumps under the finger. */
+    if (
+      !themeSlider.classList.contains("is-dragging") &&
+      Math.abs(event.clientX - themeDragOrigin.x) + Math.abs(event.clientY - themeDragOrigin.y) > 4
+    ) {
+      themeSlider.classList.add("is-dragging");
+    }
     themeDragChoice = themeAt(event.clientX);
     applyTheme(themeDragChoice, false);
   });
@@ -80,6 +90,7 @@
   const endThemeDrag = () => {
     if (!themeDragging) return;
     themeDragging = false;
+    themeSlider.classList.remove("is-dragging");
     applyTheme(themeDragChoice || document.body.getAttribute("data-theme") || "dark");
     themeDragChoice = null;
   };
