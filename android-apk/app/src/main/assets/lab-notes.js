@@ -408,17 +408,17 @@
     window.matchMedia("(min-width: 761px)").addEventListener("change", (mq) => {
       if (mq.matches) setOpen(false);
     });
-    /* Move the theme toggle into the drawer on phones; restore on desktop. */
-    const themeToggle = byId("theme-toggle-input");
+    /* Move the theme symbols into the drawer on phones; restore on desktop. */
+    const themeSymbols = byId("theme-symbols");
     const themeSlot = byId("nav-drawer-theme-slot");
-    const themeOriginal = themeToggle?.closest(".theme-toggle")?.parentElement;
+    const themeOriginal = themeSymbols?.parentElement;
     const applyPlacement = () => {
-      if (!themeToggle || !themeSlot) return;
+      if (!themeSymbols || !themeSlot) return;
       const mobile = window.matchMedia("(max-width: 760px)").matches;
-      if (mobile && themeToggle.closest(".top-bar")) {
-        themeSlot.appendChild(themeToggle.closest(".theme-toggle"));
-      } else if (!mobile && !themeToggle.closest(".top-bar") && themeOriginal) {
-        themeOriginal.appendChild(themeToggle.closest(".theme-toggle"));
+      if (mobile && themeSymbols.closest(".top-bar")) {
+        themeSlot.appendChild(themeSymbols);
+      } else if (!mobile && !themeSymbols.closest(".top-bar") && themeOriginal) {
+        themeOriginal.appendChild(themeSymbols);
       }
     };
     applyPlacement();
@@ -4549,9 +4549,11 @@
     labMobileOutputTab.addEventListener("click", () => selectMobileView("output"));
   }
 
-  const themeToggle = byId("theme-toggle-input");
-  if (themeToggle) {
-    themeToggle.addEventListener("change", () =>
+  const themeSymbolGroup = byId("theme-symbols");
+  if (themeSymbolGroup) {
+    themeSymbolGroup.addEventListener("click", (event) => {
+      if (!event.target.closest(".theme-slider")) return;
+      syncSettingsUi();
       window.setTimeout(() => {
         // Re-resolve the editor theme without losing per-language theming.
         if (labState.languageThemes !== false && currentPage === "lab" && getActiveSession()) {
@@ -4561,8 +4563,8 @@
         } else {
           syncMonacoTheme();
         }
-      }, 0)
-    );
+      }, 0);
+    });
   }
 
   notesAddTopicBtn.addEventListener("click", addLcProblemFromInput);
@@ -4627,8 +4629,16 @@
     } catch {
       /* private mode */
     }
-    const mainToggle = byId("theme-toggle-input");
-    if (mainToggle) mainToggle.checked = theme === "beige";
+    const themePos = { dark: 0, beige: 1, ember: 2 };
+    const pos = themePos[theme] ?? 0;
+    const symbolGroup = byId("theme-symbols");
+    if (symbolGroup) symbolGroup.style.setProperty("--theme-pos", String(pos));
+    const slider = byId("theme-slider");
+    if (slider) {
+      slider.dataset.pos = String(pos);
+      slider.setAttribute("aria-valuenow", String(pos + 1));
+      slider.setAttribute("aria-valuetext", ["Emerald Night", "Pearl Light", "Ember"][pos]);
+    }
     syncSettingsUi();
     if (labState.languageThemes !== false && (currentPage === "lab" || currentPage === "quantalab")) {
       if (currentPage === "lab" && getActiveSession()) applyLanguageTheme(getActiveSession().language);
