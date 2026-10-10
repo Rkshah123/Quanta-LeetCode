@@ -442,6 +442,32 @@ body[data-theme="ember"] .theme-knob {
   outline-offset: 2px;
 }
 
+/* On phones the slider sits in the left drawer next to the "Theme" label,
+   where a thumb-sized bar is easier to grab. Desktop keeps 68x34. */
+@media (max-width: 760px) {
+  .theme-toggle {
+    width: 88px;
+    height: 42px;
+  }
+
+  .theme-stops {
+    padding: 0 18px;
+  }
+
+  .theme-stops i {
+    width: 5px;
+    height: 5px;
+  }
+
+  .theme-knob {
+    left: 5px;
+    top: 5px;
+    width: 30px;
+    height: 30px;
+    transform: translateX(calc(var(--theme-pos, 0) * 23px));
+  }
+}
+
 /* -------------------------------- FABs -------------------------------- */
 
 .fab {
