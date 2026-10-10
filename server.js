@@ -294,13 +294,85 @@ const extractJavaPublicClassName = (code) => {
 /* Judge0 compiles the submission as Main.java, so a program whose public
    class carries another name (the Lab names it after the program file) would
    not compile there even though it compiles locally. For the cloud run only,
-   that class — and everything referring to it — is renamed to Main. */
+   that class — and everything referring to it — is renamed to Main.
+
+   The rename walks the source like a reader would: it skips string literals,
+   character literals and comments, because a class name inside those is text
+   the program prints, not code. */
 const javaSourceForCloud = (code) => {
   const source = String(code || "");
   const className = extractJavaPublicClassName(source);
   if (!className || className === "Main") return source;
-  const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return source.replace(new RegExp(`\\b${escaped}\\b`, "g"), "Main");
+
+  let out = "";
+  let index = 0;
+  let mode = "code"; /* code | string | char | line | block */
+
+  while (index < source.length) {
+    const ch = source[index];
+    const next = source[index + 1] || "";
+
+    if (mode === "code") {
+      if (ch === '"') {
+        mode = "string";
+        out += ch;
+        index += 1;
+      } else if (ch === "'") {
+        mode = "char";
+        out += ch;
+        index += 1;
+      } else if (ch === "/" && next === "/") {
+        mode = "line";
+        out += ch + next;
+        index += 2;
+      } else if (ch === "/" && next === "*") {
+        mode = "block";
+        out += ch + next;
+        index += 2;
+      } else if (/[A-Za-z_$]/.test(ch)) {
+        let end = index;
+        while (end < source.length && /[\w$]/.test(source[end])) end += 1;
+        const word = source.slice(index, end);
+        out += word === className ? "Main" : word;
+        index = end;
+      } else {
+        out += ch;
+        index += 1;
+      }
+      continue;
+    }
+
+    if (mode === "string" || mode === "char") {
+      const closing = mode === "string" ? '"' : "'";
+      out += ch;
+      index += 1;
+      if (ch === "\\" && index < source.length) {
+        out += source[index];
+        index += 1;
+      } else if (ch === closing) {
+        mode = "code";
+      }
+      continue;
+    }
+
+    if (mode === "line") {
+      out += ch;
+      index += 1;
+      if (ch === "\n") mode = "code";
+      continue;
+    }
+
+    /* block comment */
+    out += ch;
+    index += 1;
+    if (ch === "*" && next === "/") {
+      out += next;
+      index += 1;
+      mode = "code";
+    }
+  }
+
+  return out;
 };
 
 const executeRun = async (language, code, stdin) => {
