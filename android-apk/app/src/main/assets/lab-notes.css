@@ -3970,6 +3970,59 @@ body[data-theme="beige"] .run-btn--head.is-success {
   border-bottom: 1px solid var(--border);
 }
 
+/* Badge that tells a saved copy apart from a freshly synchronized one. */
+.ql-desc-sync {
+  flex: 0 1 auto;
+  max-width: 55%;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.12);
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ql-desc-sync--synced {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+}
+
+.ql-desc-sync--cached {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+}
+
+.ql-desc-sync--syncing {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+}
+
+body[data-theme="beige"] .ql-desc-sync--synced {
+  border-color: rgba(4, 120, 87, 0.35);
+  background: rgba(4, 120, 87, 0.1);
+  color: #047857;
+}
+
+body[data-theme="beige"] .ql-desc-sync--cached {
+  border-color: rgba(146, 64, 14, 0.35);
+  background: rgba(146, 64, 14, 0.1);
+  color: #92400e;
+}
+
+body[data-theme="beige"] .ql-desc-sync--syncing {
+  border-color: rgba(30, 64, 175, 0.3);
+  background: rgba(30, 64, 175, 0.08);
+  color: #1d4ed8;
+}
+
 .ql-desc-body {
   flex: 1 1 auto;
   min-height: 0;

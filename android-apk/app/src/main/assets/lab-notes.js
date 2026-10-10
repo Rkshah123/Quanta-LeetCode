@@ -13,14 +13,35 @@
       ? ""
       : `${location.protocol === "file:" ? "http:" : location.protocol}//localhost:3000`;
 
-  /* Base for the LeetCode metadata endpoints (lookup/skeleton/description):
-     the custom run-server address from Settings wins, so a phone that
-     opened the HTML file directly can still reach the PC on the LAN. */
+  /* Two deliberately separate addresses:
+     - quantaApiBaseUrl      → online problem database / hosted HTTPS API
+     - quantaRunServerUrl    → the PC that compiles Java/C/C++/Python        */
+  const API_BASE_KEY = "quantaApiBaseUrl";
+
+  const stripTrailingSlash = (value) => String(value || "").trim().replace(/\/+$/, "");
+
+  /* Base for the problem catalog and LeetCode metadata endpoints. The saved
+     Online API address wins; otherwise the compiler-server address is reused
+     (keeps the existing Android behaviour); otherwise the app's own host. */
   const getApiBase = () => {
     try {
-      return localStorage.getItem(RUN_SERVER_KEY) || API_BASE;
+      const explicit = localStorage.getItem(API_BASE_KEY);
+      if (explicit) return stripTrailingSlash(explicit);
+      const legacy = localStorage.getItem("quantaRunServerUrl");
+      if (legacy) return stripTrailingSlash(legacy);
     } catch {
-      return API_BASE;
+      /* private mode */
+    }
+    return API_BASE;
+  };
+
+  /* Explicit value only — used to seed the Settings input, so an empty field
+     always means "use this app's own server". */
+  const getConfiguredApiBase = () => {
+    try {
+      return stripTrailingSlash(localStorage.getItem(API_BASE_KEY) || "");
+    } catch {
+      return "";
     }
   };
 
@@ -441,6 +462,13 @@
     if (settingsLineNumbersToggle) settingsLineNumbersToggle.checked = labState.lineNumbers !== false;
     if (settingsEditorThemeSelect) settingsEditorThemeSelect.value = labState.editorTheme || "auto";
     if (settingsMinimapToggle) settingsMinimapToggle.checked = labState.showMinimap !== false;
+    /* The two connection fields are seeded once at boot; refresh them here so
+       a reopened Settings page never shows a stale address after a save, a
+       reset, or a change made in another tab. Skip while the user is typing. */
+    const apiField = byId("settings-api-base");
+    const runField = byId("settings-run-server");
+    if (apiField && document.activeElement !== apiField) apiField.value = getConfiguredApiBase();
+    if (runField && document.activeElement !== runField) runField.value = getRunServerBase();
   };
 
   applyGlowPreference(getGlowPreference());
@@ -615,6 +643,11 @@
   };
 
   let runCapabilities = null;
+  /* True when the compiler server could not be answered at all (PC off, wrong
+     address, phone on mobile data). The Run button must say so instead of
+     claiming a toolchain is missing — that message sent people hunting for a
+     JDK that was never the problem. */
+  let runServerUnreachable = false;
   let isRunning = false;
   let lastFocusedElement = null;
   let activeNotesEditable = null;
@@ -1036,14 +1069,18 @@
   };
 
   const getRunServerBase = () => {
-    if (window.location.protocol === "http:" || window.location.protocol === "https:") return "";
+    /* An address saved in Settings always wins — including when the app is
+       served over http(s), which is the case once the dashboard is hosted and
+       compilation must still happen on this PC. */
     try {
-      /* Custom setting wins; otherwise fall back to the local Quanta server
-         so code execution also works when the app is opened via file://. */
-      return localStorage.getItem(RUN_SERVER_KEY) || API_BASE;
+      const configured = localStorage.getItem(RUN_SERVER_KEY);
+      if (configured) return stripTrailingSlash(configured);
     } catch {
-      return API_BASE;
+      /* private mode */
     }
+    if (window.location.protocol === "http:" || window.location.protocol === "https:") return "";
+    /* file:// (or another non-web scheme): fall back to the local server. */
+    return API_BASE;
   };
 
   const fetchRunCapabilities = async () => {
@@ -1057,7 +1094,13 @@
       const response = await fetch(`${base}/api/run/capabilities`, { cache: "no-store" });
       if (!response.ok) throw new Error("capabilities unavailable");
       runCapabilities = await response.json();
+      runServerUnreachable = false;
     } catch {
+      /* The server did not answer. The languages stay closed for this attempt,
+         but the failure is remembered so Run can report "cannot reach the
+         server". It is deliberately not cached as a permanent answer: fixing
+         the address in Settings must recover on the next Run, with no reload. */
+      runServerUnreachable = true;
       runCapabilities = { javascript: "browser", c: false, cpp: false, java: false, python: false };
     }
     return runCapabilities;
@@ -1183,14 +1226,60 @@
     if (capabilities[language]) {
       return runOnServer(language, code, stdin);
     }
+    if (runServerUnreachable) {
+      /* Nothing was actually compiled — the configured server never answered.
+         Say where it was looking and how to point it back at the built-in
+         runner, so nobody wastes time installing a toolchain. */
+      const base = getRunServerBase();
+      return {
+        ok: false,
+        stdout: "",
+        stderr:
+          `Cannot reach the compiler server (${base || "this website's own runner"}). ` +
+          (base
+            ? "Check the address in Settings → Compiler server, or clear the field to use this website's own runner. "
+            : "Check your connection and try again. ") +
+          "Your code is saved on this device.",
+        timedOut: false,
+        phase: "network"
+      };
+    }
     return { ok: false, stdout: "", stderr: missingToolchainMessage(language), timedOut: false };
   };
 
+  const uniqueUntitledName = (language) => {
+    const base = "Untitled";
+    let candidate = base;
+    let counter = 2;
+    const isTaken = () =>
+      labState.sessions.some((session) => session.name.toLowerCase() === getProgramFileName(candidate, language).toLowerCase());
+    while (isTaken()) {
+      candidate = `${base} ${counter}`;
+      counter += 1;
+    }
+    return candidate;
+  };
+
   const runActiveSession = async () => {
-    const active = getActiveSession();
+    let active = getActiveSession();
+    if (!active && labEditor) {
+      /* The editor is on screen and editable before any program exists, so a
+         program typed straight into it used to be refused with "Create or open
+         a program first." Take what was written and save it as a program —
+         that is what the person typing obviously intended. */
+      const draft = String(labEditor.getValue() || "");
+      if (draft.trim()) {
+        const language = normalizeLanguage(labLanguageSelect.value);
+        const session = createSession(uniqueUntitledName(language), language, draft);
+        renderTabs();
+        activateSession(session.id);
+        active = session;
+      }
+    }
     if (!active) {
       setRunStatus("No program", "error");
-      labOutput.textContent = "Create or open a program first.";
+      labOutput.textContent =
+        "Create or open a program first — or type your code in the editor and press Run; it will be saved as a new program.";
       return;
     }
     if (isRunning) return;
@@ -3081,9 +3170,136 @@
   };
 
   /* ------------- split-view problem description (LeetCode HTML) --------- */
+  /* Descriptions are cached on this device, so they open instantly and keep
+     working with no internet. Fresh copies come from the Quanta database API
+     first and from the LeetCode proxy second. The sync badge tells the user
+     whether what they are reading is a saved copy or a fresh one. */
 
-  const qlDescCache = new Map();
+  const DESC_CACHE_KEY = "quantaDescCacheV1";
+  const DESC_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; /* refresh after 7 days */
+  const DESC_CACHE_MAX = 400; /* newest N statements kept when trimming */
+  const DESC_FETCH_TIMEOUT_MS = 10000;
+  const DESC_FETCH_ATTEMPTS = 2;
+
   let qlDescToken = 0;
+  let descCache = null; /* Map<slug, { html, at, source }> */
+  const inflightDesc = new Map(); /* slug → Promise: never two requests for one problem */
+
+  const readDescCache = () => {
+    if (descCache) return descCache;
+    descCache = new Map();
+    try {
+      const raw = JSON.parse(localStorage.getItem(DESC_CACHE_KEY) || "{}");
+      Object.entries(raw || {}).forEach(([slug, entry]) => {
+        if (entry && typeof entry.html === "string" && entry.html) {
+          descCache.set(slug, {
+            html: entry.html,
+            at: Number(entry.at) || 0,
+            source: entry.source || "cache"
+          });
+        }
+      });
+    } catch {
+      /* corrupted or unavailable storage — start empty, nothing is lost */
+    }
+    return descCache;
+  };
+
+  const writeDescCache = () => {
+    try {
+      const trimmed = [...readDescCache().entries()]
+        .sort((a, b) => (a[1].at || 0) - (b[1].at || 0))
+        .slice(-DESC_CACHE_MAX);
+      const payload = {};
+      trimmed.forEach(([slug, entry]) => {
+        payload[slug] = entry;
+      });
+      localStorage.setItem(DESC_CACHE_KEY, JSON.stringify(payload));
+    } catch {
+      /* quota exceeded / private mode — the in-memory copy still works */
+    }
+  };
+
+  /* Returns true when the stored copy actually changed. */
+  const rememberDescription = (slug, html, source) => {
+    const cache = readDescCache();
+    const previous = cache.get(slug);
+    if (previous && previous.html === html) return false;
+    cache.set(slug, { html, at: Date.now(), source: source || "synced" });
+    writeDescCache();
+    return true;
+  };
+
+  const setDescStatus = (text, kind = "") => {
+    const node = byId("ql-desc-sync");
+    if (!node) return;
+    node.textContent = text || "";
+    node.className = `ql-desc-sync${kind ? ` ql-desc-sync--${kind}` : ""}`;
+    node.hidden = !text;
+  };
+
+  /* Timeout + one retry, but a 404 is a final answer and is never retried. */
+  const fetchJson = async (url) => {
+    const hasTimeout = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function";
+    let lastError = null;
+    for (let attempt = 0; attempt < DESC_FETCH_ATTEMPTS; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          cache: "no-store",
+          signal: hasTimeout ? AbortSignal.timeout(DESC_FETCH_TIMEOUT_MS) : undefined
+        });
+        if (response.status === 404) return null;
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } catch (error) {
+        lastError = error;
+        if (attempt < DESC_FETCH_ATTEMPTS - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)));
+        }
+      }
+    }
+    throw lastError;
+  };
+
+  /* One shared in-flight promise per slug, so switching tabs/problems quickly
+     never fires duplicate requests for the same statement. */
+  const requestDescription = (slug) => {
+    if (inflightDesc.has(slug)) return inflightDesc.get(slug);
+
+    const promise = (async () => {
+      const base = getApiBase();
+
+      /* 1) Quanta's own database — stable, and independent of LeetCode. */
+      try {
+        const payload = await fetchJson(`${base}/api/problems/${encodeURIComponent(slug)}`);
+        const html = payload?.ok && payload.problem ? String(payload.problem.descriptionHtml || "") : "";
+        if (html) return { html, source: "database" };
+      } catch {
+        /* API unreachable or offline → try the LeetCode proxy next */
+      }
+
+      /* 2) LeetCode proxy on the same server (fills the database over time). */
+      try {
+        const payload = await fetchJson(`${base}/api/lc-description?slug=${encodeURIComponent(slug)}`);
+        if (payload?.ok && payload.html) {
+          return { html: String(payload.html), source: payload.source === "database" ? "database" : "leetcode" };
+        }
+      } catch {
+        /* both sources unavailable — the caller falls back to the cache */
+      }
+      return null;
+    })().finally(() => {
+      inflightDesc.delete(slug);
+    });
+
+    inflightDesc.set(slug, promise);
+    return promise;
+  };
+
+  const describeUnavailable = (offline) =>
+    offline
+      ? '<p class="ql-desc-empty">You are offline and this statement has not been saved on this device yet. It will load automatically once you are connected.</p>'
+      : '<p class="ql-desc-empty">Description unavailable right now. Check your connection, or open it on LeetCode for the full statement.</p>';
 
   const renderDescHtml = (html) => {
     if (!qlDescBody) return;
@@ -3113,35 +3329,61 @@
     if (qlDescLink) qlDescLink.href = problem.url;
     const slug = slugKey(problem.url);
     if (!slug) {
+      setDescStatus("");
       qlDescBody.innerHTML = '<p class="ql-desc-empty">No description available for custom problems. Open it on LeetCode for the full statement.</p>';
       return;
     }
-    if (qlDescCache.has(slug)) {
-      renderDescHtml(qlDescCache.get(slug));
-      return;
-    }
+
     qlDescToken += 1;
     const token = qlDescToken;
-    const offline = location.protocol === "file:";
+    const offline = location.protocol === "file:" || navigator.onLine === false;
+    const cached = readDescCache().get(slug);
+
+    /* Cache first: the saved statement renders immediately, then a fresh copy
+       is fetched in the background only when it is old enough to be stale. */
+    if (cached) {
+      renderDescHtml(cached.html);
+      const age = Date.now() - (cached.at || 0);
+      if (age > DESC_CACHE_TTL_MS) {
+        setDescStatus("Saved on this device · refreshing…", "cached");
+        refreshDescription(slug, token);
+      } else {
+        setDescStatus("Saved on this device", "cached");
+      }
+      return;
+    }
+
+    setDescStatus("Syncing…", "syncing");
     qlDescBody.innerHTML = '<p class="ql-desc-loading">Loading problem description…</p>';
-    fetch(`${getApiBase()}/api/lc-description?slug=${encodeURIComponent(slug)}`)
-      .then((response) => response.json())
-      .then((payload) => {
-        if (token !== qlDescToken) return; // stale — another problem took over
-        if (payload?.ok && payload.html) {
-          qlDescCache.set(slug, payload.html);
-          renderDescHtml(payload.html);
-        } else {
-          qlDescBody.innerHTML = '<p class="ql-desc-empty">Description unavailable right now. Open it on LeetCode for the full statement.</p>';
-        }
-      })
-      .catch(() => {
-        if (token === qlDescToken) {
-          qlDescBody.innerHTML = offline
-            ? '<p class="ql-desc-empty">Description needs the Quanta server running on this computer (node server.js on port 3000) and an internet connection. Open it on LeetCode meanwhile for the full statement.</p>'
-            : '<p class="ql-desc-empty">Description unavailable right now. Check your internet connection, or open it on LeetCode for the full statement.</p>';
-        }
-      });
+    requestDescription(slug).then((result) => {
+      if (token !== qlDescToken) return; /* stale — another problem took over */
+      if (result && result.html) {
+        rememberDescription(slug, result.html, result.source);
+        renderDescHtml(result.html);
+        setDescStatus(
+          result.source === "database" ? "Synced from database" : "Synced from LeetCode",
+          "synced"
+        );
+      } else {
+        setDescStatus("");
+        qlDescBody.innerHTML = describeUnavailable(offline);
+      }
+    });
+  };
+
+  /* Background refresh for an old cached statement. It never blocks the view
+     and never replaces text with an error — the saved copy stays readable. */
+  const refreshDescription = (slug, token) => {
+    requestDescription(slug).then((result) => {
+      if (token !== qlDescToken) return;
+      if (result && result.html) {
+        const changed = rememberDescription(slug, result.html, result.source);
+        if (changed) renderDescHtml(result.html);
+        setDescStatus("Saved on this device · up to date", "cached");
+      } else {
+        setDescStatus("Saved on this device · offline copy", "cached");
+      }
+    });
   };
 
   qlCodeSaveBtn?.addEventListener("click", () => {
@@ -4026,8 +4268,9 @@
 
   labRenameBtn.addEventListener("click", renameActiveSession);
   labDeleteBtn.addEventListener("click", deleteActiveSession);
+  /* labRunBtn IS #run-output-btn (line 61); attaching here once avoids two
+     identical listeners firing on the same click. */
   labRunBtn.addEventListener("click", () => void runActiveSession());
-  byId("run-output-btn")?.addEventListener("click", () => void runActiveSession());
   byId("run-mobile-btn")?.addEventListener("click", () => void runActiveSession());
   labZoomOutBtn.addEventListener("click", () => setEditorZoom(-1));
   labZoomInBtn.addEventListener("click", () => setEditorZoom(1));
@@ -4253,6 +4496,7 @@
      cleanup a double-click on a divider performs, for all four at once. */
   settingsLayoutResetBtn?.addEventListener("click", () => {
     try {
+      localStorage.removeItem(qlSplits.store);
       localStorage.removeItem("quantaSplitSizesV1");
     } catch {}
     qlSplits.read();
@@ -4312,6 +4556,7 @@
       else localStorage.removeItem(RUN_SERVER_KEY);
     } catch {}
     runCapabilities = null;
+    runServerUnreachable = false;
     const label = trimmed || "app host";
     showLabToast(`Compiler server: ${label}`);
   };
@@ -4341,6 +4586,52 @@
       showLabToast(`Connected — ${usable.join(", ")}`);
     } catch {
       showLabToast("Could not reach that server");
+    }
+  });
+
+  /* ---------------------- online API (problem database) ------------------ */
+  const settingsApiBaseInput = byId("settings-api-base");
+  const settingsApiBaseSave = byId("settings-api-base-save");
+  const settingsApiBaseTest = byId("settings-api-base-test");
+
+  if (settingsApiBaseInput) settingsApiBaseInput.value = getConfiguredApiBase();
+
+  settingsApiBaseSave?.addEventListener("click", () => {
+    const value = stripTrailingSlash(settingsApiBaseInput.value);
+    if (value && !/^https?:\/\//i.test(value)) {
+      showLabToast("Address must start with http:// or https://");
+      return;
+    }
+    try {
+      if (value) localStorage.setItem(API_BASE_KEY, value);
+      else localStorage.removeItem(API_BASE_KEY);
+    } catch {
+      /* private mode */
+    }
+    settingsApiBaseInput.value = value;
+    showLabToast(`Online API: ${value || "this app's server"}`);
+  });
+
+  settingsApiBaseTest?.addEventListener("click", async () => {
+    const configured = stripTrailingSlash(settingsApiBaseInput.value);
+    if (configured && !/^https?:\/\//i.test(configured)) {
+      showLabToast("Address must start with http:// or https://");
+      return;
+    }
+    const base = configured || getApiBase();
+    const hasTimeout = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function";
+    try {
+      const response = await fetch(`${base}/health`, {
+        cache: "no-store",
+        signal: hasTimeout ? AbortSignal.timeout(8000) : undefined
+      });
+      if (!response.ok) throw new Error("bad status");
+      const payload = await response.json();
+      if (!payload?.ok) throw new Error("unexpected payload");
+      const dbState = payload.database?.ok ? "database OK" : "database unreachable";
+      showLabToast(`API online — ${dbState}`);
+    } catch {
+      showLabToast("Could not reach that API");
     }
   });
 
@@ -4376,7 +4667,11 @@
      responsive and guarantee minimum sizes so no box can vanish. */
 
   const qlSplits = {
-    store: "quantaSplitSizesV1",
+    /* V2: V1 stored the clamped DISPLAY value on every restore, so a layout
+       applied while the track was transiently short (mobile URL bar, keyboard,
+       a snapped window, a hidden tab) permanently narrowed the saved size —
+       the panes ratcheted smaller on every visit and could never grow back. */
+    store: "quantaSplitSizesV2",
     values: {},
     handles: [
       /* Quanta Lab problem detail: description | workspace width. */
@@ -4430,6 +4725,14 @@
       } catch {
         this.values = {};
       }
+      /* V1 numbers may already be ratcheted, so they are dropped rather than
+         imported: the CSS defaults are the only trustworthy baseline.
+         removeItem is idempotent, so this is safe on every read. */
+      try {
+        if (localStorage.getItem("quantaSplitSizesV1")) {
+          localStorage.removeItem("quantaSplitSizesV1");
+        }
+      } catch {}
     },
     write() {
       try {
@@ -4526,7 +4829,7 @@
     window.setTimeout(syncDescDividerOverlay, 320);
   };
 
-  const applySplit = (spec, value) => {
+  const applySplit = (spec, value, commit = false) => {
     const layout = spec.layout();
     if (!layout) return;
     const track = spec.mode === "x" ? layout.clientWidth : layout.clientHeight;
@@ -4535,8 +4838,14 @@
     let stored;
     if (spec.mode === "y") {
       /* Percentages are meaningless for rows inside an auto-height page:
-         store and apply px, clamped against the current track. */
-      const px = Math.max(spec.minStart, Math.min(track - spec.minEnd - (spec.trackExtra || 0), (value / 100) * track));
+         apply px, clamped against the current track. */
+      const target = (value / 100) * track;
+      const floor = spec.minStart;
+      const ceil = track - spec.minEnd - (spec.trackExtra || 0);
+      /* A track too short for both minimums (mobile URL bar, snapped window)
+         has no legal px size; fall back to the plain percentage clamped into
+         the track instead of forcing a value that overflows it. */
+      const px = ceil > floor ? Math.max(floor, Math.min(ceil, target)) : Math.max(0, Math.min(track, target));
       display = `${Math.round(px * 10) / 10}px`;
       stored = px;
     } else {
@@ -4545,7 +4854,13 @@
       stored = pct;
     }
     splitInlineVar(layout, spec.mode, display);
-    qlSplits.values[qlSplits.activeKey(spec)] = stored;
+    /* Only a LIVE DRAG may change the stored preference. Restoring clamps
+       against the CURRENT track, which can be transiently short (mobile URL
+       bar, keyboard, a snapped window, a hidden tab); writing that clamped
+       value back would ratchet the saved layout narrower on every visit —
+       the exact "page keeps shrinking" bug — and it could never grow back.
+       Restores are display-only: the display re-clamps, the preference stays. */
+    if (commit) qlSplits.values[qlSplits.activeKey(spec)] = stored;
     if (spec.key === "qlDescW") queueDescDividerSync();
   };
 
@@ -4561,6 +4876,11 @@
        extra allowance (trackExtra: 12 for 2-track, 34 for 3-track). */
     const minStartPct = (spec.minStart / track) * 100;
     const minEndPct = ((spec.minEnd + (spec.trackExtra || 0)) / track) * 100;
+    /* Below the width where both minimums fit, the floor sits ABOVE the
+       ceiling and Math.max would force the floor — smearing a nonsense
+       percentage over the panes (and, with write-back, saving it). Keep the
+       caller's value on tracks that cannot honour both minimums. */
+    if (minStartPct + minEndPct > 100) return value;
     return Math.max(minStartPct, Math.min(100 - minEndPct, value));
   };
 
@@ -4611,7 +4931,9 @@
       if (!point) return;
       event.preventDefault();
       const deltaPct = trackSize ? (((spec.mode === "x" ? point.clientX : point.clientY) - startPointer) / trackSize) * 100 : 0;
-      applySplit(spec, startPercent + deltaPct);
+      /* commit: this is the user's gesture, so it — and only it — may update
+         the stored preference. */
+      applySplit(spec, startPercent + deltaPct, true);
       if (spec.mode === "x") relayoutMonacoEditors();
       if (spec.key === "qlDescW") syncDescDividerOverlay();
     };
@@ -4715,6 +5037,10 @@
   window.addEventListener("resize", () => {
     queueDescDividerSync();
     window.setTimeout(() => {
+      /* Re-express the saved splits against the NEW track so the px minimums
+         (240/380/460) are honoured while the window is being narrowed, not
+         only at boot or page-switch. Display-only — stored sizes untouched. */
+      qlSplits.applyAll();
       relayoutMonacoEditors();
       syncDescDividerOverlay();
     }, 120);
