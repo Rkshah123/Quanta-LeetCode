@@ -171,7 +171,11 @@ const runOnJudge0 = async (language, code, stdin) => {
     const submit = await fetch(`${JUDGE0_URL}/submissions?base64_encoded=false&wait=false`, {
       method: "POST",
       headers: judge0Headers(),
-      body: JSON.stringify({ source_code: code, language_id: JUDGE0_LANGUAGE_IDS[language], stdin: stdin || "" }),
+      body: JSON.stringify({
+        source_code: language === "java" ? javaSourceForCloud(code) : code,
+        language_id: JUDGE0_LANGUAGE_IDS[language],
+        stdin: stdin || ""
+      }),
       signal: AbortSignal.timeout(Math.min(JUDGE0_TIMEOUT_MS, 20000))
     });
     if (!submit.ok) return { ok: false, phase: "run", stderr: judge0HttpError(submit.status) };
@@ -285,6 +289,18 @@ const runProcess = (command, args, options = {}) =>
 const extractJavaPublicClassName = (code) => {
   const match = String(code || "").match(/\bpublic\s+(?:final\s+|abstract\s+)?class\s+([A-Za-z_$][\w$]*)/);
   return match && match[1] ? match[1] : "Main";
+};
+
+/* Judge0 compiles the submission as Main.java, so a program whose public
+   class carries another name (the Lab names it after the program file) would
+   not compile there even though it compiles locally. For the cloud run only,
+   that class — and everything referring to it — is renamed to Main. */
+const javaSourceForCloud = (code) => {
+  const source = String(code || "");
+  const className = extractJavaPublicClassName(source);
+  if (!className || className === "Main") return source;
+  const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return source.replace(new RegExp(`\\b${escaped}\\b`, "g"), "Main");
 };
 
 const executeRun = async (language, code, stdin) => {

@@ -384,11 +384,28 @@ const runSuite = async () => {
             stdinSum.status === 200 && stdinSum.payload?.ok === true && String(stdinSum.payload?.stdout || "").trim() === "10",
             `stdout ${JSON.stringify(stdinSum.payload?.stdout || "")}`
           );
+
+          /* The Lab names the public class after the program file, which the
+             cloud compiler would reject unless the run renames it to Main. */
+          const namedClass = await getJson(`${cloud.base}/api/run`, {
+            ...options,
+            body: JSON.stringify({
+              language: "java",
+              code: "import java.util.Scanner; public class SixTimesSeven { public static void main(String[] a) { Scanner s = new Scanner(System.in); System.out.println(s.nextInt() * s.nextInt()); } }",
+              stdin: "6 7"
+            })
+          });
+          record(
+            "POST /api/run accepts a Java class named after the program file",
+            namedClass.status === 200 && namedClass.payload?.ok === true && String(namedClass.payload?.stdout || "").trim() === "42",
+            `stdout ${JSON.stringify(namedClass.payload?.stdout || "")}, stderr ${JSON.stringify(String(namedClass.payload?.stderr || "").slice(0, 60))}`
+          );
         } else {
           for (const skipped of [
             "POST /api/run reports a Java compile error from the cloud runner",
             "POST /api/run stops a runaway Java program",
-            "POST /api/run passes stdin to a Java program in the cloud"
+            "POST /api/run passes stdin to a Java program in the cloud",
+            "POST /api/run accepts a Java class named after the program file"
           ]) {
             record(skipped, true, "public runner unreachable from this machine — skipped");
           }
