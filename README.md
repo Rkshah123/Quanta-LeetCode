@@ -47,6 +47,105 @@ render.yaml             optional Render blueprint
 
 ---
 
+## Technology stack
+
+**23 named technologies — 6 languages plus 17 libraries, platforms and tools:**
+
+| Category | Technologies | Count |
+|---|---|---|
+| Languages | JavaScript, HTML5, CSS3, SQL, Shell, Python (build helper) | 6 |
+| Server runtime | Node.js ≥ 20, npm, Express 5, mysql2, dotenv | 5 |
+| Data | MySQL 9.4 (local), TiDB Cloud Serverless (hosted, MySQL protocol + TLS) | 2 |
+| Editor / client persistence | Monaco Editor, browser localStorage | 2 |
+| Hosting | Vercel (static frontend), Render (API), GitHub (source) | 3 |
+| Android packaging | WebView wrapper + Android SDK build-tools (aapt2, zipalign, apksigner) | 4 |
+| Quality | `node --check` syntax gate, integration suite (`scripts/test-api.js`) | 2 |
+| Code execution | Local toolchains (javac, gcc, g++, python3), free Judge0 CE cloud runner, browser sandbox for JavaScript | (environment) |
+
+The frontend is deliberately framework-free: no React, no bundler, no browser-side `node_modules`. The browser downloads `index.html`, two stylesheets and two scripts (Monaco comes from a CDN) — which is why Vercel needs no build step.
+
+## How Quanta works
+
+### Pages (single-page app)
+
+| Page | What it holds |
+|---|---|
+| **Quanta Lab** (home) | 782-problem catalog: search, difficulty chips, status filter, progress chip; list ⇄ detail split with a draggable divider; detail = statement (Notes tab) + workspace (Code tab: language select, Monaco, stdin, Run/Save, per-language code); maximized mode; add-problem dialog |
+| **Notes** | Per-language notes: title, rich-text editor, section list, find/replace, word count, save, export (.html / .txt), delete |
+| **Lab** | Multi-program Code Lab: create / rename / delete programs as tabs, language picker (Java, JavaScript, Python, C, C++), Monaco editor, stdin, Run, save-to-file, font size A− / A+, auto-save; editor ⇄ output panes split by a draggable divider (stacked on phones with an Editor / Output switch) |
+| **Settings** | Theme, glow, editor font, default language, tab size, word wrap, line numbers, Monaco theme, minimap, layout reset, connection (Online API + Compiler server, each with Save / Test), backup export, reset dashboard |
+| **About** | Build date, live stats (problems / solved / programs / notes), refresh, quick links, contact |
+
+Around them: the mobile nav drawer (≤ 760 px), the add-problem and exit-confirm dialogs, and toasts.
+
+### Request flow (online)
+
+```
+browser ──► quanta-leetcode.vercel.app              static: index.html + CSS + JS
+   │                 │ vercel.json rewrites /api/* and /health
+   ▼                 ▼
+localStorage     quanta-api-2i9a.onrender.com ────► TiDB Cloud (MySQL over TLS)
+   │                 │
+   │                 ├─ /api/problems, /api/lc-description → catalog, live LeetCode fallback (written back)
+   │                 ├─ /api/run → local toolchain if present, else Judge0 (submit → token → poll → result)
+   │                 └─ /health
+   └─ programs, notes, per-problem code, settings, statement cache (quantaDescCacheV1, newest 400)
+```
+
+### Run flow (the Run button)
+
+1. `GET /api/run/capabilities` (cached in memory) reports what this server can execute.
+2. **JavaScript** runs in a sandboxed Web Worker in the browser — it works even when no server is reachable.
+3. **Java / C / C++ / Python** go to `POST /api/run`:
+   - **Local toolchain present (your PC, `npm start`)** → compiled and executed on the spot; temp files are removed afterwards.
+   - **No toolchain (Render's container)** → the free public Judge0 CE instance: submitted with `wait=false`, the returned token is polled until the program finishes or `JUDGE0_TIMEOUT_MS` elapses. Compile errors return `phase: "compile"`, timeouts `timedOut: true`, and rate limits / HTTP failures return plain-language messages. A Java class not named `Main` is renamed to `Main` for the cloud run only — string literals and comments are never touched.
+4. Every mode answers with the same shape: `{ ok, phase, stdout, stderr, exitCode, truncated, timedOut, time?, memory? }`.
+
+### Statement flow
+
+1. Opening a problem checks the device cache (`quantaDescCacheV1`).
+2. On a miss, `GET /api/problems/:id` / `/api/lc-description?slug=` answers from the catalog first and falls back to LeetCode live.
+3. A statement fetched live is written back into the catalog, so every device benefits next time.
+4. Offline with nothing cached shows an explicit *"Description unavailable right now"* — never a blank pane, never an invented statement.
+
+### Where data lives
+
+| Data | Lives in | Scope |
+|---|---|---|
+| Catalog + statements (782 rows, 679 statements stored) | MySQL (TiDB Cloud hosted) | every device |
+| Programs, notes, per-problem code, goals | browser localStorage | per device, per origin |
+| Settings, split-pane sizes, statement cache | browser localStorage | per device, per origin |
+| Code runs | nowhere | runs are never stored |
+
+### Which mode am I in?
+
+| Mode | Address | Statements | Java / C / C++ / Python | JavaScript |
+|---|---|---|---|---|
+| **Laptop, online** | `https://quanta-leetcode.vercel.app` | ✅ catalog + live LeetCode | ✅ Render → toolchain or Judge0 | ✅ browser |
+| **Laptop, offline** | `npm start` → `http://localhost:3000` | ✅ already-read ones; new ones need internet | ✅ compiled on your PC | ✅ browser |
+| **Phone, online** | the same Vercel URL | ✅ | ✅ | ✅ browser |
+| **Phone, offline (LAN)** | APK or `http://<PC-IP>:3000` with the PC running on the same Wi-Fi | ✅ already-read ones | ✅ compiled on your PC | ✅ browser |
+| **Phone, offline (no PC)** | APK with no reachable server | ✅ already-read ones (up to 400) | ❌ needs a compiler somewhere | ✅ browser |
+
+Keep **Settings → Online API** and **Settings → Compiler server** empty in the normal setup: empty means "this app's own server", which is exactly right on localhost and on Vercel (the rewrite makes it same-origin).
+
+## Responsive layout
+
+A fixed-viewport shell: top bar and nav stay put while the active page scrolls inside its own container. Breakpoints: **1500 / 1221 / 1101 / 980 / 901 / 761 / 640 / 480 / 380 px** (plus hover and reduced-motion queries).
+
+| Width | Navigation | Quanta Lab | Lab |
+|---|---|---|---|
+| ≥ 1101 px | nav row | list ⇄ detail, draggable | editor ⇄ output, draggable |
+| 901–1100 px | nav row | list ⇄ detail | stacked, draggable row divider |
+| 761–900 px | nav row | single column (list ⇄ detail swap) | stacked |
+| ≤ 760 px | burger + slide-in drawer | single column | stacked + Editor / Output switch |
+
+Verified at **1920×1080, 1600×900, 1366×768, 1280×720, 1024×768, 768×1024 and 390×844**: no horizontal scrolling, nothing overflowing the viewport, the nav row fits, the drawer opens / navigates / closes correctly, and the console stays clean.
+
+Split-pane sizes persist in localStorage as `quantaSplitSizesV2`. Only a **live drag** changes the stored preference; restoring clamps the *display* against the current track, so a window that is briefly short (mobile URL bar, a snapped window) can never ratchet the saved layout narrower. Legacy `quantaSplitSizesV1` values are dropped on load because they may already be ratcheted. Double-click a divider — or press Settings → **Reset layout** — to return to the CSS defaults.
+
+---
+
 ## 1. Install dependencies
 
 Requirements: Node.js 18+ (this machine has Node 24) and npm.
@@ -142,7 +241,7 @@ npm run import:problems -- --limit 20
 npm run import:problems -- --refresh-descriptions
 ```
 
-Results on this machine: **782 catalog rows, 674 statements stored** (~3 MB).
+Results on this machine: **782 catalog rows, 679 statements stored** (~3 MB).
 
 Re-running is safe: existing rows are updated, existing statements are never overwritten unless you pass `--refresh-descriptions`.
 
@@ -372,7 +471,7 @@ npm run import:problems -- --dry-run
 npm run test:api   # integration tests against a real server + database
 ```
 
-`npm run test:api` covers: health and database reporting, pagination and search, invalid input, missing records, numeric id and slug lookup, statement delivery from the database, existing run/assistant endpoints, static file protection, CORS rules, the client-side cache wiring, rate limiting, and graceful behaviour when the database is down. All tests currently pass (52/52).
+`npm run test:api` covers: health and database reporting, pagination and search, invalid input, missing records, numeric id and slug lookup, statement delivery from the database, run/assistant endpoints, static file protection, CORS rules, the client-side cache wiring, rate limiting, graceful behaviour when the database is down, and the full **cloud-runner** path — a second server started with its `PATH` reduced to Node's own directory (exactly the situation on Render, where no compiler exists) driving Java through Judge0: a real run, a compile error, a runaway loop hitting the time limit, stdin, and a class whose name differs from `Main`. All tests currently pass (**59/59**).
 
 `scripts/verify-catalog.js` compares the catalog against LeetCode's official index and reports any row that disagrees; `--repair` rewrites those fields with LeetCode's own values.
 

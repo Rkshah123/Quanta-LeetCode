@@ -462,6 +462,13 @@
     if (settingsLineNumbersToggle) settingsLineNumbersToggle.checked = labState.lineNumbers !== false;
     if (settingsEditorThemeSelect) settingsEditorThemeSelect.value = labState.editorTheme || "auto";
     if (settingsMinimapToggle) settingsMinimapToggle.checked = labState.showMinimap !== false;
+    /* The two connection fields are seeded once at boot; refresh them here so
+       a reopened Settings page never shows a stale address after a save, a
+       reset, or a change made in another tab. Skip while the user is typing. */
+    const apiField = byId("settings-api-base");
+    const runField = byId("settings-run-server");
+    if (apiField && document.activeElement !== apiField) apiField.value = getConfiguredApiBase();
+    if (runField && document.activeElement !== runField) runField.value = getRunServerBase();
   };
 
   applyGlowPreference(getGlowPreference());
@@ -4261,8 +4268,9 @@
 
   labRenameBtn.addEventListener("click", renameActiveSession);
   labDeleteBtn.addEventListener("click", deleteActiveSession);
+  /* labRunBtn IS #run-output-btn (line 61); attaching here once avoids two
+     identical listeners firing on the same click. */
   labRunBtn.addEventListener("click", () => void runActiveSession());
-  byId("run-output-btn")?.addEventListener("click", () => void runActiveSession());
   byId("run-mobile-btn")?.addEventListener("click", () => void runActiveSession());
   labZoomOutBtn.addEventListener("click", () => setEditorZoom(-1));
   labZoomInBtn.addEventListener("click", () => setEditorZoom(1));
@@ -4488,6 +4496,7 @@
      cleanup a double-click on a divider performs, for all four at once. */
   settingsLayoutResetBtn?.addEventListener("click", () => {
     try {
+      localStorage.removeItem(qlSplits.store);
       localStorage.removeItem("quantaSplitSizesV1");
     } catch {}
     qlSplits.read();
@@ -4658,7 +4667,11 @@
      responsive and guarantee minimum sizes so no box can vanish. */
 
   const qlSplits = {
-    store: "quantaSplitSizesV1",
+    /* V2: V1 stored the clamped DISPLAY value on every restore, so a layout
+       applied while the track was transiently short (mobile URL bar, keyboard,
+       a snapped window, a hidden tab) permanently narrowed the saved size —
+       the panes ratcheted smaller on every visit and could never grow back. */
+    store: "quantaSplitSizesV2",
     values: {},
     handles: [
       /* Quanta Lab problem detail: description | workspace width. */
@@ -4712,6 +4725,14 @@
       } catch {
         this.values = {};
       }
+      /* V1 numbers may already be ratcheted, so they are dropped rather than
+         imported: the CSS defaults are the only trustworthy baseline.
+         removeItem is idempotent, so this is safe on every read. */
+      try {
+        if (localStorage.getItem("quantaSplitSizesV1")) {
+          localStorage.removeItem("quantaSplitSizesV1");
+        }
+      } catch {}
     },
     write() {
       try {
@@ -4808,7 +4829,7 @@
     window.setTimeout(syncDescDividerOverlay, 320);
   };
 
-  const applySplit = (spec, value) => {
+  const applySplit = (spec, value, commit = false) => {
     const layout = spec.layout();
     if (!layout) return;
     const track = spec.mode === "x" ? layout.clientWidth : layout.clientHeight;
@@ -4817,8 +4838,14 @@
     let stored;
     if (spec.mode === "y") {
       /* Percentages are meaningless for rows inside an auto-height page:
-         store and apply px, clamped against the current track. */
-      const px = Math.max(spec.minStart, Math.min(track - spec.minEnd - (spec.trackExtra || 0), (value / 100) * track));
+         apply px, clamped against the current track. */
+      const target = (value / 100) * track;
+      const floor = spec.minStart;
+      const ceil = track - spec.minEnd - (spec.trackExtra || 0);
+      /* A track too short for both minimums (mobile URL bar, snapped window)
+         has no legal px size; fall back to the plain percentage clamped into
+         the track instead of forcing a value that overflows it. */
+      const px = ceil > floor ? Math.max(floor, Math.min(ceil, target)) : Math.max(0, Math.min(track, target));
       display = `${Math.round(px * 10) / 10}px`;
       stored = px;
     } else {
@@ -4827,7 +4854,13 @@
       stored = pct;
     }
     splitInlineVar(layout, spec.mode, display);
-    qlSplits.values[qlSplits.activeKey(spec)] = stored;
+    /* Only a LIVE DRAG may change the stored preference. Restoring clamps
+       against the CURRENT track, which can be transiently short (mobile URL
+       bar, keyboard, a snapped window, a hidden tab); writing that clamped
+       value back would ratchet the saved layout narrower on every visit —
+       the exact "page keeps shrinking" bug — and it could never grow back.
+       Restores are display-only: the display re-clamps, the preference stays. */
+    if (commit) qlSplits.values[qlSplits.activeKey(spec)] = stored;
     if (spec.key === "qlDescW") queueDescDividerSync();
   };
 
@@ -4843,6 +4876,11 @@
        extra allowance (trackExtra: 12 for 2-track, 34 for 3-track). */
     const minStartPct = (spec.minStart / track) * 100;
     const minEndPct = ((spec.minEnd + (spec.trackExtra || 0)) / track) * 100;
+    /* Below the width where both minimums fit, the floor sits ABOVE the
+       ceiling and Math.max would force the floor — smearing a nonsense
+       percentage over the panes (and, with write-back, saving it). Keep the
+       caller's value on tracks that cannot honour both minimums. */
+    if (minStartPct + minEndPct > 100) return value;
     return Math.max(minStartPct, Math.min(100 - minEndPct, value));
   };
 
@@ -4893,7 +4931,9 @@
       if (!point) return;
       event.preventDefault();
       const deltaPct = trackSize ? (((spec.mode === "x" ? point.clientX : point.clientY) - startPointer) / trackSize) * 100 : 0;
-      applySplit(spec, startPercent + deltaPct);
+      /* commit: this is the user's gesture, so it — and only it — may update
+         the stored preference. */
+      applySplit(spec, startPercent + deltaPct, true);
       if (spec.mode === "x") relayoutMonacoEditors();
       if (spec.key === "qlDescW") syncDescDividerOverlay();
     };
@@ -4997,6 +5037,10 @@
   window.addEventListener("resize", () => {
     queueDescDividerSync();
     window.setTimeout(() => {
+      /* Re-express the saved splits against the NEW track so the px minimums
+         (240/380/460) are honoured while the window is being narrowed, not
+         only at boot or page-switch. Display-only — stored sizes untouched. */
+      qlSplits.applyAll();
       relayoutMonacoEditors();
       syncDescDividerOverlay();
     }, 120);
