@@ -636,6 +636,11 @@
   };
 
   let runCapabilities = null;
+  /* True when the compiler server could not be answered at all (PC off, wrong
+     address, phone on mobile data). The Run button must say so instead of
+     claiming a toolchain is missing — that message sent people hunting for a
+     JDK that was never the problem. */
+  let runServerUnreachable = false;
   let isRunning = false;
   let lastFocusedElement = null;
   let activeNotesEditable = null;
@@ -1082,7 +1087,13 @@
       const response = await fetch(`${base}/api/run/capabilities`, { cache: "no-store" });
       if (!response.ok) throw new Error("capabilities unavailable");
       runCapabilities = await response.json();
+      runServerUnreachable = false;
     } catch {
+      /* The server did not answer. The languages stay closed for this attempt,
+         but the failure is remembered so Run can report "cannot reach the
+         server". It is deliberately not cached as a permanent answer: fixing
+         the address in Settings must recover on the next Run, with no reload. */
+      runServerUnreachable = true;
       runCapabilities = { javascript: "browser", c: false, cpp: false, java: false, python: false };
     }
     return runCapabilities;
@@ -1207,6 +1218,24 @@
     const capabilities = await fetchRunCapabilities();
     if (capabilities[language]) {
       return runOnServer(language, code, stdin);
+    }
+    if (runServerUnreachable) {
+      /* Nothing was actually compiled — the configured server never answered.
+         Say where it was looking and how to point it back at the built-in
+         runner, so nobody wastes time installing a toolchain. */
+      const base = getRunServerBase();
+      return {
+        ok: false,
+        stdout: "",
+        stderr:
+          `Cannot reach the compiler server (${base || "this website's own runner"}). ` +
+          (base
+            ? "Check the address in Settings → Compiler server, or clear the field to use this website's own runner. "
+            : "Check your connection and try again. ") +
+          "Your code is saved on this device.",
+        timedOut: false,
+        phase: "network"
+      };
     }
     return { ok: false, stdout: "", stderr: missingToolchainMessage(language), timedOut: false };
   };
@@ -4490,6 +4519,7 @@
       else localStorage.removeItem(RUN_SERVER_KEY);
     } catch {}
     runCapabilities = null;
+    runServerUnreachable = false;
     const label = trimmed || "app host";
     showLabToast(`Compiler server: ${label}`);
   };
