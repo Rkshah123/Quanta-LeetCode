@@ -239,7 +239,93 @@ const runSuite = async () => {
     /* 6. categories + description endpoint (database-first path) */
     {
       const { status, payload } = await getJson(`${base}/api/categories`);
+      const titleSort = await getJson(`${base}/api/problems?sort=title&limit=5`);
+      const badSort = await getJson(`${base}/api/problems?sort=sideways`);
+      const badSolved = await getJson(`${base}/api/problems?solved=perhaps`);
+      const badRevision = await getJson(`${base}/api/problems?revision=someday`);
+      const badStatement = await getJson(`${base}/api/problems?statement=maybe`);
+      const badInStatement = await getJson(`${base}/api/problems?inStatement=perhaps`);
+      const dueWithoutToday = await getJson(`${base}/api/problems?revision=due`);
       record("GET /api/categories responds", status === 200 && Array.isArray(payload?.categories), `status ${status}`);
+
+      /* Search, filter and sort parameters. An unknown value must be refused
+         rather than silently ignored, so a client can trust what it sent. */
+      record("GET /api/problems sorts by title", titleSort.status === 200 && Array.isArray(titleSort.payload?.items), `status ${titleSort.status}`);
+      const sortedTitles = (titleSort.payload?.items || []).map((i) => i.title);
+      record(
+        "title order really is alphabetical",
+        JSON.stringify(sortedTitles) === JSON.stringify([...sortedTitles].sort((a, b) => a.localeCompare(b))),
+        sortedTitles.slice(0, 3).join(" | ")
+      );
+
+      const easy = await getJson(`${base}/api/problems?difficulty=Easy&limit=5`);
+      record(
+        "GET /api/problems filters by difficulty",
+        easy.status === 200 && easy.payload.items.every((i) => i.difficulty === "Easy"),
+        `${easy.payload?.items?.length} items`
+      );
+
+      record("GET /api/problems rejects an unknown sort", badSort.status === 400, `status ${badSort.status}`);
+      record("GET /api/problems rejects an unknown solved filter", badSolved.status === 400, `status ${badSolved.status}`);
+      record("GET /api/problems rejects an unknown revision filter", badRevision.status === 400, `status ${badRevision.status}`);
+      record("GET /api/problems rejects an unknown statement filter", badStatement.status === 400, `status ${badStatement.status}`);
+      record("GET /api/problems rejects a non-boolean inStatement", badInStatement.status === 400, `status ${badInStatement.status}`);
+      record(
+        "Filtering by due date without today is refused",
+        dueWithoutToday.status === 400,
+        `status ${dueWithoutToday.status}`
+      );
+
+      const searched = await getJson(`${base}/api/problems?query=%20%20two%20sum%20%20&limit=5`);
+      record(
+        "GET /api/problems ignores surrounding whitespace and capitalization",
+        searched.status === 200 && searched.payload.items.some((i) => i.slug === "two-sum"),
+        `${searched.payload?.total} total`
+      );
+
+      const noMatch = await getJson(`${base}/api/problems?query=zzz-definitely-not-a-problem`);
+      record(
+        "A search with no match is an empty page, not an error",
+        noMatch.status === 200 && noMatch.payload.total === 0 && noMatch.payload.items.length === 0,
+        `status ${noMatch.status}`
+      );
+
+      const page1 = await getJson(`${base}/api/problems?limit=5&offset=0`);
+      const page2 = await getJson(`${base}/api/problems?limit=5&offset=5`);
+      record(
+        "Pages do not repeat rows",
+        page1.payload.items.length === 5 &&
+          page2.payload.items.length === 5 &&
+          !page2.payload.items.some((b) => page1.payload.items.some((a) => a.slug === b.slug)),
+        "offset paging"
+      );
+      record(
+        "The reported total covers every match, not just the page",
+        page1.payload.total >= page1.payload.items.length,
+        `total ${page1.payload.total}`
+      );
+
+      /* A large request is served, and the page size cap is applied rather than
+         quietly returning everything. */
+      const big = await getJson(`${base}/api/problems?limit=100`);
+      record(
+        "A large page of results is served",
+        big.status === 200 && big.payload.items.length === 100 && big.payload.total > 100,
+        `${big.payload?.items?.length} of ${big.payload?.total}`
+      );
+
+      const overCap = await getJson(`${base}/api/problems?limit=5000`);
+      record(
+        "An oversized limit is capped instead of loading the whole table",
+        overCap.status === 200 && overCap.payload.items.length === 100 && overCap.payload.limit === 100,
+        `limit ${overCap.payload?.limit}`
+      );
+
+      record(
+        "Problem responses never expose the raw SQL",
+        !JSON.stringify(page1.payload || {}).match(/SELECT|FROM problems/i),
+        "checked"
+      );
     }
     {
       const { status, payload } = await getJson(`${base}/api/lc-description?slug=two-sum`);

@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=20" />
+  <link rel="stylesheet" href="style.css?v=25" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -78,7 +78,12 @@
 
       <div class="ql-wrap">
         <div class="lc-toolbar">
-          <input id="lc-search-input" type="search" placeholder="Search problems by name or number…" autocomplete="off" aria-label="Search problems" />
+          <div class="lc-search-wrap">
+            <input id="lc-search-input" type="search" placeholder="Search problems by name or number…" autocomplete="off" aria-label="Search problems" />
+            <button id="lc-search-clear" class="lc-search-clear" type="button" aria-label="Clear search" title="Clear search" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+            </button>
+          </div>
           <div id="lc-difficulty-chips" class="lc-chips" role="group" aria-label="Difficulty filter">
             <button type="button" class="lc-chip" data-difficulty="all">All</button>
             <button type="button" class="lc-chip" data-difficulty="Easy">Easy</button>
@@ -91,7 +96,37 @@
             <option value="unsolved">Unsolved</option>
             <option value="starred">Starred</option>
           </select>
+          <button id="lc-filters-toggle" class="lc-filters-toggle" type="button" aria-expanded="false" aria-controls="lc-filters-panel">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v2H3V5Zm3 6h12v2H6v-2Zm3 6h6v2H9v-2Z"/></svg>
+            <span>Filters</span>
+            <span id="lc-filters-count" class="lc-filters-count" hidden>0</span>
+          </button>
         </div>
+
+        <div id="lc-filters-panel" class="lc-filters-panel" hidden>
+          <div class="lc-filters-grid">
+            <label class="lc-filter-field">
+              <span>Revision</span>
+              <select id="lc-revision-filter" aria-label="Filter by revision status">
+                <option value="all">All</option>
+                <option value="scheduled">In the revision list</option>
+                <option value="due">Due today</option>
+                <option value="overdue">Overdue</option>
+              </select>
+            </label>
+            <label class="lc-filter-field">
+              <span>Sort by</span>
+              <select id="lc-sort-select" aria-label="Sort problems"></select>
+            </label>
+          </div>
+          <div class="lc-filters-actions">
+            <p id="lc-result-count" class="lc-result-count" role="status" aria-live="polite"></p>
+            <button id="lc-filters-clear" class="lc-filters-clear" type="button" disabled>Clear all filters</button>
+          </div>
+          <div id="lc-active-filters" class="lc-active-filters" aria-label="Active filters"></div>
+        </div>
+
+        <p id="lc-offline-note" class="lc-offline-note" hidden></p>
 
         <div class="lc-layout" id="lc-layout">
           <div class="lc-list-pane">
@@ -1028,6 +1063,6 @@
     })();
   </script>
   <script src="script.js?v=15"></script>
-  <script src="lab-notes.js?v=42"></script>
+  <script src="lab-notes.js?v=46"></script>
 </body>
 </html>

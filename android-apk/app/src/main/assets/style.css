@@ -433,17 +433,28 @@ body[data-theme="ember"] .theme-knob {
   box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
 }
 
-/* The knob glides between stops on a soft ease-out. While a finger is actually
-   dragging (class set by JS once the pointer moves) the animation is dropped so
-   the knob tracks the finger exactly, then slides home when it lifts. */
+/* The knob glides between stops on a long, soft ease. While a finger is actually
+   dragging (class set by JS once the pointer moves) the movement transition is
+   dropped so the knob tracks the finger exactly, then it slides home smoothly
+   when the finger lifts. The easing is deliberately gentle - no overshoot, no
+   bounce - because a springy knob on a colour control reads as fussy. */
 .theme-knob {
   will-change: transform;
-  transition: transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1),
-    background-color 0.22s ease, box-shadow 0.22s ease;
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), background-color 320ms ease,
+    box-shadow 320ms ease, border-color 320ms ease;
 }
 
 .theme-slider.is-dragging .theme-knob {
-  transition: background-color 0.22s ease, box-shadow 0.22s ease;
+  transition: background-color 320ms ease, box-shadow 320ms ease, border-color 320ms ease;
+}
+
+/* While the knob is travelling, it carries a soft halo that fades out with the
+   glide - a quiet cue that the change is under way rather than a jump cut. The
+   class is added by JS at the moment the theme is applied. */
+.theme-slider.is-gliding .theme-knob {
+  box-shadow: 0 0 0 4px rgba(var(--tint-bright), 0.18), 0 0 14px rgba(var(--tint-bright), 0.45);
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), background-color 320ms ease,
+    box-shadow 620ms cubic-bezier(0.22, 1, 0.36, 1), border-color 320ms ease;
 }
 
 .theme-slider:focus-visible {
@@ -474,6 +485,56 @@ body[data-theme="ember"] .theme-knob {
     width: 30px;
     height: 30px;
     transform: translateX(calc(var(--theme-pos, 0) * 23px));
+  }
+}
+
+/* ------------------------- smooth theme switching ------------------------ */
+/* Changing the theme used to repaint every colour in one frame, which reads as
+   a hard, jarring snap. The switch is now covered by a short cross-fade: a
+   full-screen layer painted in the outgoing background colour is faded out
+   after the new theme is applied, so the two themes dissolve into each other
+   instead of cutting. */
+
+.theme-fade {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 1;
+  will-change: opacity;
+  animation: theme-fade-out var(--theme-fade-ms, 420ms) cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes theme-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* The chips in Settings answer the same way: a soft press rather than a jump. */
+.theme-chip {
+  transition: filter var(--anim-fast), transform var(--anim-fast), box-shadow 260ms ease,
+    background 320ms ease, color 260ms ease, border-color 320ms ease;
+}
+
+.theme-chip:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.theme-chip.is-active {
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-fade {
+    animation-duration: 1ms;
+  }
+
+  .theme-chip {
+    transition: none;
   }
 }
 
@@ -1759,6 +1820,276 @@ body[data-theme="beige"] .btn-toggle {
 @media (max-width: 380px) {
   .advanced-stats { grid-template-columns: 1fr; }
   .stat-card:last-child { grid-column: auto; }
+}
+
+/* ====================== catalog search and filtering ===================== */
+/* The search box grows a clear button, and the filters live in a panel that is
+   an inline row on a desktop and a sheet on a phone. */
+
+.lc-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.lc-search-wrap > input {
+  padding-right: 34px;
+}
+
+.lc-search-clear {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-c);
+  cursor: pointer;
+  transition: background var(--anim-fast), color var(--anim-fast);
+}
+
+.lc-search-clear svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.lc-search-clear:hover {
+  background: var(--field);
+  color: var(--text-a);
+}
+
+.lc-filters-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--panel-top);
+  color: var(--text-b);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--anim-fast), color var(--anim-fast);
+}
+
+.lc-filters-toggle svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.lc-filters-toggle[aria-expanded="true"] {
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.lc-filters-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-line);
+  color: var(--accent-text);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.lc-filters-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--field);
+}
+
+.lc-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lc-filter-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lc-filter-field > span {
+  color: var(--text-c);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.lc-filter-field select {
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--panel-top);
+  color: var(--text-b);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.lc-filters-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lc-result-count {
+  margin: 0;
+  color: var(--text-c);
+  font-size: 0.74rem;
+}
+
+.lc-filters-clear {
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-b);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lc-filters-clear:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.lc-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lc-active-filters:empty {
+  display: none;
+}
+
+.lc-active-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-line);
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lc-active-chip::after {
+  content: "×";
+  font-size: 0.9em;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.lc-offline-note {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-c);
+  font-size: 0.74rem;
+}
+
+/* "Show more" under a cut-short list, so a slice never looks like the whole
+   catalog. */
+.lc-more-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-b);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--anim-fast), color var(--anim-fast);
+}
+
+.lc-more-btn:hover {
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+/* The small revision marker inside a problem row. */
+.lc-rev-marker {
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--text-c);
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lc-rev-marker--today,
+.lc-rev-marker--overdue {
+  border-color: rgba(var(--tint-bright), 0.5);
+  color: var(--accent-text);
+}
+
+.lc-rev-marker--done {
+  opacity: 0.7;
+}
+
+@media (min-width: 761px) {
+  /* The filter button sits at the end of the toolbar row on a wide screen and
+     keeps its own width instead of stretching across the whole grid cell. */
+  .lc-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+  }
+
+  .lc-filters-toggle {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 760px) {
+  /* On a phone the filter panel becomes a sheet under the toolbar, so the
+     controls are reachable with a thumb and the keyboard does not cover the
+     list. Every control is at least a comfortable tap target. */
+  .lc-filters-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lc-filters-toggle,
+  .lc-filter-field select,
+  .lc-filters-clear,
+  .lc-active-chip {
+    min-height: 44px;
+  }
+
+  .lc-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .lc-toolbar > .lc-chips,
+  .lc-toolbar > #lc-status-filter {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ======================= Smart revision dashboard ======================= */

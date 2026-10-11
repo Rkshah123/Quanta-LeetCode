@@ -55,24 +55,69 @@ const clampOffset = (value) => {
   return Math.min(offset, 1000000);
 };
 
-/* GET /api/problems — search + paginate. Never loads the whole table. */
+/* Every sort the API accepts, in one place so the route can validate the same
+   list. "catalog" keeps the original order (problems without a LeetCode number
+   last), and every sort falls back to the problem number so equal rows never
+   shuffle between requests. */
+const PROBLEM_SORTS = ["catalog", "title", "difficulty", "solved", "attempted", "revision"];
+const PROBLEM_STATUS_FILTERS = ["all", "yes", "no"];
+const REVISION_FILTERS = ["all", "scheduled", "due", "overdue"];
+const STATEMENT_FILTERS = ["all", "stored", "missing"];
+
+const SORT_SQL = {
+  catalog: "(p.lc_num IS NULL) ASC, p.lc_num ASC, p.title ASC",
+  title: "p.title ASC, (p.lc_num IS NULL) ASC, p.lc_num ASC",
+  difficulty: "FIELD(p.difficulty, 'Easy', 'Medium', 'Hard') ASC, p.lc_num ASC",
+  /* Most recently solved first; problems never solved sink to the bottom. */
+  solved: "(pp.solved_at IS NULL) ASC, pp.solved_at DESC, p.lc_num ASC",
+  /* Most recently attempted first, whether or not the run succeeded. */
+  attempted: "(lr.last_run_at IS NULL) ASC, lr.last_run_at DESC, p.lc_num ASC",
+  /* Next review soonest first; problems that are not scheduled sink to the
+     bottom rather than being treated as due in 1970. */
+  revision: "(ri.due_date IS NULL) ASC, ri.due_date ASC, p.lc_num ASC"
+};
+
+const PROBLEM_OWNER = "default";
+
+/* GET /api/problems — search, filter, sort and paginate.
+   Never loads the whole table: every extra table is only joined when the caller
+   actually asks for something from it. */
 const listProblems = async (options = {}) => {
   const limit = clampLimit(options.limit);
   const offset = clampOffset(options.offset);
+  const sort = PROBLEM_SORTS.includes(options.sort) ? options.sort : "catalog";
 
   const where = [];
   const params = [];
 
   const search = String(options.q || "").trim();
   if (search) {
+    /* LIKE wildcards typed by a user are escaped, so a search for "100%" finds
+       nothing rather than matching everything. */
+    const pattern = `%${search.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+    /* The terms are OR-ed inside one group, so looking inside the statement
+       widens the search instead of narrowing it to problems that match both
+       the title and the text. */
+    const terms = [];
+    const termParams = [];
     if (/^\d+$/.test(search)) {
-      /* Exact problem number: "53" must not match 530/1530. */
-      where.push("(lc_num = ? OR title LIKE ?)");
-      params.push(Number(search), `%${search}%`);
+      /* An exact problem number is the strongest signal, but a title that
+         contains the digits is still a useful result ("15" also finds
+         "15-puzzle"). */
+      terms.push("p.lc_num = ?", "p.title LIKE ?");
+      termParams.push(Number(search), pattern);
     } else {
-      where.push("(title LIKE ? OR slug LIKE ?)");
-      params.push(`%${search}%`, `%${search}%`);
+      terms.push("p.title LIKE ?", "p.slug LIKE ?");
+      termParams.push(pattern, pattern);
     }
+    /* Statement text is only searched when asked for: it is a large column and
+       almost never what someone typing a problem name wants. */
+    if (options.inStatement === true) {
+      terms.push("p.description_html LIKE ?");
+      termParams.push(pattern);
+    }
+    where.push(`(${terms.join(" OR ")})`);
+    params.push(...termParams);
   }
 
   const difficulty = String(options.difficulty || "").trim();
@@ -89,48 +134,125 @@ const listProblems = async (options = {}) => {
     params.push(options.lcNum);
   }
 
+  const status = PROBLEM_STATUS_FILTERS.includes(options.solved) ? options.solved : "all";
+  const revisionFilter = REVISION_FILTERS.includes(options.revision) ? options.revision : "all";
+  const statementFilter = STATEMENT_FILTERS.includes(options.statement) ? options.statement : "all";
+
+  if (statementFilter === "stored") where.push("p.description_html IS NOT NULL");
+  if (statementFilter === "missing") where.push("p.description_html IS NULL");
+
+  /* Solved state and review schedule live in their own tables, which are joined
+     only when the request needs them. Both are scoped to one owner. */
+  const joinParts = [];
+  const joinParams = [];
+
+  if (status !== "all" || sort === "solved") {
+    joinParts.push("LEFT JOIN problem_progress pp ON pp.owner_key = ? AND pp.slug = p.slug");
+    joinParams.push(PROBLEM_OWNER);
+  }
+  if (status === "yes") where.push("pp.solved = 1");
+  if (status === "no") where.push("(pp.solved IS NULL OR pp.solved = 0)");
+
+  if (revisionFilter !== "all" || sort === "revision") {
+    joinParts.push("LEFT JOIN revision_items ri ON ri.owner_key = ? AND ri.slug = p.slug");
+    joinParams.push(PROBLEM_OWNER);
+  }
+  if (revisionFilter === "scheduled") where.push("ri.slug IS NOT NULL");
+  /* "Due" and "overdue" only ever mean problems still on the schedule: a
+     finished problem is not due however far its old date has passed. */
+  if (revisionFilter === "due") where.push("(ri.status = 'active' AND ri.due_date = ?)");
+  if (revisionFilter === "overdue") where.push("(ri.status = 'active' AND ri.due_date < ?)");
+  if (revisionFilter === "due" || revisionFilter === "overdue") {
+    params.push(String(options.today || "").slice(0, 10));
+  }
+
+  if (sort === "attempted") {
+    /* One grouped scan of this owner's runs, not a correlated subquery per row. */
+    joinParts.push(
+      "LEFT JOIN (SELECT slug, MAX(created_at) AS last_run_at FROM problem_runs WHERE owner_key = ? GROUP BY slug) lr ON lr.slug = p.slug"
+    );
+    joinParams.push(PROBLEM_OWNER);
+  }
+
   let join = "";
   const category = String(options.category || "").trim();
   if (category) {
-    join =
-      " JOIN problem_categories pc ON pc.problem_id = p.id" +
-      " JOIN categories c ON c.id = pc.category_id AND (c.slug = ? OR c.name = ?)";
-    params.push(category, category);
+    joinParts.unshift(
+      "JOIN problem_categories pc ON pc.problem_id = p.id" +
+        " JOIN categories c ON c.id = pc.category_id AND (c.slug = ? OR c.name = ?)"
+    );
+    joinParams.unshift(category, category);
   }
+  /* The joins are written without leading spaces and joined with one space
+     between them, so the result always reads `FROM problems p LEFT JOIN ...`. */
+if (joinParts.length) join = ` ${joinParts.join(" ")}`;
 
   const whereSql = where.length ? ` WHERE ${where.join(" AND ")}` : "";
 
+  /* Placeholders are positional, so they must be given in the order the SQL
+     reads them: the JOIN conditions first, then the WHERE conditions. Before
+     this was one array, which put a search term where the category was
+     expected whenever both were used together. */
+  const queryParams = [...joinParams, ...params];
+
   const countRow = (
-    await query(
-      `SELECT COUNT(DISTINCT p.id) AS total FROM problems p${join}${whereSql}`,
-      params
-    )
+    await query(`SELECT COUNT(DISTINCT p.id) AS total FROM problems p${join}${whereSql}`, queryParams)
   )[0];
+
+  /* Only the joined tables the caller asked about are read, and a column that
+     was not joined is simply not selected. */
+  const extraColumns = [];
+  if (status !== "all" || sort === "solved") {
+    extraColumns.push("(pp.solved IS NOT NULL AND pp.solved = 1) AS is_solved");
+    extraColumns.push("DATE_FORMAT(pp.solved_at, '%Y-%m-%d %H:%i:%s') AS solved_at");
+  }
+  if (revisionFilter !== "all" || sort === "revision") {
+    extraColumns.push("ri.status AS revision_status");
+    extraColumns.push("DATE_FORMAT(ri.due_date, '%Y-%m-%d') AS revision_due_date");
+  }
+  if (sort === "attempted") extraColumns.push("DATE_FORMAT(lr.last_run_at, '%Y-%m-%d %H:%i:%s') AS last_run_at");
+
 
   const rows = await query(
     `SELECT p.id, p.lc_num, p.slug, p.title, p.difficulty, p.url, p.topics,
             (p.description_html IS NOT NULL) AS has_description, p.updated_at
+            ${extraColumns.length ? `, ${extraColumns.join(",\n            ")}` : ""}
        FROM problems p${join}${whereSql}
-      ORDER BY (p.lc_num IS NULL) ASC, p.lc_num ASC, p.title ASC
+      ORDER BY ${SORT_SQL[sort]}
       LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...queryParams, limit, offset]
   );
 
   return {
-    items: rows.map((row) => ({
-      id: row.id,
-      num: row.lc_num ?? null,
-      slug: row.slug,
-      title: row.title,
-      difficulty: row.difficulty,
-      url: row.url,
-      topics: parseJson(row.topics),
-      hasDescription: Boolean(Number(row.has_description)),
-      updatedAt: row.updated_at
-    })),
+    items: rows.map((row) => {
+      const item = {
+        id: row.id,
+        num: row.lc_num ?? null,
+        slug: row.slug,
+        title: row.title,
+        difficulty: row.difficulty,
+        url: row.url,
+        topics: parseJson(row.topics),
+        hasDescription: Boolean(Number(row.has_description)),
+        updatedAt: row.updated_at
+      };
+      /* These are only present when the request asked about them, so a client
+         never reads a field that was not really queried. */
+      if (row.is_solved !== undefined) {
+        item.solved = Boolean(Number(row.is_solved));
+        item.solvedAt = row.solved_at || null;
+      }
+      if (row.revision_status !== undefined) {
+        item.revisionStatus = row.revision_status || null;
+        item.revisionDueDate = row.revision_due_date || null;
+      }
+      if (row.last_run_at !== undefined) item.lastRunAt = row.last_run_at || null;
+      return item;
+    }),
     total: Number(countRow?.total || 0),
     limit,
-    offset
+    offset,
+    sort
   };
 };
 
@@ -248,6 +370,10 @@ module.exports = {
   listProblems,
   findProblem,
   getProblemDetail,
+  PROBLEM_SORTS,
+  PROBLEM_STATUS_FILTERS,
+  REVISION_FILTERS,
+  STATEMENT_FILTERS,
   getExamples,
   getCategories,
   saveFetchedDescription,

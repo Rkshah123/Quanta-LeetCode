@@ -178,6 +178,17 @@
   const lcSearchInput = byId("lc-search-input");
   const lcDifficultyChips = byId("lc-difficulty-chips");
   const lcStatusFilter = byId("lc-status-filter");
+  const lcSearchClear = byId("lc-search-clear");
+  const lcFiltersToggle = byId("lc-filters-toggle");
+  const lcFiltersPanel = byId("lc-filters-panel");
+  const lcFiltersClear = byId("lc-filters-clear");
+  const lcFiltersCount = byId("lc-filters-count");
+  const lcActiveFilters = byId("lc-active-filters");
+  const lcResultCount = byId("lc-result-count");
+  const lcRevisionFilter = byId("lc-revision-filter");
+  const lcSortSelect = byId("lc-sort-select");
+  const lcOfflineNote = byId("lc-offline-note");
+  let lcSearchDebounce = 0;
   const lcLayout = byId("lc-layout");
   const lcDetail = byId("lc-detail");
   const lcDetailTitle = byId("lc-detail-title");
@@ -2509,6 +2520,12 @@
         difficulty: ["Easy", "Medium", "Hard"].includes(item.difficulty) ? item.difficulty : "Medium",
         solved: Boolean(item.solved),
         added: Boolean(item.added),
+        /* When the user marked it solved, and when they last ran code on it.
+           Both are stamped from real events (tapping Solved, pressing Run) and
+           are what "recently solved" and "recently attempted" sort by - no
+           timestamp is guessed. */
+        solvedAt: Number(item.solvedAt) || 0,
+        lastRunAt: Number(item.lastRunAt) || 0,
         bookmarked: item.bookmarked === true,
         langSolved: item.langSolved && typeof item.langSolved === "object" ? item.langSolved : {},
         code: item.code && typeof item.code === "object" ? item.code : {},
@@ -2618,7 +2635,41 @@
     };
   };
 
-  const lcFilter = { query: "", difficulty: "all", status: "all" };
+  /* ------------------------------- the catalog ----------------------------- */
+  /* Search and filtering for the problem list the user actually browses.
+     Kept client-side on purpose: this list is the problems added on this
+     device (tens of rows), so filtering it locally is instant and keeps
+     working offline. The full online catalog is filtered server-side through
+     GET /api/problems - see db/problems.js - and is not this list. */
+
+  const LC_STATUS_FILTERS = ["all", "solved", "unsolved", "starred"];
+  const LC_REVISION_FILTERS = ["all", "scheduled", "due", "overdue"];
+  /* Every sort ends in the problem number so equal rows never jump around
+     between two renders of the same data. */
+  const LC_SORTS = [
+    { value: "catalog", label: "Catalog order" },
+    { value: "title", label: "Title A-Z" },
+    { value: "difficulty", label: "Difficulty" },
+    { value: "solved", label: "Recently solved" },
+    { value: "attempted", label: "Recently attempted" },
+    { value: "revision", label: "Revision date" }
+  ];
+  const LC_DIFFICULTY_RANK = { Easy: 0, Medium: 1, Hard: 2 };
+
+  const lcFilter = { query: "", difficulty: "all", status: "all", revision: "all", sort: "catalog" };
+
+  const lcFilterIsDefault = () =>
+    !lcFilter.query.trim() &&
+    lcFilter.difficulty === "all" &&
+    lcFilter.status === "all" &&
+    lcFilter.revision === "all";
+
+  const revisionEntryFor = (problem) => {
+    const slug = lcSlugOf(problem);
+    if (!slug || !revisionView.items.length) return null;
+    return revisionView.items.find((entry) => entry.slug === slug) || null;
+  };
+
   const visibleLcProblems = () => {
     const query = lcFilter.query.trim().toLowerCase();
     return lcState.problems.filter((problem) => {
@@ -2626,18 +2677,71 @@
       if (lcFilter.status === "solved" && !problemIsSolved(problem)) return false;
       if (lcFilter.status === "unsolved" && problemIsSolved(problem)) return false;
       if (lcFilter.status === "starred" && problem.bookmarked !== true) return false;
+      if (lcFilter.revision !== "all") {
+        const entry = revisionEntryFor(problem);
+        if (lcFilter.revision === "scheduled") {
+          if (!entry) return false;
+        } else {
+          /* "due" and "overdue" only ever mean problems still on the schedule;
+             a finished problem is not due however old its date is. */
+          if (!entry || entry.status !== "active") return false;
+          if (lcFilter.revision === "due" && entry.bucket !== "today") return false;
+          if (lcFilter.revision === "overdue" && entry.bucket !== "overdue") return false;
+        }
+      }
       if (!query) return true;
       // Exact program-number search: "51" matches only problem 51, never 151/251/2051.
       if (/^#?\d+$/.test(query)) return String(problem.num) === query.replace(/^#/, "");
-      return (
-        problem.name.toLowerCase().includes(query) ||
-        (query.length >= 3 && problem.url.toLowerCase().includes(query))
-      );
+      if (problem.name.toLowerCase().includes(query)) return true;
+      /* The slug is part of the LeetCode link, so typing words from the URL
+         finds the problem too. */
+      return query.length >= 3 && problem.url.toLowerCase().includes(query);
     });
   };
 
-  const sortLcProblems = (problems) =>
-    [...problems].sort((a, b) => (a.num === b.num ? a.name.localeCompare(b.name) : a.num - b.num));
+  const sortLcProblems = (problems) => {
+    const byNumber = (a, b) =>
+      a.num === b.num ? a.name.localeCompare(b.name) : Number(a.num) - Number(b.num);
+    const copy = [...problems];
+    switch (lcFilter.sort) {
+      case "title":
+        return copy.sort((a, b) => a.name.localeCompare(b.name) || byNumber(a, b));
+      case "difficulty":
+        return copy.sort(
+          (a, b) =>
+            (LC_DIFFICULTY_RANK[a.difficulty] ?? 1) - (LC_DIFFICULTY_RANK[b.difficulty] ?? 1) || byNumber(a, b)
+        );
+      case "solved":
+        return copy.sort((a, b) => (Number(b.solvedAt) || 0) - (Number(a.solvedAt) || 0) || byNumber(a, b));
+      case "attempted":
+        return copy.sort((a, b) => (Number(b.lastRunAt) || 0) - (Number(a.lastRunAt) || 0) || byNumber(a, b));
+      case "revision": {
+        const dueOf = (problem) => {
+          const entry = revisionEntryFor(problem);
+          return entry && entry.status === "active" ? entry.dueDate : "";
+        };
+        return copy.sort((a, b) => {
+          const da = dueOf(a);
+          const db = dueOf(b);
+          /* Problems with no active date go last rather than being treated as
+             due in 1970. */
+          if (!da && !db) return byNumber(a, b);
+          if (!da) return 1;
+          if (!db) return -1;
+          return da < db ? -1 : da > db ? 1 : byNumber(a, b);
+        });
+      }
+      default:
+        return copy.sort(byNumber);
+    }
+  };
+
+  /* The slug a revision record is keyed by. */
+  const lcSlugOf = (problem) => {
+    const url = String(problem?.url || "");
+    const match = url.match(/leetcode\.com\/problems\/([a-z0-9-]+)/i);
+    return match ? match[1].toLowerCase() : "";
+  };
 
   /* ------------- LeetCode-style per-problem code skeletons --------------- */
 
@@ -2908,20 +3012,183 @@
     }
   };
 
+  /* Puts the filter controls back to their defaults and syncs the widgets, so the
+   UI and the filter state can never drift apart. */
+const syncLcFilterControls = () => {
+    if (lcSearchInput && lcSearchInput.value !== lcFilter.query) lcSearchInput.value = lcFilter.query;
+    if (lcSearchClear) lcSearchClear.hidden = !lcFilter.query;
+    lcDifficultyChips?.querySelectorAll(".lc-chip").forEach((el) => {
+      el.classList.toggle("is-active", el.dataset.difficulty === lcFilter.difficulty);
+    });
+    if (lcStatusFilter && lcStatusFilter.value !== lcFilter.status) lcStatusFilter.value = lcFilter.status;
+    if (lcRevisionFilter && lcRevisionFilter.value !== lcFilter.revision) lcRevisionFilter.value = lcFilter.revision;
+    if (lcSortSelect && lcSortSelect.value !== lcFilter.sort) lcSortSelect.value = lcFilter.sort;
+  };
+
+  const resetLcFilters = () => {
+    lcFilter.query = "";
+    lcFilter.difficulty = "all";
+    lcFilter.status = "all";
+    lcFilter.revision = "all";
+    lcFilter.sort = "catalog";
+    window.clearTimeout(lcSearchDebounce);
+    syncLcFilterControls();
+  };
+
+  /* What the user is filtering by, as removable chips. Each one removes only
+     itself, so nobody has to undo everything to change one thing. */
+  const renderLcActiveFilters = () => {
+    if (!lcActiveFilters) return;
+    lcActiveFilters.innerHTML = "";
+
+    const chips = [];
+    if (lcFilter.query.trim()) chips.push({ key: "query", label: `“${lcFilter.query.trim()}”` });
+    if (lcFilter.difficulty !== "all") chips.push({ key: "difficulty", label: lcFilter.difficulty });
+    if (lcFilter.status !== "all")
+      chips.push({ key: "status", label: { solved: "Solved", unsolved: "Unsolved", starred: "Starred" }[lcFilter.status] });
+    if (lcFilter.revision !== "all")
+      chips.push({
+        key: "revision",
+        label: { scheduled: "In revision list", due: "Due today", overdue: "Overdue" }[lcFilter.revision]
+      });
+
+    if (lcFiltersCount) {
+      lcFiltersCount.textContent = String(chips.length);
+      lcFiltersCount.hidden = chips.length === 0;
+    }
+    if (lcFiltersClear) lcFiltersClear.disabled = chips.length === 0 && lcFilter.sort === "catalog";
+
+    chips.forEach((chip) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "lc-active-chip";
+      button.textContent = chip.label;
+      button.setAttribute("aria-label", `Remove filter ${chip.label}`);
+      button.addEventListener("click", () => {
+        if (chip.key === "query") {
+          lcFilter.query = "";
+        } else if (chip.key === "status") {
+          lcFilter.status = "all";
+        } else {
+          lcFilter[chip.key] = "all";
+        }
+        syncLcFilterControls();
+        resetLcVisibleLimit();
+        renderLcProblemList();
+      });
+      lcActiveFilters.append(button);
+    });
+  };
+
+  /* A small marker saying where this problem sits in the revision schedule, so
+   the list answers "do I need to revise this?" without opening it. */
+  const appendRevisionMarker = (metaRow, problem) => {
+    const entry = revisionEntryFor(problem);
+    if (!entry) return;
+    const badge = document.createElement("span");
+    const label =
+      entry.status === "completed"
+        ? "Revised"
+        : entry.bucket === "overdue"
+          ? "Overdue"
+          : entry.bucket === "today"
+            ? "Due today"
+            : revisionDueLabel(entry);
+    badge.className = `lc-rev-marker lc-rev-marker--${entry.status === "completed" ? "done" : entry.bucket}`;
+    badge.textContent = label;
+    badge.title = entry.dueDate ? `Next review ${revisionFormatDate(entry.dueDate)}` : label;
+    metaRow.append(badge);
+  };
+
+  /* The catalog list shows revision state, so the schedule is fetched quietly in
+   the background the first time the list is drawn. It is never required to
+   render: without it the list simply has no revision markers, and once it
+   arrives the list is drawn again so the markers appear. */
+const ensureRevisionStateForCatalog = () => {
+    if (revisionView.loaded || revisionView.loading) return;
+    void loadRevisionDashboard().then(() => {
+      if (currentPage === "quantalab" && revisionView.loaded) renderLcProblemList();
+    });
+  };
+
+  /* Says plainly that this list is only what is on this device, so a filtered
+     count is never mistaken for the whole catalog. */
+  const updateLcOfflineNote = () => {
+    if (!lcOfflineNote) return;
+    if (navigator.onLine) {
+      lcOfflineNote.hidden = true;
+      lcOfflineNote.textContent = "";
+      return;
+    }
+    lcOfflineNote.hidden = false;
+    lcOfflineNote.textContent = navigator.onLine
+      ? ""
+      : `Offline: searching the ${lcState.problems.length} problems saved on this device, not the full online catalog.`;
+  };
+
+  window.addEventListener("online", updateLcOfflineNote);
+  window.addEventListener("offline", updateLcOfflineNote);
+
+  const initLcFilters = () => {
+    if (lcSortSelect && !lcSortSelect.options.length) {
+      LC_SORTS.forEach((sort) => {
+        const option = document.createElement("option");
+        option.value = sort.value;
+        option.textContent = sort.label;
+        lcSortSelect.append(option);
+      });
+    }
+    syncLcFilterControls();
+    updateLcOfflineNote();
+    ensureRevisionStateForCatalog();
+  };
+
+  /* The catalog is large (hundreds of problems), so the list is drawn in slices
+     rather than all at once: the first page immediately, the rest on demand.
+     Filtering still runs over everything, so the count is always the true one. */
+  const LC_PAGE_SIZE = 60;
+  let lcVisibleLimit = LC_PAGE_SIZE;
+
+  const resetLcVisibleLimit = () => {
+    lcVisibleLimit = LC_PAGE_SIZE;
+  };
+
   const renderLcProblemList = () => {
-    lcProblemList.innerHTML = "";
-    const problems = sortLcProblems(visibleLcProblems());
+    const filtered = sortLcProblems(visibleLcProblems());
+    const problems = filtered.slice(0, lcVisibleLimit);
     const solvedCount = lcState.problems.filter((problem) => problemIsSolved(problem)).length;
+    const filtering = !lcFilterIsDefault();
 
     if (lcProgressChip) {
       lcProgressChip.textContent = `${solvedCount} / ${lcState.problems.length} solved`;
     }
 
+    /* The count always describes the filtered set, so it can never quietly
+       disagree with what is on screen. */
+    if (lcResultCount) {
+      lcResultCount.textContent = filtering
+        ? `${filtered.length} of ${lcState.problems.length} problems`
+        : `${lcState.problems.length} problems on this device`;
+    }
+    renderLcActiveFilters();
+
     if (!problems.length) {
+      /* The old rows must go: leaving them behind would show results that the
+         current filters do not actually match. */
+      lcProblemList.replaceChildren();
       lcEmpty.hidden = false;
+      /* An empty list means different things: there is nothing here at all, or
+         the filters hid everything that is here. They are told apart. */
+      if (lcEmpty.dataset.mode !== (filtering ? "filtered" : "empty")) {
+        lcEmpty.dataset.mode = filtering ? "filtered" : "empty";
+        lcEmpty.textContent = filtering
+          ? `No problems match ${lcFilter.query.trim() ? `“${lcFilter.query.trim()}”` : "these filters"}.`
+          : "No problems here yet. Use Add problem to start your list.";
+      }
       return;
     }
     lcEmpty.hidden = true;
+    lcEmpty.dataset.mode = "";
 
     const fragment = document.createDocumentFragment();
     problems.forEach((problem) => {
@@ -2950,6 +3217,9 @@
       diffBadge.className = `lc-diff lc-diff--${problem.difficulty.toLowerCase()}`;
       diffBadge.textContent = problem.difficulty;
       metaRow.append(diffBadge);
+
+      /* Where this problem sits in the revision schedule. */
+      appendRevisionMarker(metaRow, problem);
 
       if (rowSolved) {
         const solvedTick = document.createElement("span");
@@ -2986,7 +3256,23 @@
       row.append(numEl, main);
       fragment.appendChild(row);
     });
-    lcProblemList.appendChild(fragment);
+
+    /* When the list is cut short, say so and offer the rest, rather than
+       silently showing a slice that looks like the whole catalog. */
+    if (filtered.length > problems.length) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "lc-more-btn";
+      const remaining = filtered.length - problems.length;
+      more.textContent = `Show ${Math.min(LC_PAGE_SIZE, remaining)} more of ${remaining} still matching`;
+      more.addEventListener("click", () => {
+        lcVisibleLimit += LC_PAGE_SIZE;
+        renderLcProblemList();
+      });
+      fragment.appendChild(more);
+    }
+
+    lcProblemList.replaceChildren(fragment);
   };
 
   const renderLcDetail = () => {
@@ -3026,6 +3312,7 @@
   };
 
   const renderLcAll = () => {
+    ensureRevisionStateForCatalog();
     renderLcProblemList();
     renderLcDetail();
   };
@@ -3210,6 +3497,9 @@
     problem.langSolved[qlActiveLanguage] = !problem.langSolved[qlActiveLanguage];
     // Keep the legacy top-level flag in sync for older views/backups.
     problem.solved = Object.values(problem.langSolved).some(Boolean);
+    /* Stamp the moment, so "recently solved" sorts by when it really happened.
+       Un-marking clears it rather than leaving a stale date behind. */
+    problem.solvedAt = problem.solved ? Date.now() : 0;
     persistLcState();
     renderLcProblemList();
     renderLcDetail();
@@ -3685,6 +3975,10 @@
       appendQlOutput(`Unexpected error: ${error?.message || error}\n`);
       setQlStatus("Error", "error");
     } finally {
+      /* An attempt is an attempt: it is recorded whether it passed, failed or
+         timed out, which is exactly what "recently attempted" means. */
+      problem.lastRunAt = Date.now();
+      persistLcState(true);
       qlIsRunning = false;
       qlCodeRunBtn.disabled = false;
     }
@@ -3782,7 +4076,33 @@
 
   lcSearchInput?.addEventListener("input", (event) => {
     lcFilter.query = event.target.value;
+    /* Typing re-filters a list of tens of rows, but the list also re-renders the
+       whole pane. Waiting for a short pause keeps a fast typist from paying for
+       every intermediate state, and keeps a real search box responsive. */
+    window.clearTimeout(lcSearchDebounce);
+    const applySearch = () => {
+      if (lcSearchClear) lcSearchClear.hidden = !lcFilter.query;
+      resetLcVisibleLimit();
+      renderLcProblemList();
+    };
+    if (event.target.value) {
+      lcSearchDebounce = window.setTimeout(applySearch, 120);
+      /* The clear button must appear immediately or it looks broken while the
+         user is still typing. */
+      if (lcSearchClear) lcSearchClear.hidden = false;
+    } else {
+      applySearch();
+    }
+  });
+
+  lcSearchClear?.addEventListener("click", () => {
+    window.clearTimeout(lcSearchDebounce);
+    lcFilter.query = "";
+    if (lcSearchInput) lcSearchInput.value = "";
+    lcSearchClear.hidden = true;
+    resetLcVisibleLimit();
     renderLcProblemList();
+    lcSearchInput?.focus();
   });
 
   lcDifficultyChips?.addEventListener("click", (event) => {
@@ -3792,11 +4112,39 @@
     lcDifficultyChips.querySelectorAll(".lc-chip").forEach((el) => {
       el.classList.toggle("is-active", el.dataset.difficulty === lcFilter.difficulty);
     });
+    resetLcVisibleLimit();
     renderLcProblemList();
   });
 
   lcStatusFilter?.addEventListener("change", (event) => {
     lcFilter.status = event.target.value;
+    resetLcVisibleLimit();
+    renderLcProblemList();
+  });
+
+  lcRevisionFilter?.addEventListener("change", (event) => {
+    lcFilter.revision = event.target.value;
+    resetLcVisibleLimit();
+    renderLcProblemList();
+  });
+
+  lcSortSelect?.addEventListener("change", (event) => {
+    lcFilter.sort = event.target.value;
+    resetLcVisibleLimit();
+    renderLcProblemList();
+  });
+
+  /* The panel is a plain details region on wide screens and a sheet on a phone,
+     so it is the same control in both cases - just placed differently. */
+  lcFiltersToggle?.addEventListener("click", () => {
+    const open = lcFiltersToggle.getAttribute("aria-expanded") === "true";
+    lcFiltersToggle.setAttribute("aria-expanded", String(!open));
+    if (lcFiltersPanel) lcFiltersPanel.hidden = open;
+  });
+
+  lcFiltersClear?.addEventListener("click", () => {
+    resetLcFilters();
+    resetLcVisibleLimit();
     renderLcProblemList();
   });
 
@@ -4575,7 +4923,82 @@
 
   const themeSymbolGroup = byId("theme-symbols");
   if (themeSymbolGroup) {
+    const themeSliderNode = byId("theme-slider");
+    /* Dragging the slider is a continuous gesture: the knob follows the finger,
+       the theme changes only when a stop is actually crossed, and the knob
+       settles with the same soft glide used when a chip is pressed. */
+    const stopFromClientX = (clientX) => {
+      const rect = themeSliderNode.getBoundingClientRect();
+      if (!rect.width) return -1;
+      const ratio = (clientX - rect.left) / rect.width;
+      const index = Math.round(ratio * (THEME_ORDER.length - 1));
+      return Math.max(0, Math.min(THEME_ORDER.length - 1, index));
+    };
+
+    let dragging = false;
+    let dragStartX = 0;
+    let appliedDuringDrag = null;
+
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      themeSliderNode?.classList.remove("is-dragging");
+      themeSymbolGroup.style.removeProperty("--theme-pos");
+      appliedDuringDrag = null;
+    };
+
+    themeSymbolGroup.addEventListener("pointerdown", (event) => {
+      if (event.target.closest(".theme-slider")) {
+        dragging = true;
+        dragStartX = event.clientX;
+        appliedDuringDrag = null;
+        try {
+          themeSliderNode.setPointerCapture(event.pointerId);
+        } catch {
+          /* capture is a nicety, the gesture still works without it */
+        }
+      }
+    });
+
+    themeSymbolGroup.addEventListener("pointermove", (event) => {
+      if (!dragging || !themeSliderNode) return;
+      const stop = stopFromClientX(event.clientX);
+      if (stop < 0) return;
+      /* Past a few pixels of movement this counts as a drag rather than a tap,
+         so a small wobble never leaves the knob stuck to the finger. */
+      const isDrag = Math.abs(event.clientX - dragStartX) > 4;
+      themeSliderNode.classList.toggle("is-dragging", isDrag);
+      if (!isDrag) return;
+      /* The knob follows the finger while the theme itself changes at the
+         nearest stop, so colour and position never disagree. */
+      themeSymbolGroup.style.setProperty("--theme-pos", String(stop));
+      if (appliedDuringDrag !== stop) {
+        appliedDuringDrag = stop;
+        selectThemeFromSettings(THEME_ORDER[stop]);
+      }
+    });
+
+    themeSymbolGroup.addEventListener("pointerup", (event) => {
+      if (!dragging) return;
+      const stop = stopFromClientX(event.clientX);
+      endDrag();
+      if (stop >= 0) selectThemeFromSettings(THEME_ORDER[stop]);
+      syncSettingsUi();
+      /* Re-resolve the editor theme without losing per-language theming. */
+      if (labState.languageThemes !== false && currentPage === "lab" && getActiveSession()) {
+        applyLanguageTheme(getActiveSession().language);
+      } else if (labState.languageThemes !== false && currentPage === "quantalab" && !qlViewCode.hidden) {
+        void renderQlCodeView();
+      } else {
+        syncMonacoTheme();
+      }
+    });
+
+    themeSymbolGroup.addEventListener("pointercancel", endDrag);
+
+    /* A plain click (no drag) still has to work for keyboard and mouse users. */
     themeSymbolGroup.addEventListener("click", (event) => {
+      if (dragging) return;
       if (!event.target.closest(".theme-slider")) return;
       syncSettingsUi();
       window.setTimeout(() => {
@@ -4588,6 +5011,16 @@
           syncMonacoTheme();
         }
       }, 0);
+    });
+
+    /* Keyboard: arrow keys step through the themes with the same fade. */
+    themeSliderNode?.addEventListener("keydown", (event) => {
+      const step = event.key === "ArrowRight" || event.key === "ArrowUp" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 0;
+      if (!step) return;
+      event.preventDefault();
+      const current = THEME_ORDER.indexOf(document.body.getAttribute("data-theme") || "dark");
+      const next = Math.max(0, Math.min(THEME_ORDER.length - 1, current + step));
+      selectThemeFromSettings(THEME_ORDER[next]);
     });
   }
 
@@ -4646,22 +5079,64 @@
     dialogHomeBtn?.addEventListener("click", goHome);
   });
 
+  /* Theme switching, smoothly.
+     The outgoing background is captured, the new theme is applied, and a
+     full-screen layer in the old colour is faded away on top of it. The result
+     is a cross-dissolve instead of an instant repaint. Nothing is skipped when
+     the browser cannot animate (reduced motion, old WebView): the theme still
+     changes, just without the fade. */
+  const THEME_ORDER = ["dark", "beige", "ember"];
+  const THEME_LABELS = ["Emerald Night", "Pearl Light", "Ember"];
+
+  const themeFadeOverlay = () => {
+    let layer = document.querySelector(".theme-fade");
+    if (layer) layer.remove();
+    const bodyStyle = getComputedStyle(document.body);
+    layer = document.createElement("div");
+    layer.className = "theme-fade";
+    layer.setAttribute("aria-hidden", "true");
+    /* The page background is what the eye actually sees first, so that is what
+       the fade starts from. */
+    layer.style.backgroundColor = bodyStyle.backgroundColor;
+    document.body.appendChild(layer);
+    const done = () => layer.remove();
+    layer.addEventListener("animationend", done, { once: true });
+    /* A stuck animation (background tab, reduced motion) must never leave a
+       sheet covering the app. */
+    window.setTimeout(done, 900);
+    return layer;
+  };
+
+  const prefersReducedMotion = () =>
+    typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   const selectThemeFromSettings = (theme) => {
-    document.body.setAttribute("data-theme", theme);
+    const next = THEME_ORDER.includes(theme) ? theme : "dark";
+    const previous = document.body.getAttribute("data-theme");
+    if (previous === next) {
+      syncSettingsUi();
+      return;
+    }
+
+    if (!prefersReducedMotion()) themeFadeOverlay();
+    document.body.setAttribute("data-theme", next);
     try {
-      localStorage.setItem("leetcodeDashboardTheme", theme);
+      localStorage.setItem("leetcodeDashboardTheme", next);
     } catch {
       /* private mode */
     }
-    const themePos = { dark: 0, beige: 1, ember: 2 };
-    const pos = themePos[theme] ?? 0;
+    const pos = THEME_ORDER.indexOf(next);
     const symbolGroup = byId("theme-symbols");
     if (symbolGroup) symbolGroup.style.setProperty("--theme-pos", String(pos));
     const slider = byId("theme-slider");
     if (slider) {
       slider.dataset.pos = String(pos);
       slider.setAttribute("aria-valuenow", String(pos + 1));
-      slider.setAttribute("aria-valuetext", ["Emerald Night", "Pearl Light", "Ember"][pos]);
+      slider.setAttribute("aria-valuetext", THEME_LABELS[pos]);
+      /* Kept out of its own transition so the knob starts moving on the same
+         frame as the fade, which is what makes the two feel like one gesture. */
+      slider.classList.add("is-gliding");
+      window.setTimeout(() => slider.classList.remove("is-gliding"), 620);
     }
     syncSettingsUi();
     if (labState.languageThemes !== false && (currentPage === "lab" || currentPage === "quantalab")) {
@@ -7211,6 +7686,7 @@ const refreshStudyForActiveProblem = () => {
   ensureActiveSession();
   labAutoSaveToggle.checked = labState.autoSave;
   initRevisionReminderSettings();
+  initLcFilters();
   renderTabs();
   renderLcAll();
   renderPersonalNotes();

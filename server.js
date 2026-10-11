@@ -853,7 +853,8 @@ app.get("/api/categories", rateLimit, async (_req, res) => {
 });
 
 app.get("/api/problems", rateLimit, async (req, res) => {
-  const { query: search, difficulty, category, limit, offset, num } = req.query;
+  const { query: search, difficulty, category, limit, offset, num, sort, solved, revision, statement, inStatement, today } =
+    req.query;
 
   if (search !== undefined && (typeof search !== "string" || search.length > 100)) {
     res.status(400).json({ ok: false, error: "Invalid search query." });
@@ -881,12 +882,55 @@ app.get("/api/problems", rateLimit, async (req, res) => {
     return;
   }
 
+  /* New filter and sort parameters. An unknown value is refused rather than
+     quietly ignored, so a client can trust that the filters it sent were the
+     filters that ran. */
+  const sortValue = sort === undefined ? "catalog" : String(sort);
+  if (!problemsRepo.PROBLEM_SORTS.includes(sortValue)) {
+    res.status(400).json({ ok: false, error: `Sort must be one of: ${problemsRepo.PROBLEM_SORTS.join(", ")}.` });
+    return;
+  }
+  const solvedValue = solved === undefined ? "all" : String(solved);
+  if (!problemsRepo.PROBLEM_STATUS_FILTERS.includes(solvedValue)) {
+    res.status(400).json({ ok: false, error: "Solved must be all, yes or no." });
+    return;
+  }
+  const revisionValue = revision === undefined ? "all" : String(revision);
+  if (!problemsRepo.REVISION_FILTERS.includes(revisionValue)) {
+    res.status(400).json({ ok: false, error: "Revision must be all, scheduled, due or overdue." });
+    return;
+  }
+  const statementValue = statement === undefined ? "all" : String(statement);
+  if (!problemsRepo.STATEMENT_FILTERS.includes(statementValue)) {
+    res.status(400).json({ ok: false, error: "Statement must be all, stored or missing." });
+    return;
+  }
+  if (inStatement !== undefined && !["0", "1", "true", "false"].includes(String(inStatement).toLowerCase())) {
+    res.status(400).json({ ok: false, error: "inStatement must be true or false." });
+    return;
+  }
+  /* Due/overdue are relative to the caller's today, sent as a calendar day. */
+  let todayKey = "";
+  if (revisionValue === "due" || revisionValue === "overdue") {
+    if (today === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(String(today))) {
+      res.status(400).json({ ok: false, error: "Filtering by due date needs today as YYYY-MM-DD." });
+      return;
+    }
+    todayKey = String(today);
+  }
+
   try {
     const page = await problemsRepo.listProblems({
       q: typeof search === "string" ? search : "",
       difficulty: difficultyValue,
       category: typeof category === "string" ? category : "",
       lcNum: num !== undefined ? Number(num) : null,
+      sort: sortValue,
+      solved: solvedValue,
+      revision: revisionValue,
+      statement: statementValue,
+      inStatement: ["1", "true"].includes(String(inStatement || "").toLowerCase()),
+      today: todayKey,
       limit,
       offset
     });
