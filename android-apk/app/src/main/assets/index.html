@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=16" />
+  <link rel="stylesheet" href="style.css?v=17" />
   <link rel="stylesheet" href="lab-notes.css?v=42" />
 
 </head>
@@ -141,10 +141,32 @@
             <div class="ql-detail-tabs" role="tablist" aria-label="Problem views">
               <button id="ql-tab-notes" class="ql-detail-tab is-active" type="button" role="tab" aria-selected="true">Notes</button>
               <button id="ql-tab-code" class="ql-detail-tab" type="button" role="tab" aria-selected="false">Code</button>
+              <button id="ql-tab-solutions" class="ql-detail-tab" type="button" role="tab" aria-selected="false">Solutions</button>
             </div>
 
             <!-- Notes view -->
             <div id="ql-view-notes" class="ql-detail-view" role="tabpanel" aria-label="Problem notes">
+              <section id="study-note" class="study-note" aria-labelledby="study-note-heading">
+                <div class="study-note__head">
+                  <h3 id="study-note-heading">Study notes</h3>
+                  <span id="study-note-status" class="study-badge">On this device</span>
+                </div>
+                <div class="study-fields">
+                  <label class="study-field study-field--wide"><span>Note title</span><input id="study-note-title" type="text" placeholder="e.g. Two Sum with a hash map" autocomplete="off" /></label>
+                  <label class="study-field study-field--wide"><span>Approach</span><textarea id="study-note-approach" rows="3" placeholder="How did you solve it?"></textarea></label>
+                  <label class="study-field study-field--wide"><span>Key observations</span><textarea id="study-note-observations" rows="2" placeholder="What made the solution work?"></textarea></label>
+                  <label class="study-field study-field--wide"><span>Edge cases</span><textarea id="study-note-edge" rows="2" placeholder="Empty input, duplicates, overflow..."></textarea></label>
+                  <label class="study-field"><span>Time complexity</span><input id="study-note-time" type="text" placeholder="O(n)" autocomplete="off" /></label>
+                  <label class="study-field"><span>Space complexity</span><input id="study-note-space" type="text" placeholder="O(1)" autocomplete="off" /></label>
+                  <label class="study-field study-field--wide"><span>Tags</span><input id="study-note-tags" type="text" placeholder="array, hashmap" autocomplete="off" /></label>
+                </div>
+                <div id="study-note-conflict" class="study-conflict" hidden></div>
+                <div class="study-actions">
+                  <button id="study-note-save" class="prog-btn" type="button">Save note</button>
+                  <button id="study-note-delete" class="prog-btn prog-btn--danger" type="button">Delete note</button>
+                  <span class="study-hint">Your words only. Nothing is uploaded that you did not type here.</span>
+                </div>
+              </section>
               <div id="notes-toolbar" class="notes-toolbar" aria-label="Rich text formatting toolbar">
                 <button type="button" data-cmd="bold" aria-label="Bold" title="Bold"><b>B</b></button>
                 <button type="button" data-cmd="italic" aria-label="Italic" title="Italic"><i>I</i></button>
@@ -263,6 +285,45 @@
               <pre id="ql-code-output" class="java-output"></pre>
                 </div>
               </div>
+            </div>
+
+            <!-- Saved solutions view: keeps several approaches per problem -->
+            <div id="ql-view-solutions" class="ql-detail-view" role="tabpanel" aria-label="Saved solutions" hidden>
+              <div class="solutions-head">
+                <div>
+                  <h3 class="solutions-title">Saved solutions</h3>
+                  <p class="study-hint">Keep more than one approach per problem. The editor keeps its own working copy &mdash; saving here never changes what is open in it.</p>
+                </div>
+                <button id="solution-save-current" class="prog-btn" type="button">Save current editor as a solution</button>
+              </div>
+              <div id="solution-list" class="solution-list"></div>
+              <p id="solution-empty" class="study-hint" hidden>No saved solutions for this problem yet.</p>
+
+              <form id="solution-form" class="solution-form" hidden>
+                <h4 id="solution-form-title" class="solution-form__title">New solution</h4>
+                <div class="study-fields">
+                  <label class="study-field"><span>Solution title</span><input id="solution-title" type="text" placeholder="Hash map, one pass" autocomplete="off" /></label>
+                  <label class="study-field"><span>Language</span>
+                    <select id="solution-language">
+                      <option value="java">Java</option>
+                      <option value="javascript">JavaScript</option>
+                      <option value="cpp">C++</option>
+                      <option value="c">C</option>
+                      <option value="python">Python</option>
+                    </select>
+                  </label>
+                  <label class="study-field"><span>Time complexity</span><input id="solution-time" type="text" placeholder="O(n)" autocomplete="off" /></label>
+                  <label class="study-field"><span>Space complexity</span><input id="solution-space" type="text" placeholder="O(n)" autocomplete="off" /></label>
+                  <label class="study-field study-field--wide"><span>Explanation</span><textarea id="solution-explanation" rows="3" placeholder="Why this works"></textarea></label>
+                  <label class="study-field study-field--wide"><span>Code</span><textarea id="solution-code" rows="10" spellcheck="false" placeholder="Paste or type the solution you want to keep"></textarea></label>
+                </div>
+                <div id="solution-conflict" class="study-conflict" hidden></div>
+                <div class="study-actions">
+                  <button id="solution-save" class="prog-btn" type="button">Save solution</button>
+                  <button id="solution-cancel" class="prog-btn" type="button">Cancel</button>
+                  <span class="study-hint">Saved exactly as typed. Nothing here is marked correct or accepted.</span>
+                </div>
+              </form>
             </div>
           </section>
 
@@ -871,6 +932,6 @@
     })();
   </script>
   <script src="script.js?v=15"></script>
-  <script src="lab-notes.js?v=38"></script>
+  <script src="lab-notes.js?v=39"></script>
 </body>
 </html>
