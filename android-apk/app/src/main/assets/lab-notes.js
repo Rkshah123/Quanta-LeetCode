@@ -104,6 +104,7 @@
     if (pageId === "quantalab") renderLcAll();
     if (pageId === "notes") renderPersonalNotes();
     if (pageId === "progress") void renderProgressPage();
+    if (pageId === "revision") void loadRevisionDashboard();
     if (pageId === "lab" || pageId === "quantalab") relayoutMonacoEditors();
     if (pageId !== "lab") clearLanguageAccent();
     /* Hidden pages measure 0x0, so stored split sizes could not be applied
@@ -3020,6 +3021,8 @@
     /* Study notes and saved solutions belong to this problem, so they are
        reloaded whenever a different problem is opened. */
     if (typeof refreshStudyForActiveProblem === "function") refreshStudyForActiveProblem();
+    /* The "Revise" button shows whether this problem is already scheduled. */
+    if (typeof refreshRevisionButton === "function") void refreshRevisionButton(problem);
   };
 
   const renderLcAll = () => {
@@ -6557,10 +6560,640 @@ const refreshStudyForActiveProblem = () => {
   void renderStudyPanels();
 };
 
+  /* ================== smart DSA revision system (client) ================== */
+  /* Shows when each problem should be revisited next and lets the user say how
+     it went, which moves it along the ladder.
+  
+     The scheduling rule itself lives in db/revision.js (nextSchedule) and is
+     unit-tested there; this file only sends the user's answer and renders the
+     result, so the phone and the browser behave identically.
+  
+     Honesty rules kept on purpose:
+       - "Again / Difficult / Good / Easy" describe how the review felt. Nothing
+         here claims a solution was accepted: this app cannot judge correctness.
+       - "Reviewed today" counts reviews actually recorded today, not items whose
+         due date is today.
+       - Offline, the list is served from the device copy and clearly labelled,
+         and the actions are disabled rather than silently dropped. */
+  
+  const REVISION_CACHE_KEY = "quantaRevisionCacheV1";
+  
+  const REVISION_CONFIDENCE = ["again", "difficult", "good", "easy"];
+  const CONFIDENCE_LABELS = { again: "Again", difficult: "Difficult", good: "Good", easy: "Easy" };
+  
+  const revisionView = {
+    items: [],
+    counts: null,
+    today: "",
+    loaded: false,
+    loading: false,
+    fromCache: false
+  };
+  
+  const revisionTzOffset = () => -new Date().getTimezoneOffset();
+  
+  const revisionRequest = async (path, options = {}) => {
+    const hasTimeout = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function";
+    const response = await fetch(`${getApiBase()}${path}`, {
+      cache: "no-store",
+      ...options,
+      signal: hasTimeout ? AbortSignal.timeout(15000) : undefined
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    return { status: response.status, ok: response.ok, payload };
+  };
+  
+  const revisionJson = (method, body) => ({
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, tzOffsetMinutes: revisionTzOffset() })
+  });
+  
+  const readRevisionCache = () => {
+    const cached = readJson(REVISION_CACHE_KEY, () => null);
+    if (!cached || !Array.isArray(cached.items)) return null;
+    return cached;
+  };
+  
+  const writeRevisionCache = (payload) => {
+    try {
+      writeJson(REVISION_CACHE_KEY, { items: payload.items, counts: payload.counts, today: payload.today });
+    } catch {
+      /* quota or private mode - the list still works while the page is open */
+    }
+  };
+  
+  /* The day as this device sees it, used when the dashboard has not loaded yet
+     (for example straight after a problem was added from Quanta Lab). */
+  const revisionLocalToday = () => {
+    const now = new Date(Date.now() + revisionTzOffset() * 60000);
+    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+  };
+
+  /* Human wording for the next review, relative to the user's today. The day is
+     compared as text: both sides are YYYY-MM-DD, so ordering is correct and no
+     Date object can shift it into the wrong day. */
+  const revisionDueLabel = (item) => {
+    if (item.status === "completed") return "Finished";
+    const today = revisionView.today || revisionLocalToday();
+    if (!item.dueDate) return "";
+    if (item.dueDate < today) return "Overdue";
+    if (item.dueDate === today) return "Due today";
+    const diff = Math.round((new Date(`${item.dueDate}T00:00:00Z`) - new Date(`${today}T00:00:00Z`)) / 86400000);
+    if (diff === 1) return "Tomorrow";
+    if (diff > 30) return `On ${revisionFormatDate(item.dueDate)}`;
+    return `In ${diff} days`;
+  };
+  
+  const revisionFormatDate = (dayKey) => {
+    if (!dayKey) return "";
+    try {
+      return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", timeZone: "UTC" }).format(
+        new Date(`${dayKey}T00:00:00Z`)
+      );
+    } catch {
+      return dayKey;
+    }
+  };
+  
+  const revisionSlugOf = (problem) => {
+    const info = extractLcProblemInfo(problem?.url || "");
+    return info ? info.slug : "";
+  };
+  
+  /* ------------------------------ rendering ------------------------------- */
+  
+  const revisionSetText = (id, value) => {
+    const node = byId(id);
+    if (node) node.textContent = String(value);
+  };
+  
+  const revisionVisibleItems = () => {
+    const when = byId("revision-filter-when")?.value || "due";
+    const difficulty = byId("revision-filter-difficulty")?.value || "all";
+  
+    return revisionView.items.filter((item) => {
+      if (difficulty !== "all" && item.difficulty !== difficulty) return false;
+      if (when === "all") return item.status === "active";
+      if (when === "due") return item.status === "active" && (item.bucket === "today" || item.bucket === "overdue");
+      if (when === "completed") return item.status === "completed";
+      return item.status === "active" && item.bucket === when;
+    });
+  };
+  
+  const renderRevisionList = () => {
+    const list = byId("revision-list");
+    if (!list) return;
+    list.innerHTML = "";
+    const items = revisionVisibleItems();
+  
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "progress-note";
+      empty.textContent = revisionView.items.length
+        ? "Nothing matches this filter."
+        : "Nothing in this view yet.";
+      list.append(empty);
+      return;
+    }
+  
+    items.forEach((item) => {
+      const card = document.createElement("article");
+      card.className = `revision-card revision-card--${item.bucket}`;
+      card.dataset.slug = item.slug;
+  
+      const head = document.createElement("div");
+      head.className = "revision-card__head";
+      const difficulty = document.createElement("span");
+      difficulty.className = "revision-card__diff";
+      difficulty.textContent = item.difficulty;
+      const title = document.createElement("strong");
+      title.className = "revision-card__title";
+      title.textContent = `${item.num ? `#${item.num} ` : ""}${item.title || item.slug}`;
+      const due = document.createElement("span");
+      due.className = "study-badge";
+      due.textContent = revisionDueLabel(item);
+      head.append(difficulty, title, due);
+  
+      const meta = document.createElement("p");
+      meta.className = "revision-card__meta";
+      const parts = [`next review ${revisionFormatDate(item.dueDate)}`];
+      if (item.reviewCount > 0) parts.push(`${item.reviewCount} review${item.reviewCount === 1 ? "" : "s"}`);
+      if (item.confidence) parts.push(`last: ${CONFIDENCE_LABELS[item.confidence] || item.confidence}`);
+      if (item.stage > 0) parts.push(`step ${item.stage}`);
+      meta.textContent = parts.join(" · ");
+  
+      card.append(head, meta);
+  
+      if (item.status !== "completed") {
+        const ratings = document.createElement("div");
+        ratings.className = "revision-card__ratings";
+        REVISION_CONFIDENCE.forEach((confidence) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `rev-rating rev-rating--${confidence}`;
+          button.textContent = CONFIDENCE_LABELS[confidence];
+          button.title = {
+            again: "I could not solve or remember this",
+            difficult: "I needed significant help",
+            good: "I solved it with some effort",
+            easy: "I can solve it confidently"
+          }[confidence];
+          button.disabled = revisionView.fromCache;
+          button.addEventListener("click", () => void reviewRevisionItem(item.slug, confidence));
+          ratings.append(button);
+        });
+        card.append(ratings);
+  
+        const actions = document.createElement("div");
+        actions.className = "revision-card__actions";
+  
+        const snooze = document.createElement("button");
+        snooze.type = "button";
+        snooze.className = "prog-btn";
+        snooze.textContent = "Snooze 3 days";
+        snooze.disabled = revisionView.fromCache;
+        snooze.addEventListener("click", () => void rescheduleRevisionItem(item.slug, { snoozeDays: 3 }));
+        actions.append(snooze);
+  
+        const date = document.createElement("input");
+        date.type = "date";
+        date.className = "revision-card__date";
+        date.value = item.dueDate || "";
+        date.setAttribute("aria-label", `Next review date for ${item.title || item.slug}`);
+        date.addEventListener("change", () => {
+          if (!date.value) return;
+          void rescheduleRevisionItem(item.slug, { dueDate: date.value });
+        });
+        actions.append(date);
+  
+        const finish = document.createElement("button");
+        finish.type = "button";
+        finish.className = "prog-btn";
+        finish.textContent = "Finished it";
+        finish.disabled = revisionView.fromCache;
+        finish.addEventListener("click", () => void completeRevisionItem(item.slug));
+        actions.append(finish);
+  
+        card.append(actions);
+      }
+  
+      const footer = document.createElement("div");
+      footer.className = "revision-card__actions";
+  
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "prog-btn";
+      open.textContent = "Open problem";
+      open.addEventListener("click", () => openRevisionProblem(item.slug));
+      footer.append(open);
+  
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "prog-btn prog-btn--danger";
+      remove.textContent = item.status === "completed" ? "Remove" : "Stop revising";
+      remove.addEventListener("click", async () => {
+        if (!window.confirm(`Remove "${item.title || item.slug}" from your revision list? Your past reviews are kept.`)) return;
+        await removeRevisionItem(item.slug);
+      });
+      footer.append(remove);
+      card.append(footer);
+  
+      list.append(card);
+    });
+  };
+  
+  const renderRevisionSummary = () => {
+    const counts = revisionView.counts;
+    if (!counts) return;
+    revisionSetText("rev-due-today", counts.dueToday);
+    revisionSetText("rev-overdue", counts.overdue);
+    revisionSetText("rev-reviewed", counts.reviewedToday);
+    revisionSetText("rev-progress", `${counts.progressPercent}%`);
+    const fill = byId("rev-progress-fill");
+    if (fill) fill.style.width = `${counts.progressPercent}%`;
+  };
+  
+  /* One plain sentence about the day, so the tiles are never the only story. */
+  const revisionStatusText = (counts) => {
+    if (!counts) return "";
+    const scheduled = Math.max(0, (counts.upcoming || 0) + (counts.completed || 0));
+    const dueBits = [];
+    if (counts.overdue) dueBits.push(`${counts.overdue} overdue`);
+    if (counts.dueToday) dueBits.push(`${counts.dueToday} due today`);
+    if (!dueBits.length) {
+      return scheduled
+        ? `Nothing due today · ${counts.upcoming} still scheduled`
+        : "Nothing scheduled yet - add a problem to start revising.";
+    }
+    const tail = counts.upcoming ? ` · ${counts.upcoming} coming up` : "";
+    return `${dueBits.join(" · ")}${tail}`;
+  };
+  
+  /* ------------------------------ actions --------------------------------- */
+  
+  const applyRevisionPayload = (payload, { fromCache = false } = {}) => {
+    revisionView.items = Array.isArray(payload.items) ? payload.items : [];
+    revisionView.counts = payload.counts || null;
+    revisionView.today = payload.today || "";
+    revisionView.fromCache = fromCache;
+    revisionView.loaded = true;
+    if (!fromCache) writeRevisionCache(payload);
+  };
+  
+  const loadRevisionDashboard = async () => {
+    if (revisionView.loading) return;
+    revisionView.loading = true;
+  
+    const statusNode = byId("revision-status");
+    const errorNode = byId("revision-error");
+    const contentNode = byId("revision-content");
+    const emptyNode = byId("revision-empty");
+    const refresh = byId("revision-refresh");
+    if (refresh) refresh.disabled = true;
+  
+    if (!revisionView.loaded && statusNode) statusNode.textContent = "Loading your revision list...";
+    if (!revisionView.loaded && contentNode) contentNode.hidden = true;
+  
+    try {
+      const result = await revisionRequest(`/api/revision?tzOffset=${revisionTzOffset()}`);
+      if (!result.ok) throw new Error(result.payload?.error || `Request failed (${result.status}).`);
+      applyRevisionPayload(result.payload);
+      renderRevisionSummary();
+      renderRevisionList();
+      if (contentNode) contentNode.hidden = false;
+      if (emptyNode) emptyNode.hidden = revisionView.items.length > 0;
+      if (errorNode) errorNode.hidden = true;
+      const offline = byId("revision-offline");
+      if (offline) offline.hidden = true;
+      if (statusNode) {
+        statusNode.textContent = revisionStatusText(revisionView.counts || {});
+      }
+      maybeNotifyRevision();
+    } catch (error) {
+      const cached = readRevisionCache();
+      if (cached) {
+        /* Offline is not a failure: show the device copy and say so plainly. */
+        applyRevisionPayload(cached, { fromCache: true });
+        renderRevisionSummary();
+        renderRevisionList();
+        if (contentNode) contentNode.hidden = false;
+        if (emptyNode) emptyNode.hidden = revisionView.items.length > 0;
+        const offline = byId("revision-offline");
+        if (offline) offline.hidden = false;
+        if (statusNode) statusNode.textContent = "Showing the copy saved on this device.";
+      } else {
+        const errorText = byId("revision-error-text");
+        if (errorText) errorText.textContent = error?.message || "Your revision list could not be loaded.";
+        if (errorNode) errorNode.hidden = false;
+        if (statusNode) statusNode.textContent = "Revision is unavailable right now.";
+        if (!revisionView.loaded && contentNode) contentNode.hidden = true;
+      }
+    } finally {
+      revisionView.loading = false;
+      if (refresh) refresh.disabled = false;
+    }
+  };
+  
+  const reviewRevisionItem = async (slug, confidence) => {
+    if (revisionView.fromCache) {
+      showLabToast("Reconnect to change a review - changes are not sent offline.");
+      return;
+    }
+    const result = await revisionRequest(`/api/revision/${encodeURIComponent(slug)}/review`, revisionJson("POST", { confidence }));
+    if (!result.ok) {
+      showLabToast(result.payload?.error || "Could not save that review.");
+      return;
+    }
+    await loadRevisionDashboard();
+    const next = result.payload?.item?.dueDate;
+    showLabToast(next ? `Next review on ${revisionFormatDate(next)}` : "Review saved");
+  };
+  
+  const rescheduleRevisionItem = async (slug, patch) => {
+    if (revisionView.fromCache) {
+      showLabToast("Reconnect to change a date - changes are not sent offline.");
+      return;
+    }
+    const result = await revisionRequest(`/api/revision/${encodeURIComponent(slug)}/reschedule`, revisionJson("POST", patch));
+    if (!result.ok) {
+      showLabToast(result.payload?.error || "Could not change that date.");
+      return;
+    }
+    await loadRevisionDashboard();
+    showLabToast(`Next review on ${revisionFormatDate(result.payload?.item?.dueDate)}`);
+  };
+  
+  const completeRevisionItem = async (slug) => {
+    if (revisionView.fromCache) {
+      showLabToast("Reconnect to finish a problem - changes are not sent offline.");
+      return;
+    }
+    const result = await revisionRequest(`/api/revision/${encodeURIComponent(slug)}/complete`, revisionJson("POST", {}));
+    if (!result.ok) {
+      showLabToast(result.payload?.error || "Could not finish this problem.");
+      return;
+    }
+    await loadRevisionDashboard();
+    showLabToast("Finished - it left your revision list.");
+  };
+  
+  const removeRevisionItem = async (slug) => {
+    if (revisionView.fromCache) {
+      showLabToast("Reconnect to remove a problem - changes are not sent offline.");
+      return;
+    }
+    const result = await revisionRequest(`/api/revision/${encodeURIComponent(slug)}`, { method: "DELETE" });
+    if (!result.ok) {
+      showLabToast(result.payload?.error || "Could not remove this problem.");
+      return;
+    }
+    await loadRevisionDashboard();
+    showLabToast("Removed from your revision list");
+  };
+  
+  /* Opens the problem in Quanta Lab so notes, code and Run stay one tap away. */
+  const openRevisionProblem = (slug) => {
+    const problem = lcState.problems.find((entry) => revisionSlugOf(entry) === slug);
+    if (!problem) {
+      showLabToast("That problem is not in your Quanta Lab list.");
+      return;
+    }
+    lcState.activeProblemId = problem.id;
+    persistLcState();
+    showPage("quantalab");
+    renderLcAll();
+  };
+  
+  /* Adds the problem that is open in the detail pane. */
+  const addActiveProblemToRevision = async () => {
+    const problem = getActiveLcProblem();
+    const slug = revisionSlugOf(problem);
+    if (!slug) {
+      showLabToast("Open a problem first.");
+      return;
+    }
+    const info = extractLcProblemInfo(problem.url);
+    const result = await revisionRequest(
+      "/api/revision",
+      revisionJson("POST", {
+        slug,
+        num: info?.num ?? problem.num ?? null,
+        title: problem.name || "",
+        difficulty: problem.difficulty || "Medium"
+      })
+    );
+    if (!result.ok) {
+      showLabToast(result.payload?.error || "Could not add this problem.");
+      return;
+    }
+
+    /* Keep the button honest straight away - the detail pane is not re-rendered,
+       so nothing the user typed in the notes or the editor is disturbed. */
+    const added = result.payload?.item;
+    if (added) {
+      const index = revisionView.items.findIndex((entry) => entry.slug === added.slug);
+      if (index >= 0) revisionView.items[index] = added;
+      else revisionView.items.push(added);
+      revisionView.loaded = true;
+      refreshRevisionButton(problem);
+    }
+    showLabToast(
+      added?.dueDate
+        ? `Added - first review on ${revisionFormatDate(added.dueDate)}`
+        : "Added to your revision list"
+    );
+    /* Refresh the tiles in the background; the list is already correct. */
+    void loadRevisionDashboard();
+  };
+  
+  /* Keeps the "Revise" button in the problem detail honest: it shows whether this
+     problem is already scheduled, and how soon. */
+  const refreshRevisionButton = async (problem) => {
+    const button = byId("lc-detail-revision");
+    if (!button) return;
+    const slug = revisionSlugOf(problem);
+    if (!slug) {
+      button.hidden = true;
+      return;
+    }
+    button.hidden = false;
+  
+    if (!revisionView.loaded) {
+      button.textContent = "↻ Revise";
+      button.setAttribute("aria-pressed", "false");
+      return;
+    }
+    const item = revisionView.items.find((entry) => entry.slug === slug);
+    if (!item) {
+      button.textContent = "↻ Revise";
+      button.setAttribute("aria-pressed", "false");
+      button.title = "Add to revision";
+      return;
+    }
+    const when = item.status === "completed" ? "finished" : revisionDueLabel(item).toLowerCase();
+    button.textContent = item.status === "completed" ? "✓ Revised" : `↻ ${when}`;
+    button.setAttribute("aria-pressed", "true");
+    button.title = `Next review ${revisionFormatDate(item.dueDate)}`;
+  };
+  
+  /* ---------------------------- optional reminder ------------------------- */
+  /* What exists in this app today: no push service, no background worker and no
+     server-side scheduler. The only reminder that can honestly be offered is a
+     local one: when the app is open and something is due, ask this device to show
+     a single notification, at most once a day.
+  
+     Nothing is switched on silently. Permission is requested only when the user
+     turns the setting on, and if the device or the browser refuses, the setting
+     stays off and says why. No external notification service is introduced. */
+  
+  const REVISION_REMINDER_KEY = "quantaRevisionReminderV1";
+  const REVISION_REMINDER_DAY_KEY = "quantaRevisionReminderDayV1";
+  
+  /* readJson only returns objects, so the small flags below are stored as
+     { on: true } / { day: "2026-10-11" } rather than as bare values. */
+  const removeRevisionStorageKey = (key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* privacy mode - the reminder simply stays as it was */
+    }
+  };
+  
+  const revisionNotificationsSupported = () =>
+    typeof window !== "undefined" && "Notification" in window && typeof window.Notification === "function";
+  
+  const revisionReminderEnabled = () => readJson(REVISION_REMINDER_KEY, () => ({})).on === true;
+  
+  const setRevisionReminderState = (enabled) => {
+    if (enabled) writeJson(REVISION_REMINDER_KEY, { on: true });
+    else removeRevisionStorageKey(REVISION_REMINDER_KEY);
+  };
+  
+  const revisionReminderHint = (text) => {
+    const hint = byId("settings-reminder-hint");
+    if (hint) hint.textContent = text;
+  };
+  
+  /* Asks for permission only when the user switches the reminder on. Returns
+     true when reminders really are active. */
+  const enableRevisionReminder = async () => {
+    if (!revisionNotificationsSupported()) {
+      revisionReminderHint("This device cannot show notifications, so nothing was turned on. The revision list still works.");
+      return false;
+    }
+    let permission = window.Notification.permission;
+    if (permission === "default") {
+      try {
+        permission = await window.Notification.requestPermission();
+      } catch {
+        permission = "denied";
+      }
+    }
+    if (permission !== "granted") {
+      revisionReminderHint("Permission was not granted, so no reminder is set. You can allow notifications later in the browser or device settings.");
+      return false;
+    }
+    setRevisionReminderState(true);
+    revisionReminderHint("On. You will get one reminder when you open the app with problems due.");
+    return true;
+  };
+  
+  const disableRevisionReminder = () => {
+    setRevisionReminderState(false);
+    revisionReminderHint("Ask this device for permission once, then a single reminder when you open the app with problems due. Off by default.");
+  };
+  
+  /* Called after each successful dashboard load. At most one notification per
+     calendar day, and only when something is genuinely due. */
+  const maybeNotifyRevision = () => {
+    if (!revisionReminderEnabled() || revisionView.fromCache || !revisionView.counts) return;
+    if (!revisionNotificationsSupported() || window.Notification.permission !== "granted") return;
+    const counts = revisionView.counts;
+    const due = (counts.overdue || 0) + (counts.dueToday || 0);
+    if (!due) return;
+  
+    const today = revisionView.today || "";
+    if (readJson(REVISION_REMINDER_DAY_KEY, () => ({})).day === today) return;
+    try {
+      new window.Notification("Time to revise", {
+        body: due === 1 ? "1 problem is due today." : `${due} problems are due today or waiting.`,
+        tag: "quanta-revision-daily"
+      });
+      writeJson(REVISION_REMINDER_DAY_KEY, { day: today });
+    } catch {
+      /* A device that refuses to show one is not a reason to fail the page. */
+    }
+  };
+  
+  const initRevisionReminderSettings = () => {
+    const toggle = byId("settings-revision-reminder");
+    if (toggle) {
+      toggle.checked = revisionReminderEnabled();
+      revisionReminderHint(
+        revisionReminderEnabled()
+          ? "On. You will get one reminder when you open the app with problems due."
+          : "Ask this device for permission once, then a single reminder when you open the app with problems due. Off by default."
+      );
+      toggle.addEventListener("change", async (event) => {
+        const wanted = event.target.checked;
+        const active = wanted ? await enableRevisionReminder() : (disableRevisionReminder(), false);
+        event.target.checked = active;
+        showLabToast(
+          active
+            ? "Reminder on - one a day, while the app is open"
+            : wanted
+              ? "Notifications are not available here"
+              : "Reminder off"
+        );
+      });
+    }
+  
+    byId("settings-revision-open")?.addEventListener("click", () => {
+      showPage("revision");
+    });
+  };
+  
+  /* ------------------------------- events -------------------------------- */
+  
+  byId("revision-refresh")?.addEventListener("click", () => {
+    void loadRevisionDashboard();
+  });
+  
+  byId("revision-error-retry")?.addEventListener("click", () => {
+    void loadRevisionDashboard();
+  });
+  
+  byId("revision-filter-when")?.addEventListener("change", renderRevisionList);
+  byId("revision-filter-difficulty")?.addEventListener("change", renderRevisionList);
+  
+  byId("lc-detail-revision")?.addEventListener("click", () => {
+    const problem = getActiveLcProblem();
+    const slug = revisionSlugOf(problem);
+    const existing = revisionView.items.find((entry) => entry.slug === slug);
+    if (existing) {
+      showPage("revision");
+      void loadRevisionDashboard();
+      return;
+    }
+    void addActiveProblemToRevision();
+  });
+  
+  /* When the device comes back, quietly refresh so an offline list catches up. */
+  window.addEventListener("online", () => {
+    if (revisionView.fromCache) void loadRevisionDashboard();
+  });
+  
   /* -------------------------------- init -------------------------------- */
 
   ensureActiveSession();
   labAutoSaveToggle.checked = labState.autoSave;
+  initRevisionReminderSettings();
   renderTabs();
   renderLcAll();
   renderPersonalNotes();

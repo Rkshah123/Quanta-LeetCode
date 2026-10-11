@@ -1761,6 +1761,137 @@ body[data-theme="beige"] .btn-toggle {
   .stat-card:last-child { grid-column: auto; }
 }
 
+/* ======================= Smart revision dashboard ======================= */
+
+.rev-progress {
+  margin: 6px 0 16px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--field);
+  overflow: hidden;
+}
+
+.rev-progress__fill {
+  height: 100%;
+  width: 0;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, rgb(var(--tint-deep)), rgb(var(--tint-light)));
+  transition: width var(--anim-mid);
+}
+
+.revision-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.revision-list {
+  display: grid;
+  gap: 10px;
+}
+
+.revision-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--field);
+}
+
+.revision-card--overdue {
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.revision-card--completed {
+  opacity: 0.72;
+}
+
+.revision-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.revision-card__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-a);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.revision-card__diff {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--text-b);
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.revision-card__meta {
+  margin: 0;
+  color: var(--text-c);
+  font-size: 0.7rem;
+}
+
+.revision-card__ratings {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rev-rating {
+  flex: 1 1 auto;
+  min-width: 72px;
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--panel-top);
+  color: var(--text-b);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--anim-fast), border-color var(--anim-fast);
+}
+
+.rev-rating:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-line);
+}
+
+.rev-rating--again:hover {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f8a6a6;
+}
+
+.rev-rating--easy:hover {
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.revision-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.revision-card__date {
+  width: auto;
+  max-width: 160px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--panel-top);
+  color: var(--text-b);
+  font: inherit;
+  font-size: 0.72rem;
+}
+
 /* ================ Study notes and saved solutions ====================== */
 /* These live inside the existing problem detail (Notes and Solutions tabs), so
    they reuse the app's tokens and work in all three themes. */

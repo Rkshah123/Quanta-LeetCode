@@ -481,6 +481,108 @@ const runSuite = async () => {
       record("Settings exposes the online API field", html.includes('id="settings-api-base"'), "settings-api-base");
       record("Settings keeps the compiler server separate", html.includes('id="settings-run-server"'), "settings-run-server");
     }
+/* 13. smart revision endpoints: contract, validation and safe failure.
+     Only dedicated test slugs are used, and they are deleted again at the end -
+     no catalog row and no real revision is touched. */
+  {
+    const testSlug = "quanta-api-test-revision";
+    const json = (method, path, body) =>
+      getJson(`${base}${path}`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+    const before = await json("GET", "/api/revision?tzOffset=0");
+    record(
+      "GET /api/revision answers the dashboard",
+      before.status === 200 && before.payload?.ok === true && Array.isArray(before.payload.items) && Boolean(before.payload.counts),
+      `status ${before.status}`
+    );
+
+    const emptyBefore = !before.payload.items.some((item) => item.slug === testSlug);
+
+    const added = await json("POST", "/api/revision", { slug: testSlug, title: "API test", num: 999999, difficulty: "Easy", tzOffsetMinutes: 0 });
+    record(
+      "POST /api/revision adds a problem",
+      added.status === 200 && added.payload?.item?.slug === testSlug && added.payload.item.stage === 0,
+      `status ${added.status}`
+    );
+
+    const badSlug = await json("POST", "/api/revision", { slug: "Not A Slug!", tzOffsetMinutes: 0 });
+    record("POST /api/revision rejects an invalid slug", badSlug.status === 400, `status ${badSlug.status}`);
+
+    const badTz = await json("GET", "/api/revision?tzOffset=9999");
+    record("GET /api/revision rejects an impossible timezone offset", badTz.status === 400, `status ${badTz.status}`);
+
+    const badConf = await json("POST", `/api/revision/${testSlug}/review`, { confidence: "brilliant", tzOffsetMinutes: 0 });
+    record("POST /api/revision/:slug/review rejects an unknown confidence", badConf.status === 400, `status ${badConf.status}`);
+
+    const reviewed = await json("POST", `/api/revision/${testSlug}/review`, { confidence: "good", tzOffsetMinutes: 0 });
+    record(
+      "POST /api/revision/:slug/review schedules the next date",
+      reviewed.status === 200 && reviewed.payload?.item?.reviewCount === 1 && Boolean(reviewed.payload.item.dueDate),
+      `due ${reviewed.payload?.item?.dueDate}`
+    );
+
+    const unknown = await json("POST", "/api/revision/not-in-any-list/review", { confidence: "good", tzOffsetMinutes: 0 });
+    record("Reviewing a problem that is not scheduled answers 404", unknown.status === 404, `status ${unknown.status}`);
+
+    const snoozed = await json("POST", `/api/revision/${testSlug}/reschedule`, { snoozeDays: 4, tzOffsetMinutes: 0 });
+    record(
+      "POST /api/revision/:slug/reschedule moves the date without losing the ladder",
+      snoozed.status === 200 && snoozed.payload?.item?.stage === 1 && snoozed.payload.item.reviewCount === 1,
+      `status ${snoozed.status}`
+    );
+
+    const badSnooze = await json("POST", `/api/revision/${testSlug}/reschedule`, { snoozeDays: 900, tzOffsetMinutes: 0 });
+    record("Rescheduling rejects an out-of-range snooze", badSnooze.status === 400, `status ${badSnooze.status}`);
+
+    const history = await getJson(`${base}/api/revision/history?slug=${testSlug}`);
+    record(
+      "GET /api/revision/history returns the reviews that really happened",
+      history.status === 200 && history.payload?.total === 1 && history.payload.items[0]?.confidence === "good",
+      `total ${history.payload?.total}`
+    );
+
+    const done = await json("POST", `/api/revision/${testSlug}/complete`, { tzOffsetMinutes: 0 });
+    record(
+      "POST /api/revision/:slug/complete finishes a problem",
+      done.status === 200 && done.payload?.item?.status === "completed",
+      `status ${done.status}`
+    );
+
+    const reviewFinished = await json("POST", `/api/revision/${testSlug}/review`, { confidence: "good", tzOffsetMinutes: 0 });
+    record("A finished problem cannot be reviewed again", reviewFinished.status === 409, `status ${reviewFinished.status}`);
+
+    const removed = await getJson(`${base}/api/revision/${testSlug}`, { method: "DELETE" });
+    record("DELETE /api/revision/:slug removes the problem", removed.status === 200 && removed.payload?.deleted === true, `status ${removed.status}`);
+
+    const removedTwice = await getJson(`${base}/api/revision/${testSlug}`, { method: "DELETE" });
+    record("Removing a problem that is not scheduled answers 404", removedTwice.status === 404, `status ${removedTwice.status}`);
+
+    const historyAfter = await getJson(`${base}/api/revision/history?slug=${testSlug}`);
+    record(
+      "The review history survives removal",
+      historyAfter.payload?.total === 1,
+      `total ${historyAfter.payload?.total}`
+    );
+
+    const after = await json("GET", "/api/revision?tzOffset=0");
+    record(
+      "The test problem is gone from the dashboard",
+      !after.payload.items.some((item) => item.slug === testSlug),
+      emptyBefore ? "" : "left a row behind"
+    );
+
+    record(
+      "Revision responses never leak database details",
+      !JSON.stringify(after.payload || {}).match(/password|root@|ER_|at Object|stack/i),
+      "checked"
+    );
+  }
+
+
   } finally {
     await stopServer(server);
   }
@@ -558,7 +660,7 @@ const runSuite = async () => {
     }
   }
 
-  console.log("");
+    console.log("");
   console.log(`${results.length - failures}/${results.length} tests passed.`);
   if (failures) {
     console.log(`${failures} test(s) failed.`);

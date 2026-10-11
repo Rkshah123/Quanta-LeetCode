@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=17" />
-  <link rel="stylesheet" href="lab-notes.css?v=42" />
+  <link rel="stylesheet" href="style.css?v=19" />
+  <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
 <body data-theme="dark">
@@ -46,6 +46,7 @@
     </div>
     <button class="nav-btn" type="button" data-page="quantalab">Quanta Lab</button>
     <button class="nav-btn" type="button" data-page="progress">Progress</button>
+    <button class="nav-btn" type="button" data-page="revision">Revision</button>
     <button class="nav-btn" type="button" data-page="notes">Notes</button>
     <button class="nav-btn" type="button" data-page="lab">Lab</button>
     <button class="nav-btn" type="button" data-page="settings">Settings</button>
@@ -128,6 +129,7 @@
                 </span>
                 <button id="lc-detail-solved" class="lc-solve-btn" type="button">Mark solved</button>
                 <button id="lc-detail-star" class="lc-star-btn" type="button" aria-pressed="false" aria-label="Star this problem for revision" title="Star for revision">☆ Star</button>
+                <button id="lc-detail-revision" class="lc-star-btn" type="button" aria-pressed="false" aria-label="Add this problem to the revision schedule" title="Add to revision">↻ Revise</button>
                 <button id="lc-detail-maximize" class="lc-max-btn" type="button" aria-label="Maximize notes and code" title="Maximize">
                   <svg class="lc-max-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3Zm-2-4h2V7h3V5H5v5Zm12 7h-3v2h5v-5h-2v3ZM14 5v2h3v3h2V5h-5Z"/></svg>
                   <svg class="lc-min-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h3v3h2v-5H5v2Zm3-8H5v2h5V5H8v3Zm6 11h2v-3h3v-2h-5v5Zm2-11V5h-2v5h5V8h-3Z"/></svg>
@@ -597,6 +599,72 @@
         </div>
       </div>
     </section>
+    <!-- ============================ Revision page ============================ -->
+    <section id="page-revision" class="page page--revision" data-page-id="revision" aria-label="Revision" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Revision</h2>
+          <p class="page-sub">Come back before you forget</p>
+        </div>
+        <button id="revision-refresh" class="icon-btn" type="button" aria-label="Refresh revision list" title="Refresh">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35Z"/></svg>
+        </button>
+      </header>
+
+      <div class="settings-body revision-body">
+        <p id="revision-status" class="progress-status" role="status" aria-live="polite">Loading your revision list...</p>
+
+        <div id="revision-error" class="progress-state progress-state--error" hidden>
+          <p id="revision-error-text">Your revision list could not be loaded.</p>
+          <button id="revision-error-retry" class="prog-btn" type="button">Try again</button>
+        </div>
+
+        <div id="revision-empty" class="progress-state progress-state--empty" hidden>
+          <p>Nothing to revise yet.</p>
+          <p class="progress-state__hint">Open a problem in Quanta Lab and press <strong>Add to revision</strong>. It comes back to you after a day, then after 3, 7, 14 and 30 days.</p>
+        </div>
+
+        <div id="revision-content" hidden>
+          <section class="settings-group" aria-labelledby="revision-today-title">
+            <h3 id="revision-today-title">Today</h3>
+            <div class="advanced-stats">
+              <div class="stat-card"><p>Due today</p><strong id="rev-due-today">0</strong><small class="stat-hint">problems to revisit</small></div>
+              <div class="stat-card"><p>Overdue</p><strong id="rev-overdue">0</strong><small class="stat-hint">waiting longer</small></div>
+              <div class="stat-card"><p>Reviewed</p><strong id="rev-reviewed">0</strong><small class="stat-hint">done today</small></div>
+              <div class="stat-card"><p>Day's progress</p><strong id="rev-progress">0%</strong><small class="stat-hint">of what was due</small></div>
+            </div>
+            <div class="rev-progress" role="img" aria-label="Revision progress today">
+              <div class="rev-progress__fill" id="rev-progress-fill"></div>
+            </div>
+          </section>
+
+          <div class="revision-filters">
+            <label class="study-field"><span>When</span>
+              <select id="revision-filter-when">
+                <option value="all">Everything scheduled</option>
+                <option value="due">Due and overdue</option>
+                <option value="overdue">Overdue only</option>
+                <option value="today">Due today only</option>
+                <option value="upcoming">Upcoming only</option>
+                <option value="completed">Finished</option>
+              </select>
+            </label>
+            <label class="study-field"><span>Difficulty</span>
+              <select id="revision-filter-difficulty">
+                <option value="all">All</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="revision-list" class="revision-list"></div>
+          <p id="revision-offline" class="progress-note" hidden>Showing the list saved on this device - the server could not be reached.</p>
+        </div>
+      </div>
+    </section>
     <!-- ============================ Settings page ============================ -->
     <section id="page-settings" class="page page--settings" data-page-id="settings" aria-label="Settings" hidden>
       <header class="page-head">
@@ -630,6 +698,28 @@
                 <input id="settings-glow-toggle" type="checkbox" checked />
                 <span></span>
               </label>
+            </div>
+          </div>
+        </section>
+        <section class="settings-group">
+          <h3>Revision</h3>
+          <div class="settings-rows">
+            <div class="settings-row">
+              <div class="settings-row__text">
+                <strong>Daily reminder</strong>
+                <span id="settings-reminder-hint">Ask this device for permission once, then a single reminder when you open the app with problems due. Off by default.</span>
+              </div>
+              <label class="settings-switch">
+                <input id="settings-revision-reminder" type="checkbox" />
+                <span></span>
+              </label>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__text">
+                <strong>Open revision list</strong>
+                <span>See what is due, overdue and coming up</span>
+              </div>
+              <button id="settings-revision-open" class="settings-action-btn" type="button">Open</button>
             </div>
           </div>
         </section>
@@ -917,6 +1007,6 @@
 
   <script src="vendor/monaco/min/vs/loader.js"></script>
   <script src="script.js?v=15"></script>
-  <script src="lab-notes.js?v=39"></script>
+  <script src="lab-notes.js?v=41"></script>
 </body>
 </html>

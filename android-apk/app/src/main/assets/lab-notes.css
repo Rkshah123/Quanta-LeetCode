@@ -232,6 +232,9 @@ body[data-theme="beige"] .settings-row__text span {
   display: flex;
   gap: 6px;
   flex: none;
+  /* Wraps rather than pushing the label into an unreadable sliver. */
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .theme-chip {
@@ -245,6 +248,27 @@ body[data-theme="beige"] .settings-row__text span {
   font-weight: 700;
   cursor: pointer;
   transition: filter var(--anim-fast), transform var(--anim-fast), box-shadow var(--anim-fast);
+}
+
+/* Phones: the three theme chips are wider than the space left beside the
+   label, which used to squash "Choose how the app looks" into a few pixels
+   wide and wrap it over four lines. The control now drops onto its own line.
+   Switches and small controls keep their usual label-left / control-right
+   layout, because they still fit. */
+@media (max-width: 760px) {
+  .settings-row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .settings-row__text {
+    min-width: 10ch;
+  }
+
+  .settings-row .theme-picker {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
 }
 
 .theme-chip:hover {
@@ -2908,7 +2932,8 @@ body {
 }
 
 .page--settings .settings-body,
-.page--about .settings-body {
+.page--about .settings-body,
+.page--revision .settings-body {
   max-width: 860px;
 }
 

@@ -12,7 +12,8 @@
     "test:api": "node scripts/test-api.js",
     "test:progress": "node scripts/test-progress.js",
     "test:study": "node scripts/test-study.js",
-    "check": "node --check script.js && node --check lab-notes.js && node --check server.js && node --check db/pool.js && node --check db/problems.js && node --check db/progress.js && node --check db/study.js && node --check db/migrate.js && node --check scripts/import-problems.js && node --check scripts/test-api.js && node --check scripts/test-progress.js && node --check scripts/test-study.js && node --check scripts/export-offline-pack.js"
+    "test:revision": "node scripts/test-revision.js",
+    "check": "node --check script.js && node --check lab-notes.js && node --check server.js && node --check db/pool.js && node --check db/problems.js && node --check db/progress.js && node --check db/study.js && node --check db/revision.js && node --check db/migrate.js && node --check scripts/import-problems.js && node --check scripts/test-api.js && node --check scripts/test-progress.js && node --check scripts/test-study.js && node --check scripts/test-revision.js && node --check scripts/export-offline-pack.js"
   },
   "keywords": [
     "leetcode",

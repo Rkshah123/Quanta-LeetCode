@@ -3,6 +3,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Android 13 and newer ask for this before a web notification can be
+         shown. The revision reminder is off by default and the app never asks
+         for this permission on its own: the permission is only requested when
+         the user turns the reminder on in Settings. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"

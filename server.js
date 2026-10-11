@@ -11,6 +11,7 @@ const database = require("./db/pool");
 const problemsRepo = require("./db/problems");
 const progressRepo = require("./db/progress");
 const studyRepo = require("./db/study");
+const revisionRepo = require("./db/revision");
 
 const app = express();
 
@@ -1243,6 +1244,154 @@ app.delete("/api/study/solutions/:id", rateLimit, async (req, res) => {
       res.status(404).json({ ok: false, error: "That saved solution no longer exists." });
       return;
     }
+    res.json({ ok: true, deleted: true });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+/* --------------------------- smart revision API --------------------------- */
+/* When each problem should be revisited next. Every read and write is scoped to
+   the single owner in db/revision.js.
+
+   `tzOffsetMinutes` (minutes east of UTC) is sent by the client so "due today"
+   means the caller's today. Dates are stored as calendar days, so no timezone
+   rule can move a review. Scheduling lives in db/revision.js (nextSchedule) and
+   is unit-tested there; this layer only validates and delegates. */
+
+app.get("/api/revision", rateLimit, async (req, res) => {
+  const tzOffset = req.query.tzOffset === undefined ? 0 : Number(req.query.tzOffset);
+  if (!Number.isInteger(tzOffset) || tzOffset < -840 || tzOffset > 840) {
+    res.status(400).json({ ok: false, error: "Invalid timezone offset." });
+    return;
+  }
+  try {
+    const dashboard = await revisionRepo.getDashboard({ tzOffsetMinutes: tzOffset });
+    res.json({ ok: true, ...dashboard });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+app.get("/api/revision/history", rateLimit, async (req, res) => {
+  try {
+    const page = await revisionRepo.listHistory({
+      slug: String(req.query.slug || ""),
+      limit: req.query.limit,
+      offset: req.query.offset
+    });
+    res.json({ ok: true, ...page });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+app.post("/api/revision", rateLimit, async (req, res) => {
+  const body = req.body || {};
+  const tzOffset = body.tzOffsetMinutes === undefined ? 0 : Number(body.tzOffsetMinutes);
+  if (!Number.isInteger(tzOffset) || tzOffset < -840 || tzOffset > 840) {
+    res.status(400).json({ ok: false, error: "Invalid timezone offset." });
+    return;
+  }
+  if (typeof body.slug !== "string" || body.slug.length > 191) {
+    res.status(400).json({ ok: false, error: "A problem slug is required." });
+    return;
+  }
+  if (body.title !== undefined && typeof body.title !== "string") {
+    res.status(400).json({ ok: false, error: "Title must be text." });
+    return;
+  }
+  if (body.difficulty && !["Easy", "Medium", "Hard"].includes(body.difficulty)) {
+    res.status(400).json({ ok: false, error: "Difficulty must be Easy, Medium or Hard." });
+    return;
+  }
+  try {
+    const item = await revisionRepo.addItem({ ...body, tzOffsetMinutes: tzOffset });
+    res.json({ ok: true, item });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error?.message || "Could not add this problem." });
+  }
+});
+
+app.post("/api/revision/:slug/review", rateLimit, async (req, res) => {
+  const body = req.body || {};
+  const tzOffset = body.tzOffsetMinutes === undefined ? 0 : Number(body.tzOffsetMinutes);
+  if (!Number.isInteger(tzOffset) || tzOffset < -840 || tzOffset > 840) {
+    res.status(400).json({ ok: false, error: "Invalid timezone offset." });
+    return;
+  }
+  if (!revisionRepo.CONFIDENCE.includes(body.confidence)) {
+    res.status(400).json({ ok: false, error: "Confidence must be again, difficult, good or easy." });
+    return;
+  }
+  try {
+    const result = await revisionRepo.reviewItem(req.params.slug, { ...body, tzOffsetMinutes: tzOffset });
+    if (result.notFound) {
+      res.status(404).json({ ok: false, error: "This problem is not in your revision list." });
+      return;
+    }
+    if (result.completed) {
+      res.status(409).json({ ok: false, error: "This problem is already finished. Add it again to revise it." });
+      return;
+    }
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error?.message || "Could not record this review." });
+  }
+});
+
+app.post("/api/revision/:slug/reschedule", rateLimit, async (req, res) => {
+  const body = req.body || {};
+  const tzOffset = body.tzOffsetMinutes === undefined ? 0 : Number(body.tzOffsetMinutes);
+  if (!Number.isInteger(tzOffset) || tzOffset < -840 || tzOffset > 840) {
+    res.status(400).json({ ok: false, error: "Invalid timezone offset." });
+    return;
+  }
+  const snoozeDays = body.snoozeDays === undefined ? null : Number(body.snoozeDays);
+  if (snoozeDays !== null && (!Number.isInteger(snoozeDays) || snoozeDays < 1 || snoozeDays > 365)) {
+    res.status(400).json({ ok: false, error: "snoozeDays must be between 1 and 365." });
+    return;
+  }
+  try {
+    const result = await revisionRepo.rescheduleItem(req.params.slug, { ...body, tzOffsetMinutes: tzOffset });
+    if (result.notFound) {
+      res.status(404).json({ ok: false, error: "This problem is not in your active revision list." });
+      return;
+    }
+    res.json({ ok: true, item: result.item });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error?.message || "Could not change the date." });
+  }
+});
+
+app.post("/api/revision/:slug/complete", rateLimit, async (req, res) => {
+  const body = req.body || {};
+  const tzOffset = body.tzOffsetMinutes === undefined ? 0 : Number(body.tzOffsetMinutes);
+  if (!Number.isInteger(tzOffset) || tzOffset < -840 || tzOffset > 840) {
+    res.status(400).json({ ok: false, error: "Invalid timezone offset." });
+    return;
+  }
+  try {
+    const result = await revisionRepo.completeItem(req.params.slug, { tzOffsetMinutes: tzOffset });
+    if (result.notFound) {
+      res.status(404).json({ ok: false, error: "This problem is not in your revision list." });
+      return;
+    }
+    res.json({ ok: true, item: result.item });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+app.delete("/api/revision/:slug", rateLimit, async (req, res) => {
+  try {
+    const removed = await revisionRepo.removeItem(req.params.slug);
+    if (!removed) {
+      res.status(404).json({ ok: false, error: "This problem is not in your revision list." });
+      return;
+    }
+    /* The review history is kept on purpose - removing a row must never erase
+       what was actually reviewed. */
     res.json({ ok: true, deleted: true });
   } catch (error) {
     respondDatabaseError(res, error);
