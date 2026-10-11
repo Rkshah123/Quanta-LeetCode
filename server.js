@@ -10,6 +10,7 @@ dotenv.config({ quiet: true });
 const database = require("./db/pool");
 const problemsRepo = require("./db/problems");
 const progressRepo = require("./db/progress");
+const studyRepo = require("./db/study");
 
 const app = express();
 
@@ -1065,6 +1066,188 @@ const recordRunAttempt = async (language, body, result) => {
     console.error(`[progress] run not recorded: ${error?.message || error}`);
   }
 };
+
+/* ------------------------- notes and saved solutions --------------------- */
+/* Private working documents: the user's study note for a problem and any number
+   of saved solutions. Every read and write is scoped to the single owner in
+   db/study.js, so one set of notes can never be seen or changed by another.
+
+   Writes carry the `revision` the client edited. A stale revision is answered
+   with 409 and the current server copy, so a slow device can never silently
+   overwrite newer work - it becomes a conflict the user resolves. */
+
+const studyErrorStatus = (error) => {
+  const message = error?.message || String(error);
+  if (/slug is required|code is required/i.test(message)) return 400;
+  return 500;
+};
+
+app.get("/api/study/note", rateLimit, async (req, res) => {
+  const slug = String(req.query.slug || "");
+  if (!studyRepo.normalizeSlug(slug)) {
+    res.status(400).json({ ok: false, error: "A valid problem slug is required." });
+    return;
+  }
+  try {
+    const note = await studyRepo.getNote(slug);
+    res.json({ ok: true, note });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+app.put("/api/study/note", rateLimit, async (req, res) => {
+  const body = req.body || {};
+  const baseRevision = body.baseRevision === undefined ? 0 : Number(body.baseRevision);
+  if (!Number.isInteger(baseRevision) || baseRevision < 0) {
+    res.status(400).json({ ok: false, error: "baseRevision must be a whole number." });
+    return;
+  }
+  if (body.tags !== undefined && !Array.isArray(body.tags) && typeof body.tags !== "string") {
+    res.status(400).json({ ok: false, error: "tags must be an array of words." });
+    return;
+  }
+  try {
+    const result = await studyRepo.saveNote({ ...body, baseRevision });
+    if (result.conflict) {
+      res.status(409).json({
+        ok: false,
+        conflict: true,
+        reason: result.reason,
+        error:
+          result.reason === "missing"
+            ? "This note no longer exists on the server. Reload to drop your copy, or save it again."
+            : "This note changed on another device. Reload to get that version, or save yours again.",
+        note: result.server
+      });
+      return;
+    }
+    res.json({ ok: true, note: result.note });
+  } catch (error) {
+    const status = studyErrorStatus(error);
+    if (status === 500) {
+      respondDatabaseError(res, error);
+      return;
+    }
+    res.status(status).json({ ok: false, error: error?.message || "Invalid note." });
+  }
+});
+
+app.delete("/api/study/note", rateLimit, async (req, res) => {
+  const slug = String(req.query.slug || "");
+  if (!studyRepo.normalizeSlug(slug)) {
+    res.status(400).json({ ok: false, error: "A valid problem slug is required." });
+    return;
+  }
+  try {
+    const removed = await studyRepo.deleteNote(slug);
+    if (!removed) {
+      res.status(404).json({ ok: false, error: "No note found for this problem." });
+      return;
+    }
+    res.json({ ok: true, deleted: true });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+app.get("/api/study/solutions", rateLimit, async (req, res) => {
+  try {
+    const page = await studyRepo.listSolutions({
+      slug: String(req.query.slug || ""),
+      limit: req.query.limit,
+      offset: req.query.offset
+    });
+    res.json({ ok: true, ...page });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+/* Search the user's own notes and saved solutions by text, language or tag. */
+app.get("/api/study/search", rateLimit, async (req, res) => {
+  const q = req.query.q === undefined ? "" : String(req.query.q);
+  if (q.length > 200) {
+    res.status(400).json({ ok: false, error: "Search text is too long." });
+    return;
+  }
+  try {
+    const items = await studyRepo.searchStudy({
+      q,
+      language: String(req.query.language || ""),
+      tag: String(req.query.tag || ""),
+      limit: req.query.limit
+    });
+    res.json({ ok: true, items, total: items.length });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+app.post("/api/study/solutions", rateLimit, async (req, res) => {
+  const body = req.body || {};
+  if (typeof body.code !== "string" || !body.code.trim()) {
+    res.status(400).json({ ok: false, error: "Code is required." });
+    return;
+  }
+  try {
+    const result = await studyRepo.createSolution(body);
+    res.status(result.created ? 201 : 200).json({ ok: true, solution: result.solution, created: result.created });
+  } catch (error) {
+    const status = studyErrorStatus(error);
+    if (status === 500) {
+      respondDatabaseError(res, error);
+      return;
+    }
+    res.status(status).json({ ok: false, error: error?.message || "Invalid solution." });
+  }
+});
+
+app.put("/api/study/solutions/:id", rateLimit, async (req, res) => {
+  const body = req.body || {};
+  const baseRevision = body.baseRevision === undefined ? 0 : Number(body.baseRevision);
+  if (!Number.isInteger(baseRevision) || baseRevision < 0) {
+    res.status(400).json({ ok: false, error: "baseRevision must be a whole number." });
+    return;
+  }
+  try {
+    const result = await studyRepo.updateSolution(req.params.id, { ...body, baseRevision });
+    if (result.notFound) {
+      res.status(404).json({ ok: false, error: "That saved solution no longer exists." });
+      return;
+    }
+    if (result.conflict) {
+      res.status(409).json({
+        ok: false,
+        conflict: true,
+        error: "This solution changed on another device. Reload to get that version, or save yours again.",
+        solution: result.server
+      });
+      return;
+    }
+    res.json({ ok: true, solution: result.solution });
+  } catch (error) {
+    const status = studyErrorStatus(error);
+    if (status === 500) {
+      respondDatabaseError(res, error);
+      return;
+    }
+    res.status(status).json({ ok: false, error: error?.message || "Invalid solution." });
+  }
+});
+
+app.delete("/api/study/solutions/:id", rateLimit, async (req, res) => {
+  try {
+    const removed = await studyRepo.deleteSolution(req.params.id);
+    if (!removed) {
+      res.status(404).json({ ok: false, error: "That saved solution no longer exists." });
+      return;
+    }
+    res.json({ ok: true, deleted: true });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
 
 app.get("/api/run/capabilities", runRateLimit, async (_req, res) => {
   const capabilities = await getRunCapabilities();

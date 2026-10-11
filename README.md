@@ -72,7 +72,8 @@ The frontend is deliberately framework-free: no React, no bundler, no browser-si
 |---|---|
 | **Quanta Lab** (home) | 782-problem catalog: search, difficulty chips, status filter (all / solved / unsolved / starred), star-to-revise toggle on every row, progress chip; list ⇄ detail split with a draggable divider; detail = statement (Notes tab) + workspace (Code tab: language select, Monaco, stdin, Run/Save, per-language code); maximized mode; add-problem dialog |
 | **Progress** | Coding progress dashboard, database-backed: totals, solved / unsolved, completion %, current + longest streak, solved today and this week, difficulty completion, a 365-day activity calendar with per-day details, weekly and monthly trends, this week / month vs. the previous period, paginated recent activity, and server-observed code runs. Refresh button, plus explicit loading, empty and error states |
-| **Notes** | Per-language notes: title, rich-text editor, section list, find/replace, word count, save, export (.html / .txt), delete |
+| **Saved solutions** (third tab of every problem, beside Notes and Code) | Any number of saved solutions per problem: title, language, code, explanation, time/space complexity, created and updated dates. Create, edit, rename, open-in-editor, delete. The working editor keeps its own copy - saving a solution never changes what is open in it |
+| **Notes** | Per-language notes: title, rich-text editor, section list, find/replace, word count, save, export (.html / .txt), delete. Each problem also has a **Study notes** block: approach, key observations, edge cases, time/space complexity and tags, kept next to the rich text |
 | **Lab** | Multi-program Code Lab: create / rename / delete programs as tabs, language picker (Java, JavaScript, Python, C, C++), Monaco editor, stdin, Run, save-to-file, font size A− / A+, auto-save; editor ⇄ output panes split by a draggable divider (stacked on phones with an Editor / Output switch) |
 | **Settings** | Theme (Emerald Night / Pearl Light / Ember), glow, editor font, default language, tab size, word wrap, line numbers, Monaco theme, minimap, layout reset, connection (Online API + Compiler server, each with Save / Test), backup export, reset dashboard |
 | **About** | App facts (build date, measured localStorage usage, bundled vs. device-cached statement counts, online-database status verified against `/health` on every visit), accurate feature list, live stats (problems / solved / starred / programs / notes), refresh, quick links, contact |
@@ -463,6 +464,14 @@ The cache lives in `localStorage` under `quantaDescCacheV1` (newest 400 statemen
 | `GET /api/progress/summary?tzOffset=&days=&weeks=&months=` | Whole dashboard in one response: catalog totals, solved per difficulty, completion %, streaks, solved today / week / month, week and month comparison, dense daily / weekly / monthly series, run counts |
 | `GET /api/progress/activity?limit=&offset=` | Paginated solved history, newest first |
 | `POST /api/progress/solved` | `{ slug, num?, title?, difficulty?, solved }` → records or clears the user's own "Mark solved" |
+| `GET /api/study/note?slug=` | The study note for one problem, with its rich-text sections and `revision` |
+| `PUT /api/study/note` | Creates or updates the note; a stale `baseRevision` is answered with `409` and the current server copy |
+| `DELETE /api/study/note?slug=` | Removes the note |
+| `GET /api/study/solutions?slug=&limit=&offset=` | Saved solutions, newest first |
+| `POST /api/study/solutions` | Saves a solution; `clientId` makes a repeated offline create idempotent |
+| `PUT /api/study/solutions/:id` | Updates one solution, `409` on a stale `baseRevision` |
+| `DELETE /api/study/solutions/:id` | Deletes one solution |
+| `GET /api/study/search?q=&language=&tag=` | Finds the user's own notes and solutions by text, language or tag |
 | `POST /api/assistant` | `{ message }` → reply (local fallback) |
 
 Errors use one shape: `{ ok: false, error: "…" }`, with `400` for bad input, `404` for unknown records, `429` when rate limited, `503` when the database is unreachable. Credentials, stack traces and connection details are never returned.
@@ -477,6 +486,7 @@ npm run migrate -- --status
 npm run import:problems -- --dry-run
 npm run test:api        # integration tests against a real server + database
 npm run test:progress   # streaks, calendar, timezones, duplicates, pagination
+npm run test:study      # notes, saved solutions, revisions, conflicts, isolation
 ```
 
 ### What "solved" and "runs" mean here
@@ -491,6 +501,20 @@ Progress is stored per problem in `problem_progress` (keyed by LeetCode slug, so
 Marking a problem solved in Quanta Lab writes it to the database in the background, and on start-up the app pulls problems solved on another device, so the phone and the browser always agree. Offline, the device keeps its own state and syncs the next time it can.
 
 `npm run test:progress` covers streak rules (including a streak that ended yesterday, a broken streak and an old record), calendar arithmetic across month, year and DST boundaries, ISO week keys, the timezone shift applied to a solve near midnight, duplicate marks, problems solved outside the catalog, pagination, run history, and the empty state. It uses dedicated `quanta-progress-test-*` slugs, refuses to run if they already exist, and removes exactly what it created (**90/90**).
+
+### Study notes and saved solutions
+
+Each problem keeps a **study note** (title, approach, key observations, edge cases, time and space complexity, tags) next to the rich text that already existed, and any number of **saved solutions** (title, language, code, explanation, complexity, timestamps) in a third tab beside Notes and Code.
+
+- **The editor is never overwritten.** "Save current editor as a solution" copies the open code into a new saved solution; loading a saved solution into the editor asks first.
+- **Local first, then synced.** Everything is written to the device immediately and pushed to the database afterwards. The badge on each item says which it is: *On this device*, *Waiting to sync*, *Synced* or *Conflict*. Nothing is called synced until the server confirms that exact revision.
+- **No silent overwrites.** Every server row carries a `revision`. A write built on an old revision is refused with `409`, both copies are shown, and you choose "Keep my version" or "Use the other device's version".
+- **Offline.** With no server the save still succeeds and is kept on the device; opening the problem again and saving pushes it. Pending work is never claimed as synced.
+- **Unsaved work is protected.** Leaving the page with typed-but-unsaved note text or a half-written solution asks before discarding, and deleting a note or a solution always confirms first.
+- **Private.** Everything is scoped to the single owner in `db/study.js`, and search only ever returns that owner's rows.
+- **No false claims.** The runner has no access to a problem's hidden tests, so a saved solution is never described as correct or accepted.
+
+`npm run test:study` covers tag normalisation and limits, note create/read/update, refused stale writes, replayed revisions, several solutions per problem in different languages, idempotent offline creates, unknown ids, cross-owner isolation (including search), large payloads and deletion. It uses dedicated `quanta-study-test-*` slugs, refuses to run if they already exist, and removes exactly what it created (**66/66**).
 
 `npm run test:api` covers: health and database reporting, pagination and search, invalid input, missing records, numeric id and slug lookup, statement delivery from the database, run/assistant endpoints, static file protection, CORS rules, the client-side cache wiring, rate limiting, graceful behaviour when the database is down, and the full **cloud-runner** path — a second server started with its `PATH` reduced to Node's own directory (exactly the situation on Render, where no compiler exists) driving Java through Judge0: a real run, a compile error, a runaway loop hitting the time limit, stdin, and a class whose name differs from `Main`. All tests currently pass (**59/59**).
 

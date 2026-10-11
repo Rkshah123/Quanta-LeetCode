@@ -1761,6 +1761,284 @@ body[data-theme="beige"] .btn-toggle {
   .stat-card:last-child { grid-column: auto; }
 }
 
+/* ================ Study notes and saved solutions ====================== */
+/* These live inside the existing problem detail (Notes and Solutions tabs), so
+   they reuse the app's tokens and work in all three themes. */
+
+.study-note {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--field);
+}
+
+.study-note__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.study-note__head h3 {
+  margin: 0;
+  color: var(--text-b);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.study-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-c);
+  font-size: 0.64rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.study-badge--synced {
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.study-badge--pending,
+.study-badge--local {
+  border-color: var(--border);
+  color: var(--text-b);
+}
+
+.study-badge--conflict {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f8a6a6;
+}
+
+.study-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.study-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.study-field--wide {
+  grid-column: 1 / -1;
+}
+
+.study-field > span {
+  color: var(--text-c);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.study-field input,
+.study-field select,
+.study-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--panel-top);
+  color: var(--text-a);
+  font: inherit;
+  font-size: 0.8rem;
+  resize: vertical;
+}
+
+.study-field textarea {
+  font-family: var(--mono-font, ui-monospace, Consolas, monospace);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.study-field input:focus,
+.study-field select:focus,
+.study-field textarea:focus {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.study-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.prog-btn--danger {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.08);
+  color: #f8a6a6;
+}
+
+.study-hint {
+  color: var(--text-c);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.study-conflict {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: var(--radius-md);
+  background: rgba(248, 113, 113, 0.06);
+}
+
+.study-conflict p {
+  margin: 0;
+  color: var(--text-b);
+  font-size: 0.74rem;
+}
+
+.study-conflict[hidden] {
+  display: none;
+}
+
+/* Saved solutions */
+.solutions-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.solutions-title {
+  margin: 0 0 4px;
+  color: var(--text-b);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.solutions-head .study-hint {
+  margin: 0;
+  max-width: 62ch;
+}
+
+.solution-list {
+  display: grid;
+  gap: 10px;
+}
+
+.solution-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--field);
+}
+
+.solution-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.solution-card__title {
+  color: var(--text-a);
+  font-size: 0.88rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.solution-card__lang {
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--text-b);
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.solution-card__meta {
+  margin: 0;
+  color: var(--text-c);
+  font-size: 0.68rem;
+}
+
+.solution-card__code {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--panel-top);
+  color: var(--text-b);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.solution-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.solution-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--field);
+}
+
+.solution-form[hidden] {
+  display: none;
+}
+
+.solution-form__title {
+  margin: 0;
+  color: var(--text-b);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  /* Phones: one column of fields, and the code preview scrolls instead of
+     stretching the card sideways. */
+  .study-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .study-field textarea {
+    font-size: 0.78rem;
+  }
+
+  .solution-card__code {
+    max-height: 120px;
+  }
+
+  .solutions-head .prog-btn,
+  .study-actions .prog-btn {
+    width: 100%;
+  }
+}
+
 /* ======================= Progress dashboard ============================= */
 /* The statistic tiles reuse the existing .advanced-stats / .stat-card
    components; everything below is specific to the Progress page. */

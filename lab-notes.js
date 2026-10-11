@@ -223,6 +223,8 @@
   const notesAddSectionBtn = byId("notes-add-section-btn");
   const notesSaveBtn = byId("notes-save-btn");
   const notesExportTxtBtn = byId("notes-export-txt-btn");
+  const qlTabSolutions = byId("ql-tab-solutions");
+  const qlViewSolutions = byId("ql-view-solutions");
   const notesWordCount = byId("notes-word-count");
   const notesSectionsList = byId("notes-sections-list");
 
@@ -3015,6 +3017,9 @@
     if (savedBadge) savedBadge.hidden = !getProblemCode(problem, qlActiveLanguage).trim();
     renderNotesSections();
     renderQlCodeView();
+    /* Study notes and saved solutions belong to this problem, so they are
+       reloaded whenever a different problem is opened. */
+    if (typeof refreshStudyForActiveProblem === "function") refreshStudyForActiveProblem();
   };
 
   const renderLcAll = () => {
@@ -3704,19 +3709,28 @@
 
   const selectQlTab = (tab) => {
     const isNotes = tab === "notes";
+    const isSolutions = tab === "solutions";
+    const isCode = !isNotes && !isSolutions;
     qlTabNotes.classList.toggle("is-active", isNotes);
-    qlTabCode.classList.toggle("is-active", !isNotes);
+    qlTabCode.classList.toggle("is-active", isCode);
+    qlTabSolutions?.classList.toggle("is-active", isSolutions);
     qlTabNotes.setAttribute("aria-selected", String(isNotes));
-    qlTabCode.setAttribute("aria-selected", String(!isNotes));
+    qlTabCode.setAttribute("aria-selected", String(isCode));
+    qlTabSolutions?.setAttribute("aria-selected", String(isSolutions));
     qlViewNotes.hidden = !isNotes;
-    qlViewCode.hidden = isNotes;
-    if (!isNotes) void renderQlCodeView();
+    qlViewCode.hidden = !isCode;
+    if (qlViewSolutions) qlViewSolutions.hidden = !isSolutions;
+    if (isCode) void renderQlCodeView();
     relayoutMonacoEditors();
-    if (!isNotes) queueDescDividerSync();
+    if (isCode) queueDescDividerSync();
   };
 
   qlTabNotes?.addEventListener("click", () => selectQlTab("notes"));
   qlTabCode?.addEventListener("click", () => selectQlTab("code"));
+  qlTabSolutions?.addEventListener("click", () => {
+    selectQlTab("solutions");
+    void renderSolutionList(studySlug(getActiveLcProblem()));
+  });
 
   /* ------------------- per-problem notes (rich text) --------------------- */
 
@@ -5823,6 +5837,700 @@
       }
     }
   });
+
+/* ================== study notes and saved solutions (client) ============== */
+/* Personal notes and saved solutions for each problem, stored on the device
+   first and pushed to the database when a server is reachable.
+
+   How saving behaves:
+     - The working code in the editor is never touched. "Save current editor as a
+       solution" copies it into a new saved solution and leaves the editor alone.
+     - A saved solution is only ever called a saved solution. The runner executes
+       code with free-form stdin and cannot check a problem's hidden tests, so
+       nothing here is ever described as correct or accepted.
+
+   Sync states shown in the UI:
+     local   - written on this device, not sent yet (no server when written)
+     pending - saved locally, waiting for the server to confirm
+     synced  - the server confirmed this exact revision
+     conflict- the server has a newer revision; the user must choose
+
+   Conflicts are never resolved silently: a stale write is refused by the server,
+   its current copy is shown, and "Use mine" re-sends deliberately. */
+
+const STUDY_KEY = "quantaStudyStoreV1";
+
+const SYNC_LABELS = {
+  local: "On this device",
+  pending: "Waiting to sync",
+  synced: "Synced",
+  conflict: "Conflict"
+};
+
+const emptyStudyStore = () => ({ notes: {}, solutions: [], pending: 0 });
+
+const readStudyStore = () => {
+  const raw = readJson(STUDY_KEY, emptyStudyStore);
+  return {
+    notes: raw && typeof raw.notes === "object" && raw.notes ? raw.notes : {},
+    solutions: Array.isArray(raw.solutions) ? raw.solutions : [],
+    pending: 0
+  };
+};
+
+let studyStore = readStudyStore();
+
+const writeStudyStore = () => writeJson(STUDY_KEY, studyStore);
+
+const studySlug = (problem) => {
+  const info = extractLcProblemInfo(problem?.url || "");
+  return info ? info.slug : "";
+};
+
+/* ------------------------------ transport ------------------------------- */
+
+const studyRequest = async (path, options = {}) => {
+  const hasTimeout = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function";
+  const response = await fetch(`${getApiBase()}${path}`, {
+    cache: "no-store",
+    ...options,
+    signal: hasTimeout ? AbortSignal.timeout(15000) : undefined
+  });
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  return { status: response.status, ok: response.ok, payload };
+};
+
+const studyJson = (method, body) => ({
+  method,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body)
+});
+
+/* ------------------------------- notes ---------------------------------- */
+
+const emptyNote = (slug) => ({
+  slug,
+  title: "",
+  approach: "",
+  observations: "",
+  edgeCases: "",
+  timeComplexity: "",
+  spaceComplexity: "",
+  tags: [],
+  sections: null,
+  revision: 0,
+  syncState: "local",
+  serverCopy: null,
+  updatedAt: null
+});
+
+const getStoredNote = (slug) => studyStore.notes[slug] || emptyNote(slug);
+
+const setStoredNote = (slug, patch) => {
+  const next = { ...getStoredNote(slug), ...patch, slug };
+  next.updatedAt = new Date().toISOString();
+  studyStore.notes[slug] = next;
+  writeStudyStore();
+  return next;
+};
+
+const noteHasContent = (note) =>
+  Boolean(
+    (note.title || "").trim() ||
+      (note.approach || "").trim() ||
+      (note.observations || "").trim() ||
+      (note.edgeCases || "").trim() ||
+      (note.timeComplexity || "").trim() ||
+      (note.spaceComplexity || "").trim() ||
+      (note.tags || []).length
+  );
+
+/* Pulls the note for this problem: device copy first, then the server copy when
+   it is newer. A local edit that has not been sent is never overwritten. */
+const loadNoteFor = async (slug) => {
+  const local = getStoredNote(slug);
+  const result = await studyRequest(`/api/study/note?slug=${encodeURIComponent(slug)}`);
+  if (result.status === 0 || !result.ok) return local;
+  const server = result.payload?.note || null;
+
+  if (!server) {
+    /* The server has no note: keep a local one, but a copy that was previously
+       synced and deleted elsewhere should not reappear as if it were new. */
+    if (!local.revision) return local;
+    return setStoredNote(slug, { syncState: "local" });
+  }
+
+  if (local.syncState === "pending" || local.syncState === "conflict") {
+    /* Local work wins until the server has confirmed it; compare revisions so a
+       clearly older server copy cannot roll the user back by surprise. */
+    if (local.revision && local.revision > server.revision) return local;
+    if (local.syncState === "pending") return local;
+    return setStoredNote(slug, { syncState: "conflict", serverCopy: server });
+  }
+
+  const merged = {
+    ...local,
+    ...server,
+    tags: Array.isArray(server.tags) ? server.tags : [],
+    sections: Array.isArray(server.sections) ? server.sections : local.sections,
+    syncState: "synced",
+    serverCopy: null
+  };
+  studyStore.notes[slug] = merged;
+  writeStudyStore();
+  return merged;
+};
+
+/* Saves the note: the device copy is updated first, so the work is never lost,
+   and the server is asked to confirm it afterwards. */
+const saveNoteFor = async (slug) => {
+  const current = getStoredNote(slug);
+  const local = setStoredNote(slug, { syncState: "pending" });
+  const body = {
+    slug,
+    title: current.title || "",
+    approach: current.approach || "",
+    observations: current.observations || "",
+    edgeCases: current.edgeCases || "",
+    timeComplexity: current.timeComplexity || "",
+    spaceComplexity: current.spaceComplexity || "",
+    tags: current.tags || [],
+    sections: current.sections || undefined,
+    baseRevision: current.revision || 0
+  };
+
+  const result = await studyRequest("/api/study/note", studyJson("PUT", body));
+
+  if (result.ok && result.payload?.note) {
+    return setStoredNote(slug, { ...result.payload.note, syncState: "synced", serverCopy: null });
+  }
+
+  if (result.status === 409) {
+    setStoredNote(slug, { syncState: "conflict", serverCopy: result.payload?.note || null });
+    return getStoredNote(slug);
+  }
+
+  /* No server: the note stays on this device and is marked as such. */
+  setStoredNote(slug, { syncState: "local" });
+  return getStoredNote(slug);
+};
+
+/* Re-sends the local copy on purpose, accepting the server's newer revision. */
+const forceSaveNoteFor = async (slug) => {
+  const current = getStoredNote(slug);
+  const base = current.serverCopy?.revision ?? current.revision ?? 0;
+  return saveNoteFor(slug, base);
+};
+
+const deleteNoteFor = async (slug) => {
+  delete studyStore.notes[slug];
+  writeStudyStore();
+  await studyRequest(`/api/study/note?slug=${encodeURIComponent(slug)}`, { method: "DELETE" });
+};
+
+/* ----------------------------- solutions -------------------------------- */
+
+const solutionsFor = (slug) =>
+  studyStore.solutions.filter((solution) => solution.slug === slug);
+
+const upsertStoredSolution = (solution) => {
+  const index = studyStore.solutions.findIndex(
+    (entry) =>
+      (solution.id && entry.id === solution.id) ||
+      (solution.clientId && entry.clientId === solution.clientId)
+  );
+  const next = { ...solution, updatedAt: solution.updatedAt || new Date().toISOString() };
+  if (index >= 0) studyStore.solutions[index] = { ...studyStore.solutions[index], ...next };
+  else studyStore.solutions.unshift(next);
+  writeStudyStore();
+  return next;
+};
+
+const listSolutionsFor = async (slug) => {
+  const localOnly = solutionsFor(slug).some((entry) => entry.syncState !== "synced");
+  const result = await studyRequest(`/api/study/solutions?slug=${encodeURIComponent(slug)}&limit=100`);
+  if (!result.ok) return solutionsFor(slug);
+
+  (result.payload?.items || []).forEach((server) => {
+    const local = studyStore.solutions.find((entry) => entry.id === server.id);
+    if (!local) {
+      studyStore.solutions.unshift({ ...server, syncState: "synced" });
+      return;
+    }
+    if (local.syncState === "pending" || local.syncState === "conflict") {
+      if (server.revision > (local.revision || 0)) {
+        studyStore.solutions[studyStore.solutions.indexOf(local)] = {
+          ...local,
+          syncState: "conflict",
+          serverCopy: server
+        };
+      }
+      return;
+    }
+    Object.assign(local, server, { syncState: "synced", serverCopy: null });
+  });
+
+  /* Server rows that were deleted elsewhere must not linger as "synced". */
+  const serverIds = new Set((result.payload?.items || []).map((item) => item.id));
+  studyStore.solutions = studyStore.solutions.filter(
+    (entry) => entry.slug !== slug || entry.syncState !== "synced" || serverIds.has(entry.id)
+  );
+  writeStudyStore();
+  return localOnly ? solutionsFor(slug) : solutionsFor(slug);
+};
+
+const createSolutionLocal = async (input) => {
+  const clientId = randomId("sol");
+  const draft = {
+    id: null,
+    clientId,
+    slug: input.slug,
+    title: input.title || "Solution",
+    language: input.language || "java",
+    code: input.code || "",
+    explanation: input.explanation || "",
+    timeComplexity: input.timeComplexity || "",
+    spaceComplexity: input.spaceComplexity || "",
+    revision: 0,
+    syncState: "pending",
+    createdAt: new Date().toISOString()
+  };
+  upsertStoredSolution(draft);
+
+  const result = await studyRequest("/api/study/solutions", studyJson("POST", draft));
+  if (result.ok && result.payload?.solution) {
+    const stored = upsertStoredSolution({ ...result.payload.solution, syncState: "synced", serverCopy: null });
+    /* Drop the offline draft now that the server has its own copy. */
+    studyStore.solutions = studyStore.solutions.filter(
+      (entry) => !(entry.clientId === clientId && entry.id !== stored.id)
+    );
+    writeStudyStore();
+    return stored;
+  }
+  setSolutionSync(stored0(draft), "local");
+  return getStoredSolution(draft.clientId);
+};
+
+const stored0 = (draft) => studyStore.solutions.find((entry) => entry.clientId === draft.clientId) || draft;
+
+const getStoredSolution = (key) =>
+  studyStore.solutions.find((entry) => entry.id === key || entry.clientId === key) || null;
+
+const setSolutionSync = (solution, syncState) => {
+  const index = studyStore.solutions.findIndex((entry) => entry === solution);
+  if (index < 0) return solution;
+  studyStore.solutions[index] = { ...solution, syncState };
+  writeStudyStore();
+  return studyStore.solutions[index];
+};
+
+const updateSolutionLocal = async (key, patch) => {
+  const current = getStoredSolution(key);
+  if (!current) return null;
+  const next = { ...current, ...patch, syncState: "pending", serverCopy: null };
+  upsertStoredSolution(next);
+
+  if (!next.id) {
+    /* Created offline and never reached the server: send it now. */
+    return createSolutionLocal(next);
+  }
+
+  const result = await studyRequest(`/api/study/solutions/${next.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: next.title,
+      language: next.language,
+      code: next.code,
+      explanation: next.explanation,
+      timeComplexity: next.timeComplexity,
+      spaceComplexity: next.spaceComplexity,
+      baseRevision: next.revision || 0
+    })
+  });
+
+  if (result.ok && result.payload?.solution) {
+    return upsertStoredSolution({ ...result.payload.solution, syncState: "synced", serverCopy: null });
+  }
+  if (result.status === 409) {
+    upsertStoredSolution({ ...next, syncState: "conflict", serverCopy: result.payload?.solution || null });
+    return getStoredSolution(key);
+  }
+  upsertStoredSolution({ ...next, syncState: "local" });
+  return getStoredSolution(key);
+};
+
+const deleteSolutionLocal = async (key) => {
+  const current = getStoredSolution(key);
+  if (!current) return;
+  studyStore.solutions = studyStore.solutions.filter((entry) => entry !== current);
+  writeStudyStore();
+  if (current.id) await studyRequest(`/api/study/solutions/${current.id}`, { method: "DELETE" });
+};
+
+/* ------------------------------- rendering ------------------------------ */
+
+const studySetValue = (id, value) => {
+  const node = byId(id);
+  if (!node) return;
+  if (document.activeElement !== node) node.value = value ?? "";
+};
+
+const renderStudyNote = async (slug) => {
+  const note = slug ? await loadNoteFor(slug) : emptyNote("");
+  studySetValue("study-note-title", note.title);
+  studySetValue("study-note-approach", note.approach);
+  studySetValue("study-note-observations", note.observations);
+  studySetValue("study-note-edge", note.edgeCases);
+  studySetValue("study-note-time", note.timeComplexity);
+  studySetValue("study-note-space", note.spaceComplexity);
+  studySetValue("study-note-tags", (note.tags || []).join(", "));
+
+  const status = byId("study-note-status");
+  if (status) {
+    status.textContent = SYNC_LABELS[note.syncState] || SYNC_LABELS.local;
+    status.className = `study-badge study-badge--${note.syncState}`;
+  }
+
+  const conflict = byId("study-note-conflict");
+  if (conflict) {
+    const hasConflict = note.syncState === "conflict" && note.serverCopy;
+    conflict.hidden = !hasConflict;
+    if (hasConflict) {
+      conflict.innerHTML = "";
+      const text = document.createElement("p");
+      text.textContent = "This note also changed on another device. Nothing was overwritten.";
+      const mine = document.createElement("button");
+      mine.type = "button";
+      mine.className = "prog-btn";
+      mine.textContent = "Keep my version";
+      mine.addEventListener("click", async () => {
+        await forceSaveNoteFor(slug);
+        await renderStudyNote(slug);
+        showLabToast("Your note was saved over the other copy");
+      });
+      const theirs = document.createElement("button");
+      theirs.type = "button";
+      theirs.className = "prog-btn";
+      theirs.textContent = "Use the other device's version";
+      theirs.addEventListener("click", async () => {
+        if (!note.serverCopy) return;
+        setStoredNote(slug, { ...note.serverCopy, syncState: "synced", serverCopy: null });
+        await renderStudyNote(slug);
+        showLabToast("Loaded the other device's note");
+      });
+      conflict.append(text, mine, theirs);
+    }
+  }
+  return note;
+};
+
+const collectNoteFromForm = (slug) => {
+  const current = getStoredNote(slug);
+  return setStoredNote(slug, {
+    title: byId("study-note-title")?.value || "",
+    approach: byId("study-note-approach")?.value || "",
+    observations: byId("study-note-observations")?.value || "",
+    edgeCases: byId("study-note-edge")?.value || "",
+    timeComplexity: byId("study-note-time")?.value || "",
+    spaceComplexity: byId("study-note-space")?.value || "",
+    tags: (byId("study-note-tags")?.value || "")
+      .split(",")
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean),
+    /* The rich-text sections belong to the problem, so they travel with the
+       note and end up on the other device too. */
+    sections: getActiveLcProblem()?.notes || current.sections || undefined,
+    syncState: "local"
+  });
+};
+
+const solutionSyncBadge = (solution) => {
+  const badge = document.createElement("span");
+  badge.className = `study-badge study-badge--${solution.syncState}`;
+  badge.textContent = SYNC_LABELS[solution.syncState] || SYNC_LABELS.local;
+  return badge;
+};
+
+const renderSolutionList = async (slug) => {
+  const list = byId("solution-list");
+  const empty = byId("solution-empty");
+  if (!list) return;
+  const items = slug ? await listSolutionsFor(slug) : [];
+  list.innerHTML = "";
+  if (empty) empty.hidden = items.length > 0;
+
+  items.forEach((solution) => {
+    const card = document.createElement("article");
+    card.className = "solution-card";
+
+    const head = document.createElement("div");
+    head.className = "solution-card__head";
+
+    const title = document.createElement("strong");
+    title.className = "solution-card__title";
+    title.textContent = solution.title || "Solution";
+
+    const language = document.createElement("span");
+    language.className = "solution-card__lang";
+    language.textContent = (getLanguageDef(solution.language) || {}).label || solution.language;
+
+    head.append(title, language, solutionSyncBadge(solution));
+
+    const meta = document.createElement("p");
+    meta.className = "solution-card__meta";
+    const parts = [];
+    if (solution.timeComplexity) parts.push(`time ${solution.timeComplexity}`);
+    if (solution.spaceComplexity) parts.push(`space ${solution.spaceComplexity}`);
+    if (solution.updatedAt) {
+      parts.push(`updated ${new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(new Date(solution.updatedAt))}`);
+    }
+    meta.textContent = parts.join(" · ");
+
+    const preview = document.createElement("pre");
+    preview.className = "solution-card__code";
+    preview.textContent = (solution.code || "").slice(0, 600);
+
+    const actions = document.createElement("div");
+    actions.className = "solution-card__actions";
+
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "prog-btn";
+    edit.textContent = "Edit";
+    edit.addEventListener("click", () => openSolutionForm(solution));
+
+    const load = document.createElement("button");
+    load.type = "button";
+    load.className = "prog-btn";
+    load.textContent = "Open in editor";
+    load.title = "Copies this solution into the editor for this language";
+    load.addEventListener("click", async () => {
+      if (!window.confirm("Replace what is open in the editor with this saved solution?")) return;
+      if (qlActiveLanguage !== solution.language) qlActiveLanguage = normalizeLanguage(solution.language);
+      await ensureQlEditor();
+      const problem = getActiveLcProblem();
+      if (problem) setProblemCode(problem, qlActiveLanguage, solution.code || "");
+      if (qlEditor) qlEditor.setValue(solution.code || "");
+      selectQlTab("code");
+      renderLcDetail();
+      showLabToast("Loaded into the editor");
+    });
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "prog-btn prog-btn--danger";
+    remove.textContent = "Delete";
+    remove.addEventListener("click", async () => {
+      if (!window.confirm(`Delete the saved solution "${solution.title}"? This cannot be undone.`)) return;
+      await deleteSolutionLocal(solution.id || solution.clientId);
+      await renderSolutionList(slug);
+      showLabToast("Saved solution deleted");
+    });
+
+    actions.append(edit, load, remove);
+    card.append(head, meta, preview, actions);
+
+    if (solution.syncState === "conflict" && solution.serverCopy) {
+      const banner = document.createElement("div");
+      banner.className = "study-conflict";
+      const text = document.createElement("p");
+      text.textContent = "This solution also changed on another device. Nothing was overwritten.";
+      const mine = document.createElement("button");
+      mine.type = "button";
+      mine.className = "prog-btn";
+      mine.textContent = "Keep my version";
+      mine.addEventListener("click", async () => {
+        await updateSolutionLocal(solution.id || solution.clientId, {
+          title: solution.title,
+          language: solution.language,
+          code: solution.code,
+          explanation: solution.explanation,
+          timeComplexity: solution.timeComplexity,
+          spaceComplexity: solution.spaceComplexity
+        });
+        await renderSolutionList(slug);
+      });
+      const theirs = document.createElement("button");
+      theirs.type = "button";
+      theirs.className = "prog-btn";
+      theirs.textContent = "Use the other device's version";
+      theirs.addEventListener("click", async () => {
+        upsertStoredSolution({ ...solution.serverCopy, syncState: "synced", serverCopy: null });
+        await renderSolutionList(slug);
+      });
+      banner.append(text, mine, theirs);
+      card.append(banner);
+    }
+
+    list.append(card);
+  });
+};
+
+/* ----------------------------- form handling ---------------------------- */
+
+let solutionFormKey = null;
+
+const openSolutionForm = (solution) => {
+  const form = byId("solution-form");
+  if (!form) return;
+  solutionFormKey = solution ? solution.id || solution.clientId : null;
+  byId("solution-form-title").textContent = solution ? "Edit saved solution" : "New saved solution";
+  byId("solution-title").value = solution?.title || "";
+  byId("solution-language").value = normalizeLanguage(solution?.language || qlActiveLanguage);
+  byId("solution-time").value = solution?.timeComplexity || "";
+  byId("solution-space").value = solution?.spaceComplexity || "";
+  byId("solution-explanation").value = solution?.explanation || "";
+  byId("solution-code").value = solution?.code || "";
+  const conflict = byId("solution-conflict");
+  if (conflict) conflict.hidden = true;
+  form.hidden = false;
+  form.scrollIntoView({ block: "nearest", behavior: "smooth" });
+};
+
+const closeSolutionForm = () => {
+  const form = byId("solution-form");
+  if (form) form.hidden = true;
+  solutionFormKey = null;
+};
+
+const readSolutionForm = () => ({
+  title: byId("solution-title")?.value.trim() || "Solution",
+  language: normalizeLanguage(byId("solution-language")?.value || qlActiveLanguage),
+  code: byId("solution-code")?.value || "",
+  explanation: byId("solution-explanation")?.value || "",
+  timeComplexity: byId("solution-time")?.value.trim() || "",
+  spaceComplexity: byId("solution-space")?.value.trim() || ""
+});
+
+/* Renders both study panels for whichever problem is open. */
+const renderStudyPanels = async () => {
+  const problem = getActiveLcProblem();
+  const slug = studySlug(problem);
+  if (!slug) return;
+  await renderStudyNote(slug);
+  await renderSolutionList(slug);
+};
+
+/* ------------------------------- events --------------------------------- */
+
+byId("study-note-save")?.addEventListener("click", async () => {
+  const slug = studySlug(getActiveLcProblem());
+  if (!slug) {
+    showLabToast("Open a problem first.");
+    return;
+  }
+  collectNoteFromForm(slug);
+  const note = await saveNoteFor(slug);
+  await renderStudyNote(slug);
+  showLabToast(
+    note.syncState === "synced"
+      ? "Note saved and synced"
+      : note.syncState === "conflict"
+        ? "Saved on this device - see the conflict below"
+        : "Note saved on this device"
+  );
+});
+
+byId("study-note-delete")?.addEventListener("click", async () => {
+  const slug = studySlug(getActiveLcProblem());
+  if (!slug) return;
+  if (!window.confirm("Delete this study note from this device and the server? This cannot be undone.")) return;
+  await deleteNoteFor(slug);
+  await renderStudyNote(slug);
+  showLabToast("Study note deleted");
+});
+
+byId("solution-save-current")?.addEventListener("click", async () => {
+  const problem = getActiveLcProblem();
+  const slug = studySlug(problem);
+  if (!slug) {
+    showLabToast("Open a problem first.");
+    return;
+  }
+  if (!qlEditor) await ensureQlEditor();
+  const code = qlEditor ? qlEditor.getValue() : getProblemCode(problem, qlActiveLanguage);
+  if (!code.trim()) {
+    showLabToast("The editor is empty - nothing to save.");
+    return;
+  }
+  const existing = solutionsFor(slug).filter((entry) => entry.language === qlActiveLanguage).length;
+  openSolutionForm({
+    title: `${(getLanguageDef(qlActiveLanguage) || {}).label || qlActiveLanguage} idea ${existing + 1}`,
+    language: qlActiveLanguage,
+    code
+  });
+});
+
+byId("solution-save")?.addEventListener("click", async () => {
+  const slug = studySlug(getActiveLcProblem());
+  if (!slug) return;
+  const values = readSolutionForm();
+  if (!values.code.trim()) {
+    showLabToast("A solution needs some code.");
+    return;
+  }
+  const saved = solutionFormKey
+    ? await updateSolutionLocal(solutionFormKey, values)
+    : await createSolutionLocal({ ...values, slug });
+  closeSolutionForm();
+  await renderSolutionList(slug);
+  showLabToast(
+    saved?.syncState === "synced"
+      ? "Solution saved and synced"
+      : saved?.syncState === "conflict"
+        ? "Saved on this device - resolve the conflict below"
+        : "Solution saved on this device"
+  );
+});
+
+byId("solution-cancel")?.addEventListener("click", () => {
+  if (byId("solution-code")?.value.trim()) {
+    if (!window.confirm("Discard the solution you have not saved?")) return;
+  }
+  closeSolutionForm();
+});
+
+/* Warn before a reload or a tab close throws away typing that was never saved. */
+const studyHasUnsavedTyping = () => {
+  const codeField = byId("solution-code");
+  if (codeField && !byId("solution-form")?.hidden && codeField.value.trim()) return true;
+  const noteDirty = studySlug(getActiveLcProblem());
+  if (!noteDirty) return false;
+  const note = getStoredNote(noteDirty);
+  const form = {
+    title: byId("study-note-title")?.value || "",
+    approach: byId("study-note-approach")?.value || "",
+    observations: byId("study-note-observations")?.value || "",
+    edgeCases: byId("study-note-edge")?.value || "",
+    timeComplexity: byId("study-note-time")?.value || "",
+    spaceComplexity: byId("study-note-space")?.value || ""
+  };
+  return (
+    form.title !== (note.title || "") ||
+    form.approach !== (note.approach || "") ||
+    form.observations !== (note.observations || "") ||
+    form.edgeCases !== (note.edgeCases || "") ||
+    form.timeComplexity !== (note.timeComplexity || "") ||
+    form.spaceComplexity !== (note.spaceComplexity || "")
+  );
+};
+
+window.addEventListener("beforeunload", (event) => {
+  if (!studyHasUnsavedTyping()) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+/* Changing problem or language must not leave another problem's fields behind. */
+const refreshStudyForActiveProblem = () => {
+  void renderStudyPanels();
+};
 
   /* -------------------------------- init -------------------------------- */
 
