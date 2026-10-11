@@ -1824,8 +1824,8 @@
       p(557, "reverse-words-in-a-string-iii", "Reverse Words in a String III", "Easy"),
       p(559, "maximum-depth-of-n-ary-tree", "Maximum Depth of N-ary Tree", "Easy"),
       p(561, "array-partition", "Array Partition", "Easy"),
-      p(566, "reshape-the-matrix", "Reshape the Matrix", "Easy"),
       p(563, "binary-tree-tilt", "Binary Tree Tilt", "Easy"),
+      p(566, "reshape-the-matrix", "Reshape the Matrix", "Easy"),
       p(572, "subtree-of-another-tree", "Subtree of Another Tree", "Easy"),
       p(575, "distribute-candies", "Distribute Candies", "Easy"),
       p(589, "n-ary-tree-preorder-traversal", "N-ary Tree Preorder Traversal", "Easy"),
@@ -1834,7 +1834,7 @@
       p(598, "range-addition-ii", "Range Addition II", "Easy"),
       p(599, "minimum-index-sum-of-two-lists", "Minimum Index Sum of Two Lists", "Easy"),
       p(605, "can-place-flowers", "Can Place Flowers", "Easy"),
-      p(606, "construct-string-from-binary-tree", "Construct String from Binary Tree", "Easy"),
+      p(606, "construct-string-from-binary-tree", "Construct String from Binary Tree", "Medium"),
       p(617, "merge-two-binary-trees", "Merge Two Binary Trees", "Easy"),
       p(628, "maximum-product-of-three-numbers", "Maximum Product of Three Numbers", "Easy"),
       p(637, "average-of-levels-in-binary-tree", "Average of Levels in Binary Tree", "Easy"),
@@ -1860,7 +1860,7 @@
       p(709, "to-lower-case", "To Lower Case", "Easy"),
       p(716, "max-stack", "Max Stack", "Hard"),
       p(717, "1-bit-and-2-bit-characters", "1-bit and 2-bit Characters", "Easy"),
-      p(720, "longest-word-in-dictionary", "Longest Word in Dictionary", "Easy"),
+      p(720, "longest-word-in-dictionary", "Longest Word in Dictionary", "Medium"),
       p(724, "find-pivot-index", "Find Pivot Index", "Easy"),
       p(728, "self-dividing-numbers", "Self Dividing Numbers", "Easy"),
       p(733, "flood-fill", "Flood Fill", "Easy"),
@@ -1886,7 +1886,7 @@
       p(830, "positions-of-large-groups", "Positions of Large Groups", "Easy"),
       p(832, "flipping-an-image", "Flipping an Image", "Easy"),
       p(836, "rectangle-overlap", "Rectangle Overlap", "Easy"),
-      p(840, "magic-squares-in-grid", "Magic Squares In Grid", "Easy"),
+      p(840, "magic-squares-in-grid", "Magic Squares In Grid", "Medium"),
       p(844, "backspace-string-compare", "Backspace String Compare", "Easy"),
       p(849, "maximize-distance-to-closest-person", "Maximize Distance to Closest Person", "Medium"),
       p(852, "peak-index-in-a-mountain-array", "Peak Index in a Mountain Array", "Medium"),
@@ -1916,10 +1916,10 @@
       p(953, "verifying-an-alien-dictionary", "Verifying an Alien Dictionary", "Easy"),
       p(961, "n-repeated-element-in-size-2n-array", "N-Repeated Element in Size 2N Array", "Easy"),
       p(965, "univalued-binary-tree", "Univalued Binary Tree", "Easy"),
-      p(970, "powerful-integers", "Powerful Integers", "Easy"),
+      p(970, "powerful-integers", "Powerful Integers", "Medium"),
       p(973, "k-closest-points-to-origin", "K Closest Points to Origin", "Medium"),
       p(977, "squares-of-a-sorted-array", "Squares of a Sorted Array", "Easy"),
-      p(989, "add-to-array-form-of-integer", "Add to Array Form of Integer", "Easy"),
+      p(989, "add-to-array-form-of-integer", "Add to Array-Form of Integer", "Easy"),
       p(993, "cousins-in-binary-tree", "Cousins in Binary Tree", "Easy"),
       p(997, "find-the-town-judge", "Find the Town Judge", "Easy"),
       p(1002, "find-common-characters", "Find Common Characters", "Easy"),
@@ -1981,7 +1981,7 @@
       p(1365, "how-many-numbers-are-smaller-than-the-current-number", "How Many Numbers Are Smaller Than the Current Number", "Easy"),
       p(1370, "increasing-decreasing-string", "Increasing Decreasing String", "Easy"),
       p(1374, "generate-a-string-with-characters-that-have-odd-counts", "Generate a String With Characters That Have Odd Counts", "Easy"),
-      p(1379, "find-a-corresponding-node-of-a-binary-tree-in-a-clone-of-that-tree", "Find a Corresponding Node of a Binary Tree in a Clone of That Tree", "Medium"),
+      p(1379, "find-a-corresponding-node-of-a-binary-tree-in-a-clone-of-that-tree", "Find a Corresponding Node of a Binary Tree in a Clone of That Tree", "Easy"),
       p(1380, "lucky-numbers-in-a-matrix", "Lucky Numbers in a Matrix", "Easy"),
       p(1385, "find-the-distance-value-between-two-arrays", "Find the Distance Value Between Two Arrays", "Easy"),
       p(1389, "create-target-array-in-the-given-order", "Create Target Array in the Given Order", "Easy"),
@@ -1994,7 +1994,7 @@
       p(1422, "maximum-score-after-splitting-a-string", "Maximum Score After Splitting a String", "Easy"),
       p(1431, "kids-with-the-greatest-number-of-candies", "Kids With the Greatest Number of Candies", "Easy"),
       p(1436, "destination-city", "Destination City", "Easy"),
-      p(1441, "build-an-array-with-stack-operations", "Build an Array With Stack Operations", "Easy"),
+      p(1441, "build-an-array-with-stack-operations", "Build an Array With Stack Operations", "Medium"),
       p(1446, "consecutive-characters", "Consecutive Characters", "Easy"),
       p(1450, "number-of-students-doing-homework-at-a-given-time", "Number of Students Doing Homework at a Given Time", "Easy"),
       p(1455, "check-if-a-word-occurs-as-a-prefix-of-any-word-in-a-sentence", "Check If a Word Occurs As a Prefix of Any Word in a Sentence", "Easy"),
@@ -2034,7 +2034,7 @@
       p(1629, "slowest-key", "Slowest Key", "Easy"),
       p(1633, "percentage-of-letter-in-string", "Percentage of Letter in String", "Easy"),
       p(1636, "sort-array-by-increasing-frequency", "Sort Array by Increasing Frequency", "Easy"),
-      p(1637, "widest-vertical-area-between-two-points-containing-no-points", "Widest Vertical Area Between Two Points Containing No Points", "Medium"),
+      p(1637, "widest-vertical-area-between-two-points-containing-no-points", "Widest Vertical Area Between Two Points Containing No Points", "Easy"),
       p(1640, "check-array-formation-through-concatenation", "Check Array Formation Through Concatenation", "Easy"),
       p(1646, "get-maximum-in-generated-array", "Get Maximum in Generated Array", "Easy"),
       p(1652, "defuse-the-bomb", "Defuse the Bomb", "Easy"),
@@ -2153,7 +2153,7 @@
       p(2215, "find-the-difference-of-two-arrays", "Find the Difference of Two Arrays", "Easy"),
       p(2220, "minimum-bit-flips-to-convert-number", "Minimum Bit Flips to Convert Number", "Easy"),
       p(2224, "minimum-number-of-operations-to-convert-time", "Minimum Number of Operations to Convert Time", "Easy"),
-      p(2229, "check-if-an-array-is-consecutive", "Check if an Array Is Consecutive", "Medium"),
+      p(2229, "check-if-an-array-is-consecutive", "Check if an Array Is Consecutive", "Easy"),
       p(2231, "largest-number-after-digit-swaps-by-parity", "Largest Number After Digit Swaps By Parity", "Easy"),
       p(2235, "add-two-integers", "Add Two Integers", "Easy"),
       p(2236, "root-equals-sum-of-children", "Root Equals Sum of Children", "Easy"),
@@ -2247,7 +2247,7 @@
       p(2648, "generate-fibonacci-sequence", "Generate Fibonacci Sequence", "Easy"),
       p(2649, "nested-array-generator", "Nested Array Generator", "Medium"),
       p(2665, "counter-ii", "Counter II", "Easy"),
-      p(2666, "allow-one-function-call", "Allow One Function Call", "Medium"),
+      p(2666, "allow-one-function-call", "Allow One Function Call", "Easy"),
       p(2667, "create-hello-world-function", "Create Hello World Function", "Easy"),
       p(2676, "throttle", "Throttle", "Medium"),
       p(2677, "chunk-array", "Chunk Array", "Easy"),
@@ -2260,15 +2260,15 @@
       p(2716, "minimize-string-length", "Minimize String Length", "Easy"),
       p(2721, "execute-asynchronous-functions-in-parallel", "Execute Asynchronous Functions in Parallel", "Medium"),
       p(2724, "sort-by", "Sort By", "Easy"),
-      p(2726, "calculator-with-method-chaining", "Calculator with Method Chaining", "Medium"),
+      p(2726, "calculator-with-method-chaining", "Calculator with Method Chaining", "Easy"),
       p(2727, "is-object-empty", "Is Object Empty", "Easy"),
       p(2732, "find-a-good-subset-of-the-matrix", "Find a Good Subset of the Matrix", "Hard"),
       p(2733, "neither-minimum-nor-maximum", "Neither Minimum nor Maximum", "Easy"),
-      p(2739, "total-distance-traveled", "Total Distance Traveled", "Medium"),
+      p(2739, "total-distance-traveled", "Total Distance Traveled", "Easy"),
       p(2742, "painting-the-walls", "Painting the Walls", "Hard"),
       p(2744, "find-maximum-number-of-string-pairs", "Find Maximum Number of String Pairs", "Easy"),
       p(2748, "number-of-beautiful-pairs", "Number of Beautiful Pairs", "Easy"),
-      p(2756, "query-batching", "Query Batching", "Medium"),
+      p(2756, "query-batching", "Query Batching", "Hard"),
       p(2769, "find-the-maximum-achievable-number", "Find the Maximum Achievable Number", "Easy"),
       p(2773, "height-of-special-binary-tree", "Height of Special Binary Tree", "Medium"),
       p(2778, "sum-of-squares-of-special-elements", "Sum of Squares of Special Elements", "Easy"),
@@ -2283,9 +2283,9 @@
       p(2824, "count-pairs-whose-sum-is-less-than-target", "Count Pairs Whose Sum is Less than Target", "Easy"),
       p(2828, "check-if-a-string-is-an-acronym-of-words", "Check if a String Is an Acronym of Words", "Easy"),
       p(2833, "furthest-point-from-origin", "Furthest Point From Origin", "Easy"),
-      p(2843, "count-symmetric-integers", "Count Symmetric Integers", "Medium"),
+      p(2843, "count-symmetric-integers", "Count Symmetric Integers", "Easy"),
       p(2848, "points-that-intersect-with-segments", "Points That Intersect With Segments", "Easy"),
-      p(2855, "minimum-right-shifts-to-sort-the-array", "Minimum Right Shifts to Sort the Array", "Medium"),
+      p(2855, "minimum-right-shifts-to-sort-the-array", "Minimum Right Shifts to Sort the Array", "Easy"),
       p(2864, "maximum-odd-binary-number", "Maximum Odd Binary Number", "Easy"),
       p(2869, "minimum-operations-to-collect-elements", "Minimum Operations to Collect Elements", "Easy"),
       p(2873, "maximum-value-of-an-ordered-triplet-i", "Maximum Value of an Ordered Triplet I", "Easy"),
@@ -2363,11 +2363,11 @@
       p(3200, "maximum-heights-of-a-triangle", "Maximum Heights of a Triangle", "Easy"),
       p(3204, "bitwise-user-permissions-analysis", "Bitwise User Permissions Analysis", "Medium"),
       p(3206, "alternating-groups-i", "Alternating Groups I", "Easy"),
-      p(3210, "find-the-encrypted-string", "Find the Encrypted String", "Medium"),
+      p(3210, "find-the-encrypted-string", "Find the Encrypted String", "Easy"),
       p(3211, "generate-binary-strings-without-adjacent-zeros", "Generate Binary Strings Without Adjacent Zeros", "Medium"),
       p(3216, "lexicographically-smallest-string-after-swap", "Lexicographically Smallest String After Swap", "Easy"),
-      p(3222, "find-the-winning-player-in-coin-game", "Find the Winning Player in Coin Game", "Medium"),
-      p(3226, "number-of-bit-changes-to-make-two-integers-equal", "Number of Bit Changes to Make Two Integers Equal", "Medium"),
+      p(3222, "find-the-winning-player-in-coin-game", "Find the Winning Player in Coin Game", "Easy"),
+      p(3226, "number-of-bit-changes-to-make-two-integers-equal", "Number of Bit Changes to Make Two Integers Equal", "Easy"),
       p(3232, "find-if-digit-game-can-be-won", "Find if Digit Game Can Be Won", "Easy"),
       p(3237, "alt-and-tab-simulation", "Alt and Tab Simulation", "Medium"),
       p(3242, "design-neighbor-sum-service", "Design Neighbor Sum Service", "Easy"),
@@ -2376,11 +2376,11 @@
       p(3254, "find-the-power-of-k-size-subarrays-i", "Find the Power of K-Size Subarrays I", "Medium"),
       p(3258, "count-substrings-that-satisfy-k-constraint-i", "Count Substrings That Satisfy K-Constraint I", "Easy"),
       p(3264, "final-array-state-after-k-multiplication-operations-i", "Final Array State After K Multiplication Operations I", "Easy"),
-      p(3269, "constructing-two-increasing-arrays", "Constructing Two Increasing Arrays", "Medium"),
+      p(3269, "constructing-two-increasing-arrays", "Constructing Two Increasing Arrays", "Hard"),
       p(3273, "maximum-amount-of-money-robot-can-earn-ii", "Maximum Amount of Money Robot Can Earn II", "Medium"),
       p(3274, "check-if-two-chessboard-squares-have-the-same-color", "Check if Two Chessboard Squares Have the Same Color", "Easy"),
       p(3280, "convert-date-to-binary", "Convert Date to Binary", "Easy"),
-      p(3284, "sum-of-consecutive-subsequences", "Sum of Consecutive Subsequences", "Medium"),
+      p(3284, "sum-of-consecutive-subsequences", "Sum of Consecutive Subsequences", "Hard"),
       p(3289, "the-two-sneaky-numbers-of-digitville", "The Two Sneaky Numbers of Digitville", "Easy"),
       p(3293, "final-product-id-weighted-sum", "Final Product Id Weighted Sum", "Medium"),
       p(3297, "count-substrings-that-can-be-rearranged-to-contain-a-string-i", "Count Substrings That Can Be Rearranged to Contain a String I", "Medium"),
@@ -2399,10 +2399,10 @@
       p(3350, "adjacent-increasing-subarrays-detection-ii", "Adjacent Increasing Subarrays Detection II", "Medium"),
       p(3355, "zero-array-transformation-i", "Zero Array Transformation I", "Medium"),
       p(3360, "remove-removable-indices", "Remove Removable Indices", "Easy"),
-      p(3364, "minimum-positive-sum-subarray", "Minimum Positive Sum Subarray", "Medium"),
+      p(3364, "minimum-positive-sum-subarray", "Minimum Positive Sum Subarray", "Easy"),
       p(3369, "count-vowel-strings-in-ranges", "Count Vowel Strings in Ranges", "Medium"),
       p(3373, "maximize-the-number-of-ideal-nodes", "Maximize the Number of Ideal Nodes", "Hard"),
-      p(3374, "first-letter-capitalization", "First Letter Capitalization", "Medium"),
+      p(3374, "first-letter-capitalization", "First Letter Capitalization", "Hard"),
       p(3379, "transformed-array", "Transformed Array", "Easy"),
       p(3384, "beauty-of-a-matrix", "Beauty of a Matrix", "Medium"),
       p(3389, "minimum-area-rectangle-in-2d-space", "Minimum Area Rectangle in 2D Space", "Medium"),
@@ -2420,13 +2420,13 @@
       p(3442, "maximum-differences-between-node-and-ancestor", "Maximum Differences Between Node and Ancestor", "Medium"),
       p(3447, "the-maze-runner", "The Maze Runner", "Medium"),
       p(3452, "sum-of-good-numbers", "Sum of Good Numbers", "Easy"),
-      p(3457, "eat-pizzas", "Eat Pizzas", "Medium"),
+      p(3457, "eat-pizzas", "Eat Pizzas!", "Medium"),
       p(3462, "maximum-sum-with-at-most-k-elements", "Maximum Sum With At Most K Elements", "Medium"),
       p(3467, "transform-array-by-parity", "Transform Array by Parity", "Easy"),
-      p(3471, "find-the-largest-almost-missing-integer", "Find the Largest Almost Missing Integer", "Medium"),
+      p(3471, "find-the-largest-almost-missing-integer", "Find the Largest Almost Missing Integer", "Easy"),
       p(3477, "fruits-into-baskets-ii", "Fruits Into Baskets II", "Easy"),
-      p(3483, "unique-3-digit-even-numbers", "Unique 3-Digit Even Numbers", "Medium"),
-      p(3487, "maximum-unique-subarray-sum-after-deletion", "Maximum Unique Subarray Sum After Deletion", "Medium"),
+      p(3483, "unique-3-digit-even-numbers", "Unique 3-Digit Even Numbers", "Easy"),
+      p(3487, "maximum-unique-subarray-sum-after-deletion", "Maximum Unique Subarray Sum After Deletion", "Easy"),
       p(3492, "maximum-containers-on-a-ship", "Maximum Containers on a Ship", "Easy"),
       p(3497, "analyze-assignment-groups", "Analyze Assignment Groups", "Medium"),
       p(3502, "minimum-cost-to-reach-every-position", "Minimum Cost to Reach Every Position", "Easy"),
@@ -2441,7 +2441,7 @@
       p(3546, "equal-sum-grid-partition-i", "Equal Sum Grid Partition I", "Medium"),
       p(3550, "ability-to-send-messages", "Ability to Send Messages", "Medium"),
       p(3555, "smallest-subarray-to-sort-in-every-sliding-window", "Smallest Subarray to Sort in Every Sliding Window", "Medium"),
-      p(3560, "find-number-of-ways-to-reach-the-k-th-stair", "Find Number of Ways to Reach the K-th Stair", "Medium"),
+      p(3560, "find-number-of-ways-to-reach-the-k-th-stair", "Find Number of Ways to Reach the K-th Stair", "Hard"),
       p(3565, "parallel-vertex-cover", "Parallel Vertex Cover", "Medium"),
       p(3570, "object-approval-system", "Object Approval System", "Medium"),
       p(3575, "maximum-good-subtree-score", "Maximum Good Subtree Score", "Hard"),
@@ -2450,10 +2450,10 @@
       p(3591, "check-if-any-element-has-prime-frequency", "Check if Any Element Has Prime Frequency", "Easy"),
       p(3596, "minimum-cost-path-with-alternating-directions-i", "Minimum Cost Path With Alternating Directions I", "Medium"),
       p(3601, "find-players-with-zero-or-one-losses-ii", "Find Players With Zero or One Losses II", "Medium"),
-      p(3606, "coupon-code-validator", "Coupon Code Validator", "Medium"),
+      p(3606, "coupon-code-validator", "Coupon Code Validator", "Easy"),
       p(3611, "find-the-maximum-length-of-a-good-subsequence-i", "Find the Maximum Length of a Good Subsequence I", "Medium"),
       p(3616, "number-of-student-replacements", "Number of Student Replacements", "Medium"),
-      p(3620, "network-recovery-pathways", "Network Recovery Pathways", "Medium"),
+      p(3620, "network-recovery-pathways", "Network Recovery Pathways", "Hard"),
       p(3625, "count-number-of-trapezoids-i", "Count Number of Trapezoids I", "Medium"),
       p(3630, "partition-array-for-maximum-xor-and-and", "Partition Array for Maximum XOR and AND", "Hard"),
       p(3634, "best-room-allocation-method", "Best Room Allocation Method", "Medium"),
@@ -2462,7 +2462,7 @@
       p(3648, "minimum-sensors-to-cover-grid", "Minimum Sensors to Cover Grid", "Medium"),
       p(3652, "best-visited-places-in-a-mall", "Best Visited Places in a Mall", "Medium"),
       p(3657, "find-well-formed-paragraphs", "Find Well-Formed Paragraphs", "Medium"),
-      p(3662, "filter-characters-by-frequency", "Filter Characters by Frequency", "Medium"),
+      p(3662, "filter-characters-by-frequency", "Filter Characters by Frequency", "Easy"),
       p(3667, "restore-finishing-order", "Restore Finishing Order", "Easy"),
       p(3672, "sum-of-adjacent-primes", "Sum of Adjacent Primes", "Medium"),
       p(3677, "count-binary-palindromic-numbers", "Count Binary Palindromic Numbers", "Hard"),
@@ -2499,7 +2499,7 @@
       p(3831, "find-the-lexicographically-largest-valid-sequence", "Find the Lexicographically Largest Valid Sequence", "Medium"),
       p(3836, "choose-k-flips-to-maximize-xor", "Choose K Flips to Maximize XOR", "Hard"),
       p(3841, "paint-special-elements-in-grid", "Paint Special Elements in Grid", "Medium"),
-      p(3846, "destroy-sequential-targets-ii", "Destroy Sequential Targets II", "Hard")
+      p(3846, "destroy-sequential-targets-ii", "Destroy Sequential Targets II", "Hard"),
     ];
   };
 
@@ -4921,108 +4921,11 @@ const ensureRevisionStateForCatalog = () => {
     labMobileOutputTab.addEventListener("click", () => selectMobileView("output"));
   }
 
+  /* The theme slider is driven entirely by script.js, which owns the theme.
+     This element is only moved between the top bar and the mobile drawer
+     here, never re-implemented: a second set of pointer handlers on it is
+     what let the knob and the theme drift apart. */
   const themeSymbolGroup = byId("theme-symbols");
-  if (themeSymbolGroup) {
-    const themeSliderNode = byId("theme-slider");
-    /* Dragging the slider is a continuous gesture: the knob follows the finger,
-       the theme changes only when a stop is actually crossed, and the knob
-       settles with the same soft glide used when a chip is pressed. */
-    const stopFromClientX = (clientX) => {
-      const rect = themeSliderNode.getBoundingClientRect();
-      if (!rect.width) return -1;
-      const ratio = (clientX - rect.left) / rect.width;
-      const index = Math.round(ratio * (THEME_ORDER.length - 1));
-      return Math.max(0, Math.min(THEME_ORDER.length - 1, index));
-    };
-
-    let dragging = false;
-    let dragStartX = 0;
-    let appliedDuringDrag = null;
-
-    const endDrag = () => {
-      if (!dragging) return;
-      dragging = false;
-      themeSliderNode?.classList.remove("is-dragging");
-      themeSymbolGroup.style.removeProperty("--theme-pos");
-      appliedDuringDrag = null;
-    };
-
-    themeSymbolGroup.addEventListener("pointerdown", (event) => {
-      if (event.target.closest(".theme-slider")) {
-        dragging = true;
-        dragStartX = event.clientX;
-        appliedDuringDrag = null;
-        try {
-          themeSliderNode.setPointerCapture(event.pointerId);
-        } catch {
-          /* capture is a nicety, the gesture still works without it */
-        }
-      }
-    });
-
-    themeSymbolGroup.addEventListener("pointermove", (event) => {
-      if (!dragging || !themeSliderNode) return;
-      const stop = stopFromClientX(event.clientX);
-      if (stop < 0) return;
-      /* Past a few pixels of movement this counts as a drag rather than a tap,
-         so a small wobble never leaves the knob stuck to the finger. */
-      const isDrag = Math.abs(event.clientX - dragStartX) > 4;
-      themeSliderNode.classList.toggle("is-dragging", isDrag);
-      if (!isDrag) return;
-      /* The knob follows the finger while the theme itself changes at the
-         nearest stop, so colour and position never disagree. */
-      themeSymbolGroup.style.setProperty("--theme-pos", String(stop));
-      if (appliedDuringDrag !== stop) {
-        appliedDuringDrag = stop;
-        selectThemeFromSettings(THEME_ORDER[stop]);
-      }
-    });
-
-    themeSymbolGroup.addEventListener("pointerup", (event) => {
-      if (!dragging) return;
-      const stop = stopFromClientX(event.clientX);
-      endDrag();
-      if (stop >= 0) selectThemeFromSettings(THEME_ORDER[stop]);
-      syncSettingsUi();
-      /* Re-resolve the editor theme without losing per-language theming. */
-      if (labState.languageThemes !== false && currentPage === "lab" && getActiveSession()) {
-        applyLanguageTheme(getActiveSession().language);
-      } else if (labState.languageThemes !== false && currentPage === "quantalab" && !qlViewCode.hidden) {
-        void renderQlCodeView();
-      } else {
-        syncMonacoTheme();
-      }
-    });
-
-    themeSymbolGroup.addEventListener("pointercancel", endDrag);
-
-    /* A plain click (no drag) still has to work for keyboard and mouse users. */
-    themeSymbolGroup.addEventListener("click", (event) => {
-      if (dragging) return;
-      if (!event.target.closest(".theme-slider")) return;
-      syncSettingsUi();
-      window.setTimeout(() => {
-        // Re-resolve the editor theme without losing per-language theming.
-        if (labState.languageThemes !== false && currentPage === "lab" && getActiveSession()) {
-          applyLanguageTheme(getActiveSession().language);
-        } else if (labState.languageThemes !== false && currentPage === "quantalab" && !qlViewCode.hidden) {
-          void renderQlCodeView();
-        } else {
-          syncMonacoTheme();
-        }
-      }, 0);
-    });
-
-    /* Keyboard: arrow keys step through the themes with the same fade. */
-    themeSliderNode?.addEventListener("keydown", (event) => {
-      const step = event.key === "ArrowRight" || event.key === "ArrowUp" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 0;
-      if (!step) return;
-      event.preventDefault();
-      const current = THEME_ORDER.indexOf(document.body.getAttribute("data-theme") || "dark");
-      const next = Math.max(0, Math.min(THEME_ORDER.length - 1, current + step));
-      selectThemeFromSettings(THEME_ORDER[next]);
-    });
-  }
 
   notesAddTopicBtn.addEventListener("click", addLcProblemFromInput);
 
@@ -5079,65 +4982,36 @@ const ensureRevisionStateForCatalog = () => {
     dialogHomeBtn?.addEventListener("click", goHome);
   });
 
-  /* Theme switching, smoothly.
-     The outgoing background is captured, the new theme is applied, and a
-     full-screen layer in the old colour is faded away on top of it. The result
-     is a cross-dissolve instead of an instant repaint. Nothing is skipped when
-     the browser cannot animate (reduced motion, old WebView): the theme still
-     changes, just without the fade. */
+  /* Theme switching.
+     script.js owns the theme: it applies the change, moves the knob, keeps the
+     stored value and runs the cross-fade. Everything here goes through that one
+     path, so a chip press and a slider drag cannot disagree about where the
+     knob is or which theme is active - the bug that let the knob jump to the
+     left while a different theme was showing.
+
+     This block only reacts to the change, to keep the Settings chips and the
+     code editor in step. */
   const THEME_ORDER = ["dark", "beige", "ember"];
-  const THEME_LABELS = ["Emerald Night", "Pearl Light", "Ember"];
-
-  const themeFadeOverlay = () => {
-    let layer = document.querySelector(".theme-fade");
-    if (layer) layer.remove();
-    const bodyStyle = getComputedStyle(document.body);
-    layer = document.createElement("div");
-    layer.className = "theme-fade";
-    layer.setAttribute("aria-hidden", "true");
-    /* The page background is what the eye actually sees first, so that is what
-       the fade starts from. */
-    layer.style.backgroundColor = bodyStyle.backgroundColor;
-    document.body.appendChild(layer);
-    const done = () => layer.remove();
-    layer.addEventListener("animationend", done, { once: true });
-    /* A stuck animation (background tab, reduced motion) must never leave a
-       sheet covering the app. */
-    window.setTimeout(done, 900);
-    return layer;
-  };
-
-  const prefersReducedMotion = () =>
-    typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const selectThemeFromSettings = (theme) => {
     const next = THEME_ORDER.includes(theme) ? theme : "dark";
-    const previous = document.body.getAttribute("data-theme");
-    if (previous === next) {
-      syncSettingsUi();
+    if (window.QuantaTheme) {
+      window.QuantaTheme.set(next);
       return;
     }
-
-    if (!prefersReducedMotion()) themeFadeOverlay();
+    /* script.js did not load: fall back to a plain switch rather than leaving
+       the app unable to change theme at all. */
     document.body.setAttribute("data-theme", next);
     try {
       localStorage.setItem("leetcodeDashboardTheme", next);
     } catch {
       /* private mode */
     }
-    const pos = THEME_ORDER.indexOf(next);
-    const symbolGroup = byId("theme-symbols");
-    if (symbolGroup) symbolGroup.style.setProperty("--theme-pos", String(pos));
-    const slider = byId("theme-slider");
-    if (slider) {
-      slider.dataset.pos = String(pos);
-      slider.setAttribute("aria-valuenow", String(pos + 1));
-      slider.setAttribute("aria-valuetext", THEME_LABELS[pos]);
-      /* Kept out of its own transition so the knob starts moving on the same
-         frame as the fade, which is what makes the two feel like one gesture. */
-      slider.classList.add("is-gliding");
-      window.setTimeout(() => slider.classList.remove("is-gliding"), 620);
-    }
+    handleThemeChanged(next);
+  };
+
+  /* Everything that has to follow a theme change, whoever caused it. */
+  const handleThemeChanged = () => {
     syncSettingsUi();
     if (labState.languageThemes !== false && (currentPage === "lab" || currentPage === "quantalab")) {
       if (currentPage === "lab" && getActiveSession()) applyLanguageTheme(getActiveSession().language);
@@ -5146,6 +5020,8 @@ const ensureRevisionStateForCatalog = () => {
       syncMonacoTheme();
     }
   };
+
+  window.addEventListener("quanta:themechange", handleThemeChanged);
 
   settingsThemeDarkBtn?.addEventListener("click", () => selectThemeFromSettings("dark"));
   settingsThemeBeigeBtn?.addEventListener("click", () => selectThemeFromSettings("beige"));
