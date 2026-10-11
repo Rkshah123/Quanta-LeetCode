@@ -1377,7 +1377,9 @@ app.post("/api/revision/:slug/complete", rateLimit, async (req, res) => {
       res.status(404).json({ ok: false, error: "This problem is not in your revision list." });
       return;
     }
-    res.json({ ok: true, item: result.item });
+    /* Repeating "finished" is allowed and is reported as such; the first
+       completion time is never overwritten. */
+    res.json({ ok: true, item: result.item, alreadyCompleted: result.alreadyCompleted === true });
   } catch (error) {
     respondDatabaseError(res, error);
   }

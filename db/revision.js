@@ -127,8 +127,28 @@ const bucketFor = (dueKey, todayKey, status) => {
   return "upcoming";
 };
 
+/* Topics come from the catalog when the problem is in it. A problem that is not
+   in the catalog simply has none - nothing is invented to fill the gap. */
+const parseTopics = (value) => {
+  if (Array.isArray(value)) return value.filter((topic) => typeof topic === "string" && topic).slice(0, 5);
+  if (value === null || value === undefined) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((topic) => typeof topic === "string" && topic).slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+};
+
 const toItemDto = (row, todayKey) => {
   const dueDate = String(row.due_date || "").slice(0, 10);
+  const topics = parseTopics(row.problem_topics);
+  const noteTags = parseTopics(row.note_tags);
+  /* The catalog carries a topic column, but it is empty for every problem in
+     this database, so it is never shown unless it is really there. What the
+     user wrote in their own study notes is the topic information that does
+     exist, and it is labelled as theirs. */
+  const topic = topics[0] ?? noteTags[0] ?? null;
   return {
     slug: row.slug,
     num: row.lc_num ?? null,
@@ -144,7 +164,11 @@ const toItemDto = (row, todayKey) => {
     completedAt: row.completed_at || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
-    problemTitle: row.problem_title ?? null
+    problemTitle: row.problem_title ?? null,
+    topics,
+    noteTags,
+    topic,
+    topicSource: topics.length ? "catalog" : noteTags.length ? "notes" : null
   };
 };
 
@@ -154,9 +178,11 @@ const itemSelect = `SELECT i.slug, i.lc_num, i.title, i.difficulty, i.stage, i.i
                             DATE_FORMAT(i.completed_at, '%Y-%m-%d %H:%i:%s') AS completed_at,
                             DATE_FORMAT(i.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
                             DATE_FORMAT(i.updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at,
-                            p.title AS problem_title
+                            p.title AS problem_title, p.topics AS problem_topics,
+                            n.tags AS note_tags
                        FROM revision_items i
-                       LEFT JOIN problems p ON p.slug = i.slug`;
+                       LEFT JOIN problems p ON p.slug = i.slug
+                       LEFT JOIN problem_notes n ON n.owner_key = i.owner_key AND n.slug = i.slug`;
 
 /* ------------------------------ repository ------------------------------- */
 
@@ -285,19 +311,31 @@ const rescheduleItem = async (slug, input = {}) => {
   return { item: await getItem(cleanSlug, todayKey) };
 };
 
-/* Finishes a problem: it leaves the schedule but keeps every review it had. */
+/* Finishes a problem: it leaves the schedule but keeps every review it had.
+   Doing this twice is safe and honest - the first time is recorded and kept,
+   and a repeat says so instead of quietly moving the date it was finished. */
 const completeItem = async (slug, input = {}) => {
   const cleanSlug = normalizeSlug(slug);
   if (!cleanSlug) throw new Error("A valid problem slug is required.");
   const tzOffsetMinutes = normalizeTzOffset(input.tzOffsetMinutes);
   const todayKey = toDayKey(new Date(Date.now() + tzOffsetMinutes * 60000));
 
-  const result = await query(
+  const existing = await query(
+    "SELECT status, completed_at FROM revision_items WHERE owner_key = ? AND slug = ?",
+    [REVISION_OWNER, cleanSlug]
+  );
+  if (!existing[0]) return { notFound: true };
+  const alreadyCompleted = existing[0].status === "completed" && Boolean(existing[0].completed_at);
+
+  if (alreadyCompleted) {
+    return { item: await getItem(cleanSlug, todayKey), alreadyCompleted: true };
+  }
+
+  await query(
     "UPDATE revision_items SET status = 'completed', completed_at = UTC_TIMESTAMP() WHERE owner_key = ? AND slug = ?",
     [REVISION_OWNER, cleanSlug]
   );
-  if (!result?.affectedRows) return { notFound: true };
-  return { item: await getItem(cleanSlug, todayKey) };
+  return { item: await getItem(cleanSlug, todayKey), alreadyCompleted: false };
 };
 
 /* Removes a problem from the list. The review history is deliberately kept:
@@ -435,5 +473,6 @@ module.exports = {
   normalizeConfidence,
   normalizeTzOffset,
   clampLadder,
+  parseTopics,
   compareDayKeys
 };

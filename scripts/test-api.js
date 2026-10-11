@@ -518,6 +518,11 @@ const runSuite = async () => {
     const badConf = await json("POST", `/api/revision/${testSlug}/review`, { confidence: "brilliant", tzOffsetMinutes: 0 });
     record("POST /api/revision/:slug/review rejects an unknown confidence", badConf.status === 400, `status ${badConf.status}`);
 
+    /* History is append-only on purpose, so a previous run can still have rows for
+       this slug. The test therefore counts its own work instead of assuming the
+       table was empty. */
+    const historyBefore = await getJson(`${base}/api/revision/history?slug=${testSlug}`);
+
     const reviewed = await json("POST", `/api/revision/${testSlug}/review`, { confidence: "good", tzOffsetMinutes: 0 });
     record(
       "POST /api/revision/:slug/review schedules the next date",
@@ -538,18 +543,30 @@ const runSuite = async () => {
     const badSnooze = await json("POST", `/api/revision/${testSlug}/reschedule`, { snoozeDays: 900, tzOffsetMinutes: 0 });
     record("Rescheduling rejects an out-of-range snooze", badSnooze.status === 400, `status ${badSnooze.status}`);
 
+    /* History is append-only on purpose, so a previous run can still have rows for
+       this slug. The test therefore counts its own work instead of assuming the
+       table was empty. */
     const history = await getJson(`${base}/api/revision/history?slug=${testSlug}`);
     record(
       "GET /api/revision/history returns the reviews that really happened",
-      history.status === 200 && history.payload?.total === 1 && history.payload.items[0]?.confidence === "good",
-      `total ${history.payload?.total}`
+      history.status === 200 &&
+        history.payload?.total === Number(historyBefore.payload?.total || 0) + 1 &&
+        history.payload.items[0]?.confidence === "good",
+      `total ${history.payload?.total} (was ${historyBefore.payload?.total})`
     );
 
     const done = await json("POST", `/api/revision/${testSlug}/complete`, { tzOffsetMinutes: 0 });
     record(
       "POST /api/revision/:slug/complete finishes a problem",
-      done.status === 200 && done.payload?.item?.status === "completed",
+      done.status === 200 && done.payload?.item?.status === "completed" && done.payload?.alreadyCompleted === false,
       `status ${done.status}`
+    );
+
+    const doneAgain = await json("POST", `/api/revision/${testSlug}/complete`, { tzOffsetMinutes: 0 });
+    record(
+      "Completing twice is safe and keeps the first completion time",
+      doneAgain.status === 200 && doneAgain.payload?.alreadyCompleted === true && doneAgain.payload?.item?.completedAt === done.payload.item.completedAt,
+      `completedAt ${doneAgain.payload?.item?.completedAt}`
     );
 
     const reviewFinished = await json("POST", `/api/revision/${testSlug}/review`, { confidence: "good", tzOffsetMinutes: 0 });
@@ -564,8 +581,8 @@ const runSuite = async () => {
     const historyAfter = await getJson(`${base}/api/revision/history?slug=${testSlug}`);
     record(
       "The review history survives removal",
-      historyAfter.payload?.total === 1,
-      `total ${historyAfter.payload?.total}`
+      historyAfter.payload?.total === history.payload?.total,
+      `total ${historyAfter.payload?.total}, was ${history.payload?.total}`
     );
 
     const after = await json("GET", "/api/revision?tzOffset=0");

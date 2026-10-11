@@ -6674,15 +6674,19 @@ const refreshStudyForActiveProblem = () => {
   };
   
   const revisionVisibleItems = () => {
-    const when = byId("revision-filter-when")?.value || "due";
+    const when = byId("revision-filter-when")?.value || "all";
+    const status = byId("revision-filter-status")?.value || "all";
     const difficulty = byId("revision-filter-difficulty")?.value || "all";
-  
+
     return revisionView.items.filter((item) => {
+      if (status !== "all" && item.status !== status) return false;
       if (difficulty !== "all" && item.difficulty !== difficulty) return false;
-      if (when === "all") return item.status === "active";
-      if (when === "due") return item.status === "active" && (item.bucket === "today" || item.bucket === "overdue");
-      if (when === "completed") return item.status === "completed";
-      return item.status === "active" && item.bucket === when;
+      if (when === "all") return true;
+      /* The due-date filters only ever speak about problems that are still on
+         the schedule - a finished one is not "due" in any sense. */
+      if (item.status !== "active") return false;
+      if (when === "due") return item.bucket === "today" || item.bucket === "overdue";
+      return item.bucket === when;
     });
   };
   
@@ -6722,7 +6726,15 @@ const refreshStudyForActiveProblem = () => {
   
       const meta = document.createElement("p");
       meta.className = "revision-card__meta";
-      const parts = [`next review ${revisionFormatDate(item.dueDate)}`];
+      const parts = [];
+      /* Title, number, difficulty and the next date are always shown; the topic
+         appears only when the catalog actually has one for this problem. */
+      if (item.topic) {
+      /* Never present the user's own note tags as if they came from the
+         catalog - they are shown as what they are. */
+      parts.push(item.topicSource === "notes" ? `your tag: ${item.noteTags.slice(0, 2).join(", ")}` : item.topic);
+    }
+      parts.push(`next review ${revisionFormatDate(item.dueDate)}`);
       if (item.reviewCount > 0) parts.push(`${item.reviewCount} review${item.reviewCount === 1 ? "" : "s"}`);
       if (item.confidence) parts.push(`last: ${CONFIDENCE_LABELS[item.confidence] || item.confidence}`);
       if (item.stage > 0) parts.push(`step ${item.stage}`);
@@ -6940,7 +6952,11 @@ const refreshStudyForActiveProblem = () => {
       return;
     }
     await loadRevisionDashboard();
-    showLabToast("Finished - it left your revision list.");
+    showLabToast(
+      result.payload?.alreadyCompleted
+        ? "Already finished - the original date was kept."
+        : "Finished - it left your revision list."
+    );
   };
   
   const removeRevisionItem = async (slug) => {
@@ -7170,6 +7186,7 @@ const refreshStudyForActiveProblem = () => {
   });
   
   byId("revision-filter-when")?.addEventListener("change", renderRevisionList);
+  byId("revision-filter-status")?.addEventListener("change", renderRevisionList);
   byId("revision-filter-difficulty")?.addEventListener("change", renderRevisionList);
   
   byId("lc-detail-revision")?.addEventListener("click", () => {

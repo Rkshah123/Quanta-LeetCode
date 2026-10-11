@@ -176,6 +176,44 @@ const testRepository = async () => {
   const badSnooze = await revision.rescheduleItem(TEST_SLUGS[0], { snoozeDays: 0 }).catch((e) => e.message);
   check("a zero snooze is refused", /snoozeDays|dueDate/i.test(String(badSnooze)));
 
+  console.log("\n-- topic information is shown only when it really exists --");
+  /* This catalog has no topics stored (the column is empty for all 782 rows), so
+     the card must fall back to nothing rather than invent a label. The tags the
+     user wrote in their own study notes are the topic information that does
+     exist, and they are labelled as theirs. */
+  same("a JSON string is read as a list", revision.parseTopics('["arrays","hash map"]'), ["arrays", "hash map"]);
+  same("a missing value is an empty list", revision.parseTopics(null), []);
+  same("broken JSON is an empty list, not a crash", revision.parseTopics("{oops"), []);
+  same("a plain string is not treated as a list", revision.parseTopics("arrays"), []);
+
+  await query("DELETE FROM revision_items WHERE owner_key = ? AND slug IN (?, ?)", [
+    revision.REVISION_OWNER,
+    "two-sum",
+    "quanta-not-a-real-problem"
+  ]);
+  const bare = await revision.addItem({ slug: "two-sum", title: "Two Sum", num: 1, difficulty: "Easy", tzOffsetMinutes: 0 });
+  check("the catalog topic list is always an array", Array.isArray(bare.topics), JSON.stringify(bare.topics));
+  check("it carries the catalog title too", bare.problemTitle === "Two Sum", String(bare.problemTitle));
+  equal("no topic is invented", bare.topic, null);
+  equal("and the card knows there is nothing to show", bare.topicSource, null);
+
+  await query("DELETE FROM problem_notes WHERE owner_key = ? AND slug = ?", [revision.REVISION_OWNER, "two-sum"]);
+  await query(
+    "INSERT INTO problem_notes (owner_key, slug, title, tags) VALUES (?, 'two-sum', 'Two Sum', ?)",
+    [revision.REVISION_OWNER, JSON.stringify(["hash map", "arrays"])]
+  );
+  const tagged = await revision.getItem("two-sum", revision.toDayKey(new Date(Date.now())));
+  same("the user's own tags are available", tagged.noteTags, ["hash map", "arrays"]);
+  equal("they are used as the topic", tagged.topic, "hash map");
+  equal("and are labelled as coming from the notes", tagged.topicSource, "notes");
+
+  await query("DELETE FROM revision_items WHERE owner_key = ? AND slug IN (?, ?)", [
+    revision.REVISION_OWNER,
+    "two-sum",
+    "quanta-not-a-real-problem"
+  ]);
+  await query("DELETE FROM problem_notes WHERE owner_key = ? AND slug = ?", [revision.REVISION_OWNER, "two-sum"]);
+
   console.log("\n-- dashboard buckets --");
   await query("UPDATE revision_items SET due_date = ? WHERE owner_key = ? AND slug = ?", [revision.shiftDayKey(todayKey, -3), revision.REVISION_OWNER, TEST_SLUGS[0]]);
   await revision.addItem({ slug: TEST_SLUGS[1], title: "Due today", difficulty: "Easy", tzOffsetMinutes: 0 });
@@ -210,6 +248,20 @@ const testRepository = async () => {
   const completed = await revision.completeItem(TEST_SLUGS[2], { tzOffsetMinutes: 0 });
   equal("problem is completed", completed.item.status, "completed");
   check("completion time recorded", Boolean(completed.item.completedAt));
+  equal("the first completion reports the change", completed.alreadyCompleted, false);
+
+  /* Repeating "finished" must not quietly move the date it was finished, and
+     must say that nothing changed. */
+  const completedAgain = await revision.completeItem(TEST_SLUGS[2], { tzOffsetMinutes: 0 });
+  equal("completing again reports that it was already done", completedAgain.alreadyCompleted, true);
+  equal("the original completion time is kept", completedAgain.item.completedAt, completed.item.completedAt);
+  equal("the status is unchanged", completedAgain.item.status, "completed");
+  const thirdTime = await revision.completeItem(TEST_SLUGS[2], { tzOffsetMinutes: 0 });
+  equal("a third attempt is still safe", thirdTime.alreadyCompleted, true);
+  equal("and still keeps the first date", thirdTime.item.completedAt, completed.item.completedAt);
+
+  const completeMissing = await revision.completeItem("never-scheduled-here", { tzOffsetMinutes: 0 });
+  equal("completing something that is not scheduled reports missing", completeMissing.notFound, true);
   const reviewAfterComplete = await revision.reviewItem(TEST_SLUGS[2], { confidence: "good" });
   equal("a completed problem cannot be reviewed again", reviewAfterComplete.completed, true);
 
