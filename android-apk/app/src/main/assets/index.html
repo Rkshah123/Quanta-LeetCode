@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=15" />
+  <link rel="stylesheet" href="style.css?v=16" />
   <link rel="stylesheet" href="lab-notes.css?v=42" />
 
 </head>
@@ -45,6 +45,7 @@
       <span>QUANTA</span>
     </div>
     <button class="nav-btn" type="button" data-page="quantalab">Quanta Lab</button>
+    <button class="nav-btn" type="button" data-page="progress">Progress</button>
     <button class="nav-btn" type="button" data-page="notes">Notes</button>
     <button class="nav-btn" type="button" data-page="lab">Lab</button>
     <button class="nav-btn" type="button" data-page="settings">Settings</button>
@@ -454,6 +455,87 @@
         </div>
       </div>
     </section>
+    <!-- ============================ Progress page =========================== -->
+    <section id="page-progress" class="page page--progress" data-page-id="progress" aria-label="Progress" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Progress</h2>
+          <p class="page-sub">Your real coding activity</p>
+        </div>
+        <button id="progress-refresh" class="icon-btn" type="button" aria-label="Refresh progress" title="Refresh">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35Z"/></svg>
+        </button>
+      </header>
+
+      <div class="settings-body progress-body">
+        <p id="progress-status" class="progress-status" role="status" aria-live="polite">Loading your progress...</p>
+
+        <div id="progress-error" class="progress-state progress-state--error" hidden>
+          <p id="progress-error-text">Progress could not be loaded.</p>
+          <button id="progress-error-retry" class="prog-btn" type="button">Try again</button>
+        </div>
+
+        <div id="progress-empty" class="progress-state progress-state--empty" hidden>
+          <p>No solved problems yet.</p>
+          <p class="progress-state__hint">Open a problem in Quanta Lab and press <strong>Mark solved</strong> - it appears here right away, on this device and on your phone.</p>
+        </div>
+
+        <div id="progress-content" hidden>
+          <section class="settings-group" aria-labelledby="progress-overview-title">
+            <h3 id="progress-overview-title">Overview</h3>
+            <div class="advanced-stats">
+              <div class="stat-card"><p>Problems</p><strong id="stat-total">0</strong><small class="stat-hint">in the catalog</small></div>
+              <div class="stat-card"><p>Solved</p><strong id="stat-solved">0</strong><small class="stat-hint" id="stat-solved-hint">marked solved</small></div>
+              <div class="stat-card"><p>Unsolved</p><strong id="stat-unsolved">0</strong><small class="stat-hint">still to try</small></div>
+              <div class="stat-card"><p>Completion</p><strong id="stat-completion">0%</strong><small class="stat-hint">of the catalog</small></div>
+              <div class="stat-card"><p>Current streak</p><strong id="stat-streak-current">0</strong><small class="stat-hint">days in a row</small></div>
+              <div class="stat-card"><p>Longest streak</p><strong id="stat-streak-longest">0</strong><small class="stat-hint">days</small></div>
+              <div class="stat-card"><p>Solved today</p><strong id="stat-today">0</strong><small class="stat-hint">problems</small></div>
+              <div class="stat-card"><p>Solved this week</p><strong id="stat-week">0</strong><small class="stat-hint">since Monday</small></div>
+            </div>
+            <p class="progress-note" id="progress-solved-note" hidden></p>
+          </section>
+
+          <section class="settings-group" aria-labelledby="progress-difficulty-title">
+            <h3 id="progress-difficulty-title">Difficulty</h3>
+            <div id="progress-difficulty" class="diff-list"></div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="progress-activity-title">
+            <h3 id="progress-activity-title">Activity <span id="progress-activity-range" class="progress-sub"></span></h3>
+            <div id="progress-heatmap" class="heatmap" role="img" aria-label="Daily solved problems calendar"></div>
+            <div class="heatmap-legend" aria-hidden="true"><span>Less</span><i class="hm-cell hm-cell--l0"></i><i class="hm-cell hm-cell--l1"></i><i class="hm-cell hm-cell--l2"></i><i class="hm-cell hm-cell--l3"></i><i class="hm-cell hm-cell--l4"></i><span>More</span></div>
+            <p id="progress-heatmap-detail" class="heatmap-detail">Hover or tap a day to see what you solved.</p>
+          </section>
+
+          <section class="settings-group" aria-labelledby="progress-trend-title">
+            <h3 id="progress-trend-title">Trend</h3>
+            <p class="progress-chart-title">Problems solved per week</p>
+            <div id="progress-weekly" class="bar-chart"></div>
+            <p class="progress-chart-title">Problems solved per month</p>
+            <div id="progress-monthly" class="bar-chart"></div>
+            <p id="progress-comparison" class="progress-note"></p>
+          </section>
+
+          <section class="settings-group" aria-labelledby="progress-history-title">
+            <h3 id="progress-history-title">Recent activity</h3>
+            <div id="progress-activity-list" class="activity-list"></div>
+            <button id="progress-activity-more" class="prog-btn prog-btn--wide" type="button" hidden>Show more</button>
+          </section>
+
+          <section class="settings-group" aria-labelledby="progress-runs-title">
+            <h3 id="progress-runs-title">Code runs</h3>
+            <div class="advanced-stats">
+              <div class="stat-card"><p>Runs</p><strong id="stat-runs-total">0</strong><small class="stat-hint">executed on the server</small></div>
+              <div class="stat-card"><p>Ran fine</p><strong id="stat-runs-ok">0</strong><small class="stat-hint">compiled and finished</small></div>
+              <div class="stat-card"><p>Failed</p><strong id="stat-runs-failed">0</strong><small class="stat-hint">compile or runtime error</small></div>
+            </div>
+            <p class="progress-note">A run means the program compiled and finished - it is <strong>not</strong> an accepted solution. Quanta has no access to a problem's hidden test cases, so a problem is only ever marked solved by you.</p>
+          </section>
+        </div>
+      </div>
+    </section>
     <!-- ============================ Settings page ============================ -->
     <section id="page-settings" class="page page--settings" data-page-id="settings" aria-label="Settings" hidden>
       <header class="page-head">
@@ -789,6 +871,6 @@
     })();
   </script>
   <script src="script.js?v=15"></script>
-  <script src="lab-notes.js?v=37"></script>
+  <script src="lab-notes.js?v=38"></script>
 </body>
 </html>

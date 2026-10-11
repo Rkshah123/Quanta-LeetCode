@@ -103,6 +103,7 @@
     if (pageId === "lab") void openLabPage();
     if (pageId === "quantalab") renderLcAll();
     if (pageId === "notes") renderPersonalNotes();
+    if (pageId === "progress") void renderProgressPage();
     if (pageId === "lab" || pageId === "quantalab") relayoutMonacoEditors();
     if (pageId !== "lab") clearLanguageAccent();
     /* Hidden pages measure 0x0, so stored split sizes could not be applied
@@ -2887,10 +2888,13 @@
      problem-level flag. */
   const problemIsSolved = (problem) => {
     if (!problem) return false;
+    /* The problem-level flag also carries progress synced from the database
+       (marked solved on another device), where no language is known. */
+    if (problem.solved === true) return true;
     if (problem.langSolved && typeof problem.langSolved === "object") {
       return Object.values(problem.langSolved).some(Boolean);
     }
-    return Boolean(problem.solved);
+    return false;
   };
 
   const currentLangLabel = () => {
@@ -3201,6 +3205,9 @@
     persistLcState();
     renderLcProblemList();
     renderLcDetail();
+    /* Mirror the decision into the database so the Progress page and the other
+       device see it. Never blocks the UI. */
+    void pushProgressForProblem(problem);
   };
 
   /* Star problems for revision. Stored as `bookmarked` on the problem so old
@@ -5381,6 +5388,440 @@
   };
   runSplash();
 
+/* ======================= coding progress dashboard ===================== */
+  /* Everything on this page comes from the database through /api/progress/*.
+     Two facts are kept visibly apart, because this app cannot tell whether a
+     solution is algorithmically correct:
+
+       - "Solved" means the user pressed "Mark solved" on some device.
+       - "Runs" are real executions the server performed (Judge0). A successful
+         run only means the program compiled and finished.
+
+     Nothing here is invented: no number comes from a seed, and no day is ever
+     filled in when there was no activity. */
+
+  const PROGRESS_PAGE_SIZE = 20;
+
+  const progressView = {
+    summary: null,
+    activity: [],
+    activityTotal: 0,
+    loading: false,
+    loaded: false,
+    error: ""
+  };
+
+  const progressSetText = (id, value) => {
+    const node = byId(id);
+    if (node) node.textContent = String(value);
+  };
+
+  const progressNumber = (value) => new Intl.NumberFormat().format(Number(value) || 0);
+
+  /* Minutes east of UTC, so the server buckets days in the viewer's timezone. */
+  const progressTzOffset = () => -new Date().getTimezoneOffset();
+
+  const progressFetch = async (path, options = {}) => {
+    const hasTimeout = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function";
+    const response = await fetch(`${getApiBase()}${path}`, {
+      cache: "no-store",
+      ...options,
+      signal: hasTimeout ? AbortSignal.timeout(15000) : undefined
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
+    return payload;
+  };
+
+  const progressDayDate = (dayKey) => new Date(`${dayKey}T00:00:00Z`);
+
+  const formatDayKey = (dayKey, options = {}) =>
+    new Intl.DateTimeFormat(undefined, { timeZone: "UTC", ...options }).format(progressDayDate(dayKey));
+
+  /* The stored timestamp is UTC without a zone marker, so it is parsed as UTC
+     explicitly instead of being shifted into the device timezone. */
+  const parseSolvedAt = (value) => {
+    if (!value) return null;
+    const parsed = new Date(`${String(value).replace(" ", "T")}Z`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  /* Slug of a local problem, reused from the existing URL parser. */
+  const progressSlugOf = (problem) => {
+    const info = extractLcProblemInfo(problem?.url || "");
+    return info ? info.slug : "";
+  };
+
+  /* Sends the user's own "Mark solved" decision to the database so the phone,
+     the browser and the dashboard always agree. Best effort: a failed sync must
+     never break the editor, and the local list stays authoritative offline. */
+  const pushProgressForProblem = async (problem) => {
+    const slug = progressSlugOf(problem);
+    if (!slug) return;
+    const info = extractLcProblemInfo(problem.url);
+    try {
+      await progressFetch("/api/progress/solved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          num: info?.num > 0 ? info.num : problem.num > 0 ? problem.num : null,
+          title: problem.name || "",
+          difficulty: problem.difficulty || "Medium",
+          solved: problemIsSolved(problem)
+        })
+      });
+    } catch {
+      /* Offline or server unavailable: keep the local state, retry next time. */
+    }
+  };
+
+  /* Brings problems marked solved on another device (for example the phone)
+     into this device's list. The database stores progress per problem while the
+     local list tracks it per language, so a synced problem is marked at the
+     problem level instead of guessing which language it was solved in. */
+  const syncSolvedFromServer = async () => {
+    let payload = null;
+    try {
+      payload = await progressFetch("/api/progress");
+    } catch {
+      return;
+    }
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    if (!items.length) return;
+
+    let changed = false;
+    const bySlug = new Map(lcState.problems.map((problem) => [progressSlugOf(problem), problem]));
+    items.forEach((item) => {
+      const problem = bySlug.get(String(item.slug || "").toLowerCase());
+      if (!problem || problem.solved === true) return;
+      problem.solved = true;
+      changed = true;
+    });
+    if (!changed) return;
+    persistLcState();
+    renderLcAll();
+  };
+
+  const renderProgressTiles = (summary) => {
+    progressSetText("stat-total", progressNumber(summary.catalog.total));
+    progressSetText("stat-solved", progressNumber(summary.solved.total));
+    progressSetText("stat-unsolved", progressNumber(summary.catalog.unsolved));
+    progressSetText("stat-completion", `${summary.catalog.completionPercent}%`);
+    progressSetText("stat-streak-current", progressNumber(summary.streaks.current));
+    progressSetText("stat-streak-longest", progressNumber(summary.streaks.longest));
+    progressSetText("stat-today", progressNumber(summary.solved.today));
+    progressSetText("stat-week", progressNumber(summary.solved.thisWeek));
+    progressSetText("stat-runs-total", progressNumber(summary.runs.total));
+    progressSetText("stat-runs-ok", progressNumber(summary.runs.successful));
+    progressSetText("stat-runs-failed", progressNumber(summary.runs.failed));
+
+    const solvedHint = byId("stat-solved-hint");
+    if (solvedHint) {
+      solvedHint.textContent =
+        summary.solved.outsideCatalog > 0
+          ? `${summary.solved.outsideCatalog} outside the catalog`
+          : "marked solved";
+    }
+
+    /* Problems solved outside the catalog would make the percentage look wrong,
+       so they are stated separately instead of being folded in silently. */
+    const note = byId("progress-solved-note");
+    if (note) {
+      note.hidden = summary.solved.outsideCatalog <= 0;
+      note.textContent =
+        summary.solved.outsideCatalog > 0
+          ? `${summary.solved.outsideCatalog} solved ${
+              summary.solved.outsideCatalog === 1 ? "problem is" : "problems are"
+            } not in the catalog, so they are not counted in the completion percentage.`
+          : "";
+    }
+  };
+
+  const renderProgressDifficulty = (rows) => {
+    const host = byId("progress-difficulty");
+    if (!host) return;
+    host.innerHTML = "";
+    rows.forEach((row) => {
+      const item = document.createElement("div");
+      item.className = "diff-row";
+
+      const label = document.createElement("span");
+      label.className = "diff-row__label";
+      label.textContent = row.difficulty;
+
+      const bar = document.createElement("div");
+      bar.className = "diff-row__bar";
+      bar.setAttribute("role", "img");
+      bar.setAttribute("aria-label", `${row.difficulty}: ${row.solved} of ${row.total} solved`);
+      const fill = document.createElement("div");
+      fill.className = "diff-row__fill";
+      fill.style.width = `${Math.max(0, Math.min(100, row.percent))}%`;
+      bar.append(fill);
+
+      const count = document.createElement("span");
+      count.className = "diff-row__count";
+      count.textContent = `${progressNumber(row.solved)} / ${progressNumber(row.total)}`;
+
+      item.append(label, bar, count);
+      host.append(item);
+    });
+  };
+
+  const progressLevel = (count, max) => {
+    if (count <= 0) return 0;
+    if (max <= 1) return 4;
+    const ratio = count / max;
+    if (ratio > 0.75) return 4;
+    if (ratio > 0.5) return 3;
+    if (ratio > 0.25) return 2;
+    return 1;
+  };
+
+  const renderProgressHeatmap = (summary) => {
+    const host = byId("progress-heatmap");
+    const detail = byId("progress-heatmap-detail");
+    if (!host) return;
+
+    const daily = Array.isArray(summary.activity?.daily) ? summary.activity.daily : [];
+    const max = daily.reduce((peak, entry) => Math.max(peak, Number(entry.count) || 0), 0);
+    host.innerHTML = "";
+
+    /* Week columns, Monday first. A series that starts mid-week is padded with
+       empty cells instead of shifting every day into the wrong weekday. */
+    const slots = [];
+    if (daily.length) {
+      const firstWeekday = (progressDayDate(daily[0].day).getUTCDay() + 6) % 7;
+      for (let i = 0; i < firstWeekday; i += 1) slots.push(null);
+      daily.forEach((entry) => slots.push(entry));
+      while (slots.length % 7 !== 0) slots.push(null);
+    }
+
+    const describe = (entry) => {
+      const when = formatDayKey(entry.day, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+      return entry.count > 0
+        ? `${progressNumber(entry.count)} ${entry.count === 1 ? "problem" : "problems"} solved on ${when}`
+        : `No problems solved on ${when}`;
+    };
+
+    for (let i = 0; i < slots.length; i += 7) {
+      slots.slice(i, i + 7).forEach((entry) => {
+        if (!entry) {
+          const spacer = document.createElement("span");
+          spacer.className = "hm-cell";
+          spacer.style.visibility = "hidden";
+          host.append(spacer);
+          return;
+        }
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = `hm-cell hm-cell--l${progressLevel(entry.count, max)}`;
+        if (entry.day === summary.today) cell.classList.add("hm-cell--today");
+        cell.setAttribute("aria-label", describe(entry));
+        const show = () => {
+          if (detail) detail.textContent = describe(entry);
+        };
+        cell.addEventListener("mouseenter", show);
+        cell.addEventListener("focus", show);
+        cell.addEventListener("click", show);
+        host.append(cell);
+      });
+    }
+
+    if (detail) {
+      detail.textContent =
+        max > 0 ? "Hover or tap a day to see what you solved." : "No activity in this period yet.";
+    }
+
+    const range = byId("progress-activity-range");
+    if (range) range.textContent = `last ${summary.activity.days} days`;
+  };
+
+  const renderProgressBars = (hostId, series, labelOf) => {
+    const host = byId(hostId);
+    if (!host) return;
+    host.innerHTML = "";
+    const max = series.reduce((peak, entry) => Math.max(peak, Number(entry.count) || 0), 0);
+    series.forEach((entry) => {
+      const column = document.createElement("div");
+      column.className = "bar-col";
+
+      const fill = document.createElement("div");
+      fill.className = "bar-fill";
+      fill.style.height = `${max > 0 ? Math.round((entry.count / max) * 100) : 0}%`;
+      fill.title = `${labelOf(entry)}: ${progressNumber(entry.count)}`;
+
+      const label = document.createElement("span");
+      label.className = "bar-label";
+      label.textContent = labelOf(entry);
+
+      column.append(fill, label);
+      host.append(column);
+    });
+  };
+
+  const renderProgressComparison = (comparison) => {
+    const node = byId("progress-comparison");
+    if (!node) return;
+    const describe = (value) => {
+      const parts = [`${progressNumber(value.current)} solved`, `previous ${progressNumber(value.previous)}`];
+      if (value.previous > 0) {
+        const sign = value.delta > 0 ? "+" : "";
+        parts.push(`${sign}${progressNumber(value.delta)} (${sign}${value.percent}%)`);
+      } else if (value.current > 0) {
+        parts.push("no data for the previous period");
+      }
+      return parts.join(" · ");
+    };
+    node.textContent = `This week — ${describe(comparison.week)}. This month — ${describe(comparison.month)}.`;
+  };
+
+  const renderProgressActivity = () => {
+    const host = byId("progress-activity-list");
+    const more = byId("progress-activity-more");
+    if (!host) return;
+    host.innerHTML = "";
+
+    if (!progressView.activity.length) {
+      const empty = document.createElement("p");
+      empty.className = "progress-note";
+      empty.textContent = "Nothing solved yet.";
+      host.append(empty);
+      if (more) more.hidden = true;
+      return;
+    }
+
+    progressView.activity.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "activity-row";
+
+      const title = document.createElement("span");
+      title.className = "activity-row__title";
+      title.textContent = `${item.num ? `#${item.num} ` : ""}${item.title || item.slug}`;
+
+      const difficulty = document.createElement("span");
+      difficulty.className = "activity-row__diff";
+      difficulty.textContent = item.difficulty || "Medium";
+
+      const date = document.createElement("span");
+      date.className = "activity-row__date";
+      const parsed = parseSolvedAt(item.solvedAt);
+      date.textContent = parsed
+        ? new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(parsed)
+        : "";
+
+      row.append(title, difficulty, date);
+      host.append(row);
+    });
+
+    if (more) more.hidden = progressView.activity.length >= progressView.activityTotal;
+  };
+
+  /* Paginated so a long history is never loaded in one request. */
+  const loadProgressActivity = async (append = false) => {
+    const offset = append ? progressView.activity.length : 0;
+    const page = await progressFetch(`/api/progress/activity?limit=${PROGRESS_PAGE_SIZE}&offset=${offset}`);
+    const items = Array.isArray(page?.items) ? page.items : [];
+    progressView.activity = append ? [...progressView.activity, ...items] : items;
+    progressView.activityTotal = Number(page?.total) || progressView.activity.length;
+    renderProgressActivity();
+  };
+
+  /* Loads everything the page shows. Loading and error states are explicit; a
+     failed refresh keeps the last numbers on screen with the error shown, and
+     the "updated" line always states when the data was really fetched. */
+  const renderProgressPage = async () => {
+    if (progressView.loading) return;
+    progressView.loading = true;
+    progressView.error = "";
+
+    const statusNode = byId("progress-status");
+    const errorNode = byId("progress-error");
+    const contentNode = byId("progress-content");
+    const emptyNode = byId("progress-empty");
+    const refresh = byId("progress-refresh");
+
+    if (refresh) refresh.disabled = true;
+    if (statusNode) statusNode.textContent = progressView.loaded ? "Refreshing…" : "Loading your progress…";
+    if (!progressView.loaded) {
+      if (errorNode) errorNode.hidden = true;
+      if (contentNode) contentNode.hidden = true;
+    }
+
+    try {
+      const summary = await progressFetch(
+        `/api/progress/summary?tzOffset=${progressTzOffset()}&days=365&weeks=12&months=6`
+      );
+      progressView.summary = summary;
+      progressView.loaded = true;
+
+      renderProgressTiles(summary);
+      renderProgressDifficulty(summary.solved.byDifficulty);
+      renderProgressHeatmap(summary);
+      renderProgressBars("progress-weekly", summary.activity.weekly, (entry) =>
+        formatDayKey(entry.start, { day: "numeric", month: "short" })
+      );
+      renderProgressBars("progress-monthly", summary.activity.monthly, (entry) =>
+        formatDayKey(entry.start, { month: "short" })
+      );
+      renderProgressComparison(summary.comparison);
+      await loadProgressActivity(false);
+
+      /* The prompt is about solved problems, so runs alone never hide it. */
+      const hasSolved = summary.solved.total > 0;
+      if (contentNode) contentNode.hidden = false;
+      if (emptyNode) emptyNode.hidden = hasSolved;
+      if (errorNode) errorNode.hidden = true;
+      if (statusNode) {
+        const time = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date());
+        statusNode.textContent =
+          `Updated ${time} · ${progressNumber(summary.solved.total)} solved of ` +
+          `${progressNumber(summary.catalog.total)} catalog problems`;
+      }
+    } catch (error) {
+      progressView.error = error?.message || "Progress could not be loaded.";
+      if (statusNode) statusNode.textContent = "Progress is unavailable right now.";
+      const errorText = byId("progress-error-text");
+      if (errorText) errorText.textContent = progressView.error;
+      if (errorNode) errorNode.hidden = false;
+      if (!progressView.loaded && contentNode) contentNode.hidden = true;
+    } finally {
+      progressView.loading = false;
+      if (refresh) refresh.disabled = false;
+    }
+  };
+
+  byId("progress-refresh")?.addEventListener("click", () => {
+    void renderProgressPage();
+  });
+
+  byId("progress-error-retry")?.addEventListener("click", () => {
+    void renderProgressPage();
+  });
+
+  byId("progress-activity-more")?.addEventListener("click", async () => {
+    const button = byId("progress-activity-more");
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Loading…";
+    }
+    try {
+      await loadProgressActivity(true);
+    } catch {
+      /* the list keeps whatever it already has */
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Show more";
+      }
+    }
+  });
+
   /* -------------------------------- init -------------------------------- */
 
   ensureActiveSession();
@@ -5390,4 +5831,6 @@
   renderPersonalNotes();
   showPage("quantalab", { resetScroll: true });
   void fetchRunCapabilities();
+  /* Pull problems marked solved on another device (e.g. the phone). */
+  void syncSolvedFromServer();
 })();
