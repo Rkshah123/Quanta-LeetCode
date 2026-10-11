@@ -5536,9 +5536,11 @@
       note.hidden = summary.solved.outsideCatalog <= 0;
       note.textContent =
         summary.solved.outsideCatalog > 0
-          ? `${summary.solved.outsideCatalog} solved ${
+          ? `${progressNumber(summary.solved.outsideCatalog)} solved ${
               summary.solved.outsideCatalog === 1 ? "problem is" : "problems are"
-            } not in the catalog, so they are not counted in the completion percentage.`
+            } not in the catalog, so ${
+              summary.solved.outsideCatalog === 1 ? "it is" : "they are"
+            } not counted in the completion percentage.`
           : "";
     }
   };
