@@ -1761,6 +1761,330 @@ body[data-theme="beige"] .btn-toggle {
   .stat-card:last-child { grid-column: auto; }
 }
 
+/* ======================= Progress dashboard ============================= */
+/* The statistic tiles reuse the existing .advanced-stats / .stat-card
+   components; everything below is specific to the Progress page. */
+
+.stat-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-c);
+  font-size: 0.66rem;
+  line-height: 1.25;
+}
+
+.progress-status {
+  margin: 0;
+  color: var(--text-b);
+  font-size: 0.82rem;
+}
+
+.progress-sub {
+  margin-left: 6px;
+  color: var(--text-c);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* .settings-body is a grid, and a grid item defaults to min-width:auto - the
+   53-week calendar would then stretch the whole column past the viewport and
+   clip the tiles beside it. Let every section shrink and scroll internally. */
+.progress-body > * {
+  min-width: 0;
+}
+
+.progress-note {
+  margin: 10px 0 0;
+  color: var(--text-c);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.progress-chart-title {
+  margin: 12px 0 6px;
+  color: var(--text-b);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.progress-state {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--field);
+  color: var(--text-b);
+  font-size: 0.84rem;
+}
+
+.progress-state p {
+  margin: 0;
+}
+
+/* .progress-state sets display:grid, which would otherwise beat the browser's
+   own [hidden] rule and keep a dismissed panel on screen. */
+.progress-state[hidden] {
+  display: none;
+}
+
+.progress-state__hint {
+  color: var(--text-c);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.progress-state--error {
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.prog-btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--anim-fast), box-shadow var(--anim-fast);
+}
+
+.prog-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px var(--accent-soft);
+}
+
+.prog-btn--wide {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Difficulty completion rows */
+.diff-list {
+  display: grid;
+  gap: 9px;
+}
+
+.diff-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+}
+
+.diff-row__label {
+  font-weight: 700;
+}
+
+.diff-row__bar {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--field);
+  overflow: hidden;
+}
+
+.diff-row__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, rgb(var(--tint-deep)), rgb(var(--tint-light)));
+  transition: width var(--anim-mid);
+}
+
+.diff-row__count {
+  color: var(--text-b);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Activity calendar: 7 rows (weekdays) x N columns (weeks) */
+.heatmap {
+  display: grid;
+  grid-template-rows: repeat(7, 12px);
+  grid-auto-flow: column;
+  grid-auto-columns: 12px;
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.hm-cell {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border-radius: 3px;
+  background: var(--field);
+  border: 1px solid transparent;
+}
+
+.hm-cell--l0 { background: rgba(148, 196, 178, 0.12); }
+.hm-cell--l1 { background: rgba(16, 185, 129, 0.3); }
+.hm-cell--l2 { background: rgba(16, 185, 129, 0.5); }
+.hm-cell--l3 { background: rgba(16, 185, 129, 0.72); }
+.hm-cell--l4 { background: rgb(16, 185, 129); }
+
+.hm-cell--today {
+  border-color: var(--accent-text);
+}
+
+body[data-theme="beige"] .hm-cell--l0 { background: rgba(0, 106, 78, 0.1); }
+body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
+
+.hm-cell:hover {
+  border-color: var(--accent-text);
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  color: var(--text-c);
+  font-size: 0.66rem;
+}
+
+.heatmap-legend .hm-cell {
+  width: 10px;
+  height: 10px;
+}
+
+.heatmap-detail {
+  margin: 8px 0 0;
+  color: var(--text-b);
+  font-size: 0.76rem;
+  min-height: 1.2em;
+}
+
+/* Bar charts (weeks / months) */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 118px;
+  padding-bottom: 2px;
+}
+
+.bar-col {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.bar-fill {
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(180deg, rgb(var(--tint-light)), rgb(var(--tint-deep)));
+  transition: height var(--anim-mid);
+}
+
+.bar-label {
+  color: var(--text-c);
+  font-size: 0.6rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Recent activity rows */
+.activity-list {
+  display: grid;
+  gap: 7px;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--field);
+  font-size: 0.78rem;
+  min-width: 0;
+}
+
+.activity-row__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-row__date {
+  color: var(--text-c);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.activity-row__diff {
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--text-b);
+  font-size: 0.66rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Phones: keep the dashboard compact - smaller cells and bars, and let the
+   calendar scroll sideways instead of forcing a very tall page. */
+@media (max-width: 760px) {
+  .advanced-stats {
+    gap: 7px;
+  }
+
+  .stat-card {
+    padding: 8px 9px;
+  }
+
+  .stat-card p {
+    font-size: 0.68rem;
+  }
+
+  .stat-card strong {
+    font-size: 1rem;
+  }
+
+  .stat-hint {
+    font-size: 0.6rem;
+  }
+
+  .heatmap {
+    grid-template-rows: repeat(7, 10px);
+    grid-auto-columns: 10px;
+    gap: 2px;
+  }
+
+  .hm-cell {
+    width: 10px;
+    height: 10px;
+  }
+
+  .bar-chart {
+    height: 96px;
+    gap: 3px;
+  }
+
+  .diff-row {
+    grid-template-columns: 54px 1fr auto;
+    font-size: 0.72rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

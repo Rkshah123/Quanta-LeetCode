@@ -71,6 +71,7 @@ The frontend is deliberately framework-free: no React, no bundler, no browser-si
 | Page | What it holds |
 |---|---|
 | **Quanta Lab** (home) | 782-problem catalog: search, difficulty chips, status filter (all / solved / unsolved / starred), star-to-revise toggle on every row, progress chip; list ⇄ detail split with a draggable divider; detail = statement (Notes tab) + workspace (Code tab: language select, Monaco, stdin, Run/Save, per-language code); maximized mode; add-problem dialog |
+| **Progress** | Coding progress dashboard, database-backed: totals, solved / unsolved, completion %, current + longest streak, solved today and this week, difficulty completion, a 365-day activity calendar with per-day details, weekly and monthly trends, this week / month vs. the previous period, paginated recent activity, and server-observed code runs. Refresh button, plus explicit loading, empty and error states |
 | **Notes** | Per-language notes: title, rich-text editor, section list, find/replace, word count, save, export (.html / .txt), delete |
 | **Lab** | Multi-program Code Lab: create / rename / delete programs as tabs, language picker (Java, JavaScript, Python, C, C++), Monaco editor, stdin, Run, save-to-file, font size A− / A+, auto-save; editor ⇄ output panes split by a draggable divider (stacked on phones with an Editor / Output switch) |
 | **Settings** | Theme (Emerald Night / Pearl Light / Ember), glow, editor font, default language, tab size, word wrap, line numbers, Monaco theme, minimap, layout reset, connection (Online API + Compiler server, each with Save / Test), backup export, reset dashboard |
@@ -458,6 +459,10 @@ The cache lives in `localStorage` under `quantaDescCacheV1` (newest 400 statemen
 | `GET /api/lc-skeleton?slug=` | Live LeetCode starter code |
 | `GET /api/run/capabilities` | Which languages this server can execute |
 | `POST /api/run` | `{ language, code, stdin }` → compile/run |
+| `GET /api/progress` | Everything currently marked solved, used to sync the device list |
+| `GET /api/progress/summary?tzOffset=&days=&weeks=&months=` | Whole dashboard in one response: catalog totals, solved per difficulty, completion %, streaks, solved today / week / month, week and month comparison, dense daily / weekly / monthly series, run counts |
+| `GET /api/progress/activity?limit=&offset=` | Paginated solved history, newest first |
+| `POST /api/progress/solved` | `{ slug, num?, title?, difficulty?, solved }` → records or clears the user's own "Mark solved" |
 | `POST /api/assistant` | `{ message }` → reply (local fallback) |
 
 Errors use one shape: `{ ok: false, error: "…" }`, with `400` for bad input, `404` for unknown records, `429` when rate limited, `503` when the database is unreachable. Credentials, stack traces and connection details are never returned.
@@ -467,11 +472,25 @@ Security notes: database credentials live only in the backend `.env` or the host
 ## Quality commands
 
 ```bash
-npm run check      # syntax check of all JavaScript
+npm run check           # syntax check of all JavaScript
 npm run migrate -- --status
 npm run import:problems -- --dry-run
-npm run test:api   # integration tests against a real server + database
+npm run test:api        # integration tests against a real server + database
+npm run test:progress   # streaks, calendar, timezones, duplicates, pagination
 ```
+
+### What "solved" and "runs" mean here
+
+The Progress page never claims more than the data supports:
+
+- **Solved** means *you* pressed **Mark solved**. Quanta cannot check algorithmic correctness: JavaScript runs in the browser and the other languages run on Judge0 with free-form stdin, never against a problem's hidden test cases. A problem marked solved is your own assertion, and the dashboard says so.
+- **Runs** are real executions the server performed. A successful run only means the program compiled and finished — it is not an accepted solution. Browser-only JavaScript runs are not recorded, because the server never sees them.
+
+Progress is stored per problem in `problem_progress` (keyed by LeetCode slug, so problems you add yourself still count) and every read and write is scoped to one owner. The app has no login system, so that owner is a single implicit value — no data from different owners is ever combined, and the schema keeps the separation explicit for the day an identity system exists.
+
+Marking a problem solved in Quanta Lab writes it to the database in the background, and on start-up the app pulls problems solved on another device, so the phone and the browser always agree. Offline, the device keeps its own state and syncs the next time it can.
+
+`npm run test:progress` covers streak rules (including a streak that ended yesterday, a broken streak and an old record), calendar arithmetic across month, year and DST boundaries, ISO week keys, the timezone shift applied to a solve near midnight, duplicate marks, problems solved outside the catalog, pagination, run history, and the empty state. It uses dedicated `quanta-progress-test-*` slugs, refuses to run if they already exist, and removes exactly what it created (**90/90**).
 
 `npm run test:api` covers: health and database reporting, pagination and search, invalid input, missing records, numeric id and slug lookup, statement delivery from the database, run/assistant endpoints, static file protection, CORS rules, the client-side cache wiring, rate limiting, graceful behaviour when the database is down, and the full **cloud-runner** path — a second server started with its `PATH` reduced to Node's own directory (exactly the situation on Render, where no compiler exists) driving Java through Judge0: a real run, a compile error, a runaway loop hitting the time limit, stdin, and a class whose name differs from `Main`. All tests currently pass (**59/59**).
 

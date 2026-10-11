@@ -37,7 +37,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const startServer = async (port, envOverrides = {}) => {
   const child = spawn(process.execPath, [SERVER_ENTRY], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", ...envOverrides },
+    /* PROGRESS_RECORD_RUNS=0: the runs this suite executes are test traffic and must
+       never appear in the real run history shown on the Progress page. */
+    env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", PROGRESS_RECORD_RUNS: "0", ...envOverrides },
     stdio: ["ignore", "pipe", "pipe"]
   });
 

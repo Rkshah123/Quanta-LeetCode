@@ -9,6 +9,7 @@ dotenv.config({ quiet: true });
 
 const database = require("./db/pool");
 const problemsRepo = require("./db/problems");
+const progressRepo = require("./db/progress");
 
 const app = express();
 
@@ -921,6 +922,150 @@ app.get("/api/problems/:id", rateLimit, async (req, res) => {
   }
 });
 
+/* --------------------------- coding progress ---------------------------- */
+/* Progress endpoints. Three different facts are kept apart on purpose:
+
+   - "solved"      what the user marked solved. This app cannot verify
+                   algorithmic correctness (JavaScript runs in the browser,
+                   other languages run with free-form stdin, never against the
+                   problem's test cases), so it is never reported as a verified
+                   acceptance.
+   - runs          real executions this server performed (Judge0).
+   - catalog totals straight from the problems table.
+
+   There is no login system, so every row belongs to the single implicit owner
+   in db/progress.js; nothing is ever merged across owners. */
+
+/* Accepts a bounded integer query parameter, otherwise answers 400. */
+const readBoundedInt = (value, { min, max, fallback }) => {
+  if (value === undefined) return fallback;
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null;
+  return parsed;
+};
+
+app.get("/api/progress/summary", rateLimit, async (req, res) => {
+  const tzOffset = readBoundedInt(req.query.tzOffset, { min: -840, max: 840, fallback: 0 });
+  const days = readBoundedInt(req.query.days, { min: 30, max: 730, fallback: null });
+  const weeks = readBoundedInt(req.query.weeks, { min: 4, max: 26, fallback: null });
+  const months = readBoundedInt(req.query.months, { min: 3, max: 12, fallback: null });
+
+  if (tzOffset === null || days === null || weeks === null || months === null) {
+    res.status(400).json({ ok: false, error: "Invalid progress query parameters." });
+    return;
+  }
+
+  try {
+    const summary = await progressRepo.getSummary({
+      tzOffsetMinutes: tzOffset,
+      days: days ?? undefined,
+      weeks: weeks ?? undefined,
+      months: months ?? undefined
+    });
+    res.json({ ok: true, ...summary });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+/* Everything currently marked solved - used by the clients to sync their local
+   problem list with the database. */
+app.get("/api/progress", rateLimit, async (_req, res) => {
+  try {
+    const items = await progressRepo.listSolved();
+    res.json({ ok: true, items, total: items.length });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+/* Paginated solved history, newest first. */
+app.get("/api/progress/activity", rateLimit, async (req, res) => {
+  const limit = readBoundedInt(req.query.limit, { min: 1, max: 50, fallback: 20 });
+  const offset = readBoundedInt(req.query.offset, { min: 0, max: 1000000, fallback: 0 });
+  if (limit === null || offset === null) {
+    res.status(400).json({ ok: false, error: "Invalid pagination parameters." });
+    return;
+  }
+
+  try {
+    const page = await progressRepo.listActivity({ limit, offset });
+    res.json({ ok: true, ...page });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+/* Records the user's own "Mark solved" decision. */
+app.post("/api/progress/solved", rateLimit, async (req, res) => {
+  const slug = typeof req.body?.slug === "string" ? req.body.slug : "";
+  const solved = req.body?.solved;
+  const title = typeof req.body?.title === "string" ? req.body.title : "";
+  const num = req.body?.num;
+  const difficulty = typeof req.body?.difficulty === "string" ? req.body.difficulty : "";
+
+  if (!slug || slug.length > 191) {
+    res.status(400).json({ ok: false, error: "A problem slug is required." });
+    return;
+  }
+  if (typeof solved !== "boolean") {
+    res.status(400).json({ ok: false, error: "solved must be true or false." });
+    return;
+  }
+  if (title.length > 255) {
+    res.status(400).json({ ok: false, error: "Title is too long." });
+    return;
+  }
+  if (num !== undefined && num !== null && !Number.isInteger(Number(num))) {
+    res.status(400).json({ ok: false, error: "Problem number must be an integer." });
+    return;
+  }
+  if (difficulty && !["Easy", "Medium", "Hard"].includes(difficulty)) {
+    res.status(400).json({ ok: false, error: "Difficulty must be Easy, Medium or Hard." });
+    return;
+  }
+
+  try {
+    const row = await progressRepo.markSolved({
+      slug,
+      title,
+      num: num === null ? undefined : num,
+      difficulty,
+      solved
+    });
+    res.json({ ok: true, problem: row });
+  } catch (error) {
+    if (/valid problem slug/i.test(error?.message || "")) {
+      res.status(400).json({ ok: false, error: "That problem slug is not valid." });
+      return;
+    }
+    respondDatabaseError(res, error);
+  }
+});
+
+/* Best-effort run history. A failure here is logged and dropped: the editor is
+   waiting for the run answer and must never see a database error instead.
+   PROGRESS_RECORD_RUNS=0 turns the recording off, which the integration test
+   server uses so its own executions never land in the real run history. */
+const RECORD_RUNS = process.env.PROGRESS_RECORD_RUNS !== "0";
+
+const recordRunAttempt = async (language, body, result) => {
+  if (!RECORD_RUNS || !database.isConfigured()) return;
+  try {
+    const seconds = Number.parseFloat(result?.time);
+    await progressRepo.recordRun({
+      slug: typeof body?.slug === "string" ? body.slug : "",
+      num: body?.num,
+      language,
+      status: result?.ok ? "Completed" : result?.phase === "compile" ? "Compile Error" : "Failed",
+      ok: Boolean(result?.ok),
+      durationMs: Number.isFinite(seconds) ? Math.round(seconds * 1000) : null
+    });
+  } catch (error) {
+    console.error(`[progress] run not recorded: ${error?.message || error}`);
+  }
+};
+
 app.get("/api/run/capabilities", runRateLimit, async (_req, res) => {
   const capabilities = await getRunCapabilities();
   res.json({ javascript: "browser", ...capabilities });
@@ -953,6 +1098,9 @@ app.post("/api/run", runRateLimit, async (req, res) => {
   try {
     const result = await executeRun(language, code, stdin);
     res.json(result);
+    /* Recorded after the answer was sent: the dashboard's run counters come
+       from real executions, never from what the client claims. */
+    void recordRunAttempt(language, req.body, result);
   } catch (error) {
     res.status(500).json({ ok: false, phase: "server", stderr: error?.message || "Run failed." });
   } finally {
