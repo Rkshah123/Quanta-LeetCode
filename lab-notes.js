@@ -6527,6 +6527,31 @@ window.addEventListener("beforeunload", (event) => {
   event.returnValue = "";
 });
 
+/* Used by the Android wrapper: the hardware Back button asks first, so typing
+   that was never saved is not thrown away silently. In a browser this is a
+   no-op and Back behaves as it always has. */
+window.quantaHasUnsavedWork = () => studyHasUnsavedTyping();
+
+window.quantaHandleBack = () => {
+  if (!studyHasUnsavedTyping()) return false;
+  const codeField = byId("solution-code");
+  if (codeField && !byId("solution-form")?.hidden && codeField.value.trim()) {
+    if (!window.confirm("Discard the solution you have not saved?")) return true;
+    closeSolutionForm();
+    return true;
+  }
+  const slug = studySlug(getActiveLcProblem());
+  if (slug) {
+    collectNoteFromForm(slug);
+    void saveNoteFor(slug).then(() => {
+      showLabToast("Note saved before leaving");
+      renderStudyNote(slug);
+    });
+    return true;
+  }
+  return true;
+};
+
 /* Changing problem or language must not leave another problem's fields behind. */
 const refreshStudyForActiveProblem = () => {
   void renderStudyPanels();

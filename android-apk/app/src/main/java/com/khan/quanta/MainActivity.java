@@ -21,6 +21,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.ValueCallback;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,6 +37,10 @@ import java.io.InputStream;
 public class MainActivity extends Activity {
 
     private WebView webView;
+
+    /* Set by the page (QuantaBack bridge) right before Back is pressed: true when
+       there is typed work that has not been saved yet. */
+    private volatile boolean pendingUnsavedWork = false;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -111,6 +116,22 @@ public class MainActivity extends Activity {
             }
         }, "QuantaApp");
 
+        // The hardware Back button used to leave the app straight away, which
+        // threw away typing that was never saved. It now asks the page first:
+        // when there is unsaved work the page shows its own confirmation, and
+        // when there is none the app closes exactly as before.
+        webView.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void reportUnsavedWork(final boolean hasUnsavedWork) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        pendingUnsavedWork = hasUnsavedWork;
+                    }
+                });
+            }
+        }, "QuantaBack");
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -134,6 +155,31 @@ public class MainActivity extends Activity {
         // Required so window.prompt / confirm / alert work inside the WebView.
         webView.setWebChromeClient(new WebChromeClient());
         webView.loadUrl("http://localhost/index.html");
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        if (webView == null) {
+            super.onBackPressed();
+            return;
+        }
+        pendingUnsavedWork = false;
+        webView.evaluateJavascript(
+            "(function(){try{return window.QuantaBack && window.QuantaBack.reportUnsavedWork("
+                + "!!(window.quantaHasUnsavedWork && window.quantaHasUnsavedWork()));}catch(e){return true;}})()",
+            new ValueCallback<String>() {
+                @Override
+                public void onReceiveValue(String value) {
+                    if ("true".equals(value) && pendingUnsavedWork) {
+                        // The page owns the confirmation; it decides what to do.
+                        webView.evaluateJavascript(
+                            "window.quantaHandleBack && window.quantaHandleBack()", null);
+                        return;
+                    }
+                    finish();
+                }
+            });
     }
 
     private class QuantaWebViewClient extends WebViewClient {
