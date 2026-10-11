@@ -2085,6 +2085,20 @@ body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
   }
 }
 
+/* Narrow phones (about 360 CSS px wide, which is what most Android phones
+   report): the app-wide rule collapses statistic cards to a single column,
+   which would make these eight tiles a very long list. Two compact columns
+   stay readable and keep the page short. */
+@media (max-width: 380px) {
+  .page--progress .advanced-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .page--progress .stat-card:last-child {
+    grid-column: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
