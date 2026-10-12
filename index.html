@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=31" />
+  <link rel="stylesheet" href="style.css?v=32" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -53,6 +53,7 @@
     <button class="nav-btn" type="button" data-page="discovery">What&rsquo;s next</button>
     <button class="nav-btn" type="button" data-page="academy">Academy</button>
     <button class="nav-btn" type="button" data-page="patterns">Patterns</button>
+    <button class="nav-btn" type="button" data-page="mock">Mock</button>
     <button class="nav-btn" type="button" data-page="settings">Settings</button>
     <button class="nav-btn" type="button" data-page="about">About</button>
     <div class="nav-drawer-extra" aria-hidden="false">
@@ -821,6 +822,54 @@
         </section>
       </div>
     </section>
+    <!-- ============================ Mock page ============================== -->
+    <section id="page-mock" class="page page--mock" data-page-id="mock" aria-label="Mock interview" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Mock interview</h2>
+          <p class="page-sub">One problem, a clock, and an honest review</p>
+        </div>
+      </header>
+
+      <div class="settings-body mock-body">
+        <section id="mock-setup" class="settings-group" aria-labelledby="mock-setup-title">
+          <h3 id="mock-setup-title">Start</h3>
+          <div id="mock-difficulty-host"></div>
+          <p id="mock-setup-note" class="viz-about"></p>
+        </section>
+
+        <section id="mock-stage" class="settings-group mock-stage" aria-labelledby="mock-stage-title" hidden>
+          <div class="mock-stage__head">
+            <div>
+              <p id="mock-stage-label" class="mock-stage__label"></p>
+              <h3 id="mock-stage-title" class="mock-stage__title"></h3>
+            </div>
+            <p id="mock-clock" class="mock-clock">0:00</p>
+          </div>
+          <div class="mock-stage__bar"><div id="mock-stage-bar" class="mock-stage__fill"></div></div>
+          <p id="mock-stage-note" class="viz-about"></p>
+
+          <div class="mock-problem">
+            <p id="mock-problem-meta" class="pattern-intro"></p>
+            <h4 id="mock-problem-title" class="mock-problem__title"></h4>
+            <p id="mock-problem-reason" class="viz-note--plain"></p>
+            <div id="mock-problem-links" class="mock-actions"></div>
+          </div>
+        </section>
+
+        <section id="mock-review" class="settings-group" aria-labelledby="mock-review-title" hidden>
+          <h3 id="mock-review-title">How did that go?</h3>
+        </section>
+
+        <p id="mock-outcome" class="mock-outcome" role="status" aria-live="polite" hidden></p>
+
+        <section class="settings-group" aria-labelledby="mock-history-title">
+          <h3 id="mock-history-title">Previous interviews</h3>
+          <div id="mock-history"></div>
+        </section>
+      </div>
+    </section>
     <!-- ========================== Patterns page ============================ -->
     <section id="page-patterns" class="page page--patterns" data-page-id="patterns" aria-label="DSA pattern trainer" hidden>
       <header class="page-head">
@@ -1290,6 +1339,7 @@
   <script src="discovery.js?v=1"></script>
   <script src="academy.js?v=1"></script>
   <script src="patterns.js?v=1"></script>
-  <script src="lab-notes.js?v=60"></script>
+  <script src="mock.js?v=1"></script>
+  <script src="lab-notes.js?v=61"></script>
 </body>
 </html>

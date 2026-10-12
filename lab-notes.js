@@ -11106,6 +11106,375 @@ const refreshStudyForActiveProblem = () => {
   };
 
 
+  /* -------------------------- mock interview --------------------------- */
+  /* Selection, timing and the self-assessment come from mock.js, checked by
+     scripts/test-mock.js. This half drives the clock and, at the end, writes
+     the real outcome into the revision schedule. */
+
+  /* ========================= mock interview UI ==========================
+     Drives mock.js: choose a difficulty, get a problem with its reason shown,
+     work through three timed stages, then answer the self-assessment. The
+     result is written into the real revision schedule, so an interview changes
+     what comes next rather than just recording a number. */
+
+  const mockState = {
+    active: null,      // { problem, reason, stageIndex, remaining, timer, startedAt, answers, elapsed }
+    history: []
+  };
+
+  const mockEl = (id) => document.getElementById(id);
+
+  const mockCatalog = () => {
+    const list = Array.isArray(lcState?.problems) ? lcState.problems : [];
+    return list.length ? list : normalizeLcProblems(seedProblems());
+  };
+
+  const mockScheduled = () => discoveryDueSlugs();
+
+  const mockLoadHistory = () => {
+    const raw = readJson(window.MOCK_KEY || "quantaMockInterviewsV1", () => ({}));
+    mockState.history = Array.isArray(raw?.history) ? raw.history : [];
+  };
+
+  const mockSaveHistory = () => {
+    writeJson(window.MOCK_KEY || "quantaMockInterviewsV1", { history: mockState.history.slice(0, 20) });
+  };
+
+  const mockStopTimer = () => {
+    if (mockState.active?.timer) {
+      window.clearInterval(mockState.active.timer);
+      mockState.active.timer = null;
+    }
+  };
+
+  const mockRenderClock = () => {
+    const active = mockState.active;
+    if (!active) return;
+    const stage = window.MOCK_STAGES[active.stageIndex];
+    const clock = mockEl("mock-clock");
+    if (clock) {
+      clock.textContent = mockClockText(active.remaining);
+      /* Under a minute left turns the clock red, which is the only visual cue
+         that a stage is about to end. */
+      clock.classList.toggle("is-urgent", active.remaining <= 60);
+    }
+    const bar = mockEl("mock-stage-bar");
+    if (bar) {
+      const used = 1 - active.remaining / stage.seconds;
+      bar.style.width = `${Math.min(100, Math.max(0, used * 100))}%`;
+    }
+    const stageLabel = mockEl("mock-stage-label");
+    if (stageLabel) stageLabel.textContent = `${active.stageIndex + 1} of ${window.MOCK_STAGES.length} · ${stage.label}`;
+  };
+
+  const mockClockText = (seconds) => {
+    const total = Math.max(0, Math.round(seconds));
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+  };
+
+  const mockStartStage = () => {
+    const active = mockState.active;
+    if (!active) return;
+    const stage = window.MOCK_STAGES[active.stageIndex];
+    active.remaining = stage.seconds;
+    active.stageStartedAt = Date.now();
+    mockStopTimer();
+    active.timer = window.setInterval(() => {
+      active.remaining -= 1;
+      if (active.remaining <= 0) {
+        active.remaining = 0;
+        mockStopTimer();
+        mockNextStage();
+        return;
+      }
+      mockRenderClock();
+    }, 1000);
+    mockRenderClock();
+  };
+
+  const mockNextStage = () => {
+    const active = mockState.active;
+    if (!active) return;
+    active.elapsed += window.MOCK_STAGES[active.stageIndex].seconds - active.remaining;
+    if (active.stageIndex < window.MOCK_STAGES.length - 1) {
+      active.stageIndex += 1;
+      const next = window.MOCK_STAGES[active.stageIndex];
+      mockEl("mock-stage-note") && (mockEl("mock-stage-note").textContent = next.note);
+      mockStartStage();
+      return;
+    }
+    mockRenderReview();
+  };
+
+  const mockRenderSetup = () => {
+    const section = mockEl("mock-setup");
+    const host = mockEl("mock-difficulty-host");
+    if (!section || !host) return;
+    host.innerHTML = "";
+    section.hidden = false;
+    mockEl("mock-stage") && (mockEl("mock-stage").hidden = true);
+    mockEl("mock-review") && (mockEl("mock-review").hidden = true);
+    mockEl("mock-outcome") && (mockEl("mock-outcome").hidden = true);
+
+    const row = document.createElement("div");
+    row.className = "mock-difficulty";
+    row.setAttribute("role", "group");
+    row.setAttribute("aria-label", "Interview difficulty");
+
+    for (const difficulty of window.MOCK_DIFFICULTIES) {
+      const count = mockCatalog().filter((p) => p.difficulty === difficulty).length;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `viz-chip${difficulty === "Easy" ? " is-active" : ""}`;
+      button.dataset.difficulty = difficulty;
+      button.textContent = `${difficulty} (${count})`;
+      button.title = count ? `${count} ${difficulty} problems in your catalog` : `No ${difficulty} problems in your catalog`;
+      if (!count) button.disabled = true;
+      button.addEventListener("click", () => {
+        row.querySelectorAll(".viz-chip").forEach((b) => b.classList.toggle("is-active", b === button));
+        mockStart(difficulty);
+      });
+      row.appendChild(button);
+    }
+
+    const note = document.createElement("p");
+    note.className = "viz-about";
+    note.textContent = "Pick a difficulty to start. The problem comes from your catalog, and Quanta tells you why it chose it.";
+
+    const honest = document.createElement("p");
+    honest.className = "viz-note--plain";
+    honest.textContent =
+      "Quanta cannot tell you whether your solution was correct — the runner has no access to a problem's hidden tests. This measures time, whether you ran anything, and how you rate yourself afterwards, and it schedules the problem from that.";
+
+    host.append(row, note, honest);
+  };
+
+  const mockStart = (difficulty) => {
+    const solvedSlugs = new Set(mockCatalog().filter((p) => p.solved).map((p) => p.slug));
+    const picked = window.mockPickProblem
+      ? window.mockPickProblem(mockCatalog(), { difficulty, solvedSlugs, scheduledSlugs: mockScheduled(), seed: Date.now() })
+      : { error: "The mock interview module did not load." };
+
+    if (picked.error) {
+      showLabToast(picked.error);
+      mockEl("mock-setup-note") && (mockEl("mock-setup-note").textContent = picked.error);
+      return;
+    }
+
+    mockState.active = {
+      problem: picked.problem,
+      reason: picked.reason,
+      stageIndex: 0,
+      remaining: window.MOCK_STAGES[0].seconds,
+      elapsed: 0,
+      answers: {},
+      ran: false,
+      timer: null
+    };
+
+    mockEl("mock-setup") && (mockEl("mock-setup").hidden = true);
+    mockEl("mock-stage") && (mockEl("mock-stage").hidden = false);
+    mockEl("mock-review") && (mockEl("mock-review").hidden = true);
+    mockEl("mock-outcome") && (mockEl("mock-outcome").hidden = true);
+
+    const title = mockEl("mock-problem-title");
+    if (title) title.textContent = picked.problem.name || picked.problem.title || picked.problem.slug;
+    const meta = mockEl("mock-problem-meta");
+    if (meta) {
+      const bits = [picked.problem.difficulty];
+      if (picked.problem.num) bits.push(`#${picked.problem.num}`);
+      if (picked.problem.platform !== "leetcode") bits.push(picked.problem.platform);
+      meta.textContent = bits.join(" · ");
+    }
+    const reason = mockEl("mock-problem-reason");
+    if (reason) reason.textContent = picked.reason;
+    const note = mockEl("mock-stage-note");
+    if (note) note.textContent = window.MOCK_STAGES[0].note;
+    const links = mockEl("mock-problem-links");
+    if (links) {
+      links.innerHTML = "";
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "prog-btn";
+      open.textContent = "Open the problem";
+      open.addEventListener("click", () => {
+        showPage("quantalab");
+        selectLcProblem(picked.problem.id);
+      });
+      links.appendChild(open);
+    }
+
+    mockStartStage();
+  };
+
+  const mockRenderReview = () => {
+    const active = mockState.active;
+    if (!active) return;
+    mockStopTimer();
+    mockEl("mock-stage") && (mockEl("mock-stage").hidden = true);
+    const review = mockEl("mock-review");
+    if (!review) return;
+    review.hidden = false;
+    review.innerHTML = "";
+
+    const summary = document.createElement("p");
+    summary.className = "viz-about";
+    summary.textContent = `You spent ${mockClockText(active.elapsed)} of ${mockClockText(
+      window.MOCK_STAGES.reduce((sum, s) => sum + s.seconds, 0)
+    )} on "${active.problem.name || active.problem.title}".`;
+    review.appendChild(summary);
+
+    const questions = window.mockSelfAssessment();
+    for (const question of questions) {
+      const block = document.createElement("div");
+      block.className = "mock-question";
+
+      const title = document.createElement("p");
+      title.className = "mock-question__title";
+      title.textContent = question.question;
+      const note = document.createElement("p");
+      note.className = "mock-question__note";
+      note.textContent = question.note;
+      block.append(title, note);
+
+      const options = document.createElement("div");
+      options.className = "mock-question__options";
+      question.options.forEach((option, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `viz-alg${active.answers[question.key] === index ? " is-selected" : ""}`;
+        button.textContent = option.label;
+        button.addEventListener("click", () => {
+          active.answers[question.key] = index;
+          mockRenderReview();
+        });
+        options.appendChild(button);
+      });
+      block.appendChild(options);
+      review.appendChild(block);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "mock-actions";
+
+    const finish = document.createElement("button");
+    finish.type = "button";
+    finish.className = "prog-btn";
+    const answered = Object.keys(active.answers).length;
+    finish.textContent = answered === questions.length ? "Finish and schedule it" : `Finish (${answered} of ${questions.length} answered)`;
+    finish.addEventListener("click", () => mockFinish());
+    actions.appendChild(finish);
+
+    const abandon = document.createElement("button");
+    abandon.type = "button";
+    abandon.className = "prog-btn prog-btn--ghost";
+    abandon.textContent = "Discard this one";
+    abandon.addEventListener("click", () => {
+      mockState.active = null;
+      mockRenderSetup();
+    });
+    actions.appendChild(abandon);
+
+    review.appendChild(actions);
+  };
+
+  /* Ends the interview: records it, and - this is the part that matters - puts
+     the problem on the revision schedule at the rung the self-assessment earned.
+     Missing the schedule would make this a timer with extra steps. */
+  const mockFinish = async () => {
+    const active = mockState.active;
+    if (!active) return;
+    const confidence = window.mockOverallConfidence(active.answers);
+    const slug = active.problem.slug;
+
+    let scheduled = false;
+    let scheduleMessage = "";
+    try {
+      const added = await discoveryAddToRevision(active.problem);
+      if (added.ok) {
+        const reviewed = await revisionRequest(
+          `/api/revision/${encodeURIComponent(slug)}/review`,
+          revisionJson("POST", { confidence })
+        );
+        scheduled = reviewed.ok;
+        scheduleMessage = reviewed.ok
+          ? ""
+          : reviewed.payload?.error || "It is on your list but could not be scheduled.";
+      } else {
+        scheduleMessage = added.message;
+      }
+    } catch {
+      scheduleMessage = "The revision server could not be reached.";
+    }
+
+    mockState.history.unshift({
+      slug,
+      title: active.problem.name || active.problem.title || slug,
+      difficulty: active.problem.difficulty,
+      elapsed: active.elapsed,
+      confidence,
+      answered: Object.keys(active.answers).length,
+      at: Date.now()
+    });
+    mockState.history = mockState.history.slice(0, 20);
+    mockSaveHistory();
+
+    const outcome = mockEl("mock-outcome");
+    if (outcome) {
+      outcome.hidden = false;
+      outcome.className = scheduleMessage ? "viz-note--error" : "mock-outcome";
+      outcome.textContent = window.mockOutcomeText(confidence) + (scheduleMessage ? ` (${scheduleMessage})` : "");
+    }
+
+    mockState.active = null;
+    mockRenderSetup();
+    mockRenderHistory();
+    showLabToast(scheduled ? "Interview recorded and scheduled" : "Interview recorded");
+    void loadRevisionDashboard();
+  };
+  const mockRenderHistory = () => {
+    const host = mockEl("mock-history");
+    if (!host) return;
+    host.innerHTML = "";
+    if (!mockState.history.length) {
+      const none = document.createElement("p");
+      none.className = "viz-note--plain";
+      none.textContent = "No interviews yet. Finish one and it will appear here.";
+      host.appendChild(none);
+      return;
+    }
+    const list = document.createElement("div");
+    list.className = "mock-history__list";
+    for (const item of mockState.history) {
+      const row = document.createElement("div");
+      row.className = "mock-history__row";
+      const name = document.createElement("span");
+      name.className = "mock-history__name";
+      name.textContent = item.title;
+      const detail = document.createElement("span");
+      detail.className = "mock-history__detail";
+      detail.textContent = `${mockClockText(item.elapsed)} · ${item.difficulty} · rated ${item.confidence}`;
+      row.append(name, detail);
+      list.appendChild(row);
+    }
+    host.appendChild(list);
+  };
+
+  const initMock = () => {
+    mockLoadHistory();
+    mockRenderSetup();
+    mockRenderHistory();
+    /* A page left open in the background would otherwise keep counting, and
+       coming back would show a stage that ran while nobody was watching. */
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden || !mockState.active?.timer) return;
+      /* Count the time that genuinely passed rather than pausing silently. */
+      mockState.active.remaining -= 1;
+      mockRenderClock();
+    });
+  };
+
+
   /* -------------------------------- init -------------------------------- */
 
   ensureActiveSession();
@@ -11118,6 +11487,7 @@ const refreshStudyForActiveProblem = () => {
   initDiscovery();
   window.initAcademy();
   initPatterns();
+  initMock();
   initLcFilters();
   renderTabs();
   renderLcAll();
