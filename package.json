@@ -17,7 +17,7 @@
     "sync:catalog": "node scripts/sync-catalog-seeds.js",
     "curate": "node scripts/curate-catalog.js",
     "test:diagnostics": "node scripts/test-diagnostics.js",
-    "check": "node --check script.js && node --check lab-notes.js && node --check server.js && node --check db/pool.js && node --check db/problems.js && node --check db/progress.js && node --check db/study.js && node --check db/revision.js && node --check db/migrate.js && node --check scripts/import-problems.js && node --check scripts/test-api.js && node --check scripts/test-progress.js && node --check scripts/test-study.js && node --check scripts/test-revision.js && node --check scripts/test-search.js && node --check scripts/sync-catalog-seeds.js && node --check scripts/test-diagnostics.js && node --check scripts/export-offline-pack.js && node --check visualizer.js && node --check scripts/test-visualizer.js && node --check scripts/curate-catalog.js && node --check discovery.js && node --check scripts/test-discovery.js && node --check academy.js && node --check scripts/test-academy.js && node --check patterns.js && node --check scripts/test-patterns.js && node --check mock.js && node --check scripts/test-mock.js && node --check solutions.js && node --check scripts/test-solutions.js && node --check db/companies.js && node --check scripts/test-companies.js && node --check contests.js && node --check codeforces.js && node --check scripts/test-contests.js && node --check debugger.js && node --check scripts/test-debugger.js && node --check review.js && node --check scripts/test-review.js",
+    "check": "node --check script.js && node --check lab-notes.js && node --check server.js && node --check db/pool.js && node --check db/problems.js && node --check db/progress.js && node --check db/study.js && node --check db/revision.js && node --check db/migrate.js && node --check scripts/import-problems.js && node --check scripts/test-api.js && node --check scripts/test-progress.js && node --check scripts/test-study.js && node --check scripts/test-revision.js && node --check scripts/test-search.js && node --check scripts/sync-catalog-seeds.js && node --check scripts/test-diagnostics.js && node --check scripts/export-offline-pack.js && node --check visualizer.js && node --check scripts/test-visualizer.js && node --check scripts/curate-catalog.js && node --check discovery.js && node --check scripts/test-discovery.js && node --check academy.js && node --check scripts/test-academy.js && node --check patterns.js && node --check scripts/test-patterns.js && node --check mock.js && node --check scripts/test-mock.js && node --check solutions.js && node --check scripts/test-solutions.js && node --check db/companies.js && node --check scripts/test-companies.js && node --check contests.js && node --check codeforces.js && node --check scripts/test-contests.js && node --check debugger.js && node --check scripts/test-debugger.js && node --check review.js && node --check scripts/test-review.js && node --check scripts/clean-test-data.js",
     "test:visualizer": "node scripts/test-visualizer.js",
     "test:discovery": "node scripts/test-discovery.js",
     "test:academy": "node scripts/test-academy.js",
@@ -27,7 +27,8 @@
     "test:companies": "node scripts/test-companies.js",
     "test:contests": "node scripts/test-contests.js",
     "test:debugger": "node scripts/test-debugger.js",
-    "test:review": "node scripts/test-review.js"
+    "test:review": "node scripts/test-review.js",
+    "clean:test-data": "node scripts/clean-test-data.js"
   },
   "keywords": [
     "leetcode",
