@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=33" />
+  <link rel="stylesheet" href="style.css?v=35" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -54,6 +54,7 @@
     <button class="nav-btn" type="button" data-page="academy">Academy</button>
     <button class="nav-btn" type="button" data-page="patterns">Patterns</button>
     <button class="nav-btn" type="button" data-page="mock">Mock</button>
+    <button class="nav-btn" type="button" data-page="companies">Companies</button>
     <button class="nav-btn" type="button" data-page="settings">Settings</button>
     <button class="nav-btn" type="button" data-page="about">About</button>
     <div class="nav-drawer-extra" aria-hidden="false">
@@ -823,6 +824,77 @@
         </section>
       </div>
     </section>
+    <!-- ========================== Companies page =========================== -->
+    <section id="page-companies" class="page page--companies" data-page-id="companies" aria-label="Company preparation" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">By company</h2>
+          <p class="page-sub">Prepare for a specific company&rsquo;s questions</p>
+        </div>
+      </header>
+
+      <div class="settings-body companies-body">
+        <p class="viz-note--plain companies-honest">
+          A company record is somebody&rsquo;s claim that they ask that problem. Quanta never invents one: no
+          permitted public dataset says which company asks which problem, so nothing appears here unless it
+          comes from a list you already hold and import below. Every row is labelled with where it came from.
+        </p>
+
+        <p id="company-note" class="viz-note--plain" hidden></p>
+
+        <section class="settings-group" aria-labelledby="company-pick-title">
+          <h3 id="company-pick-title">Company</h3>
+          <div id="company-list" class="company-list"></div>
+          <p id="company-empty" class="pattern-intro" hidden>
+            Nothing recorded yet. Import a list you already hold, below.
+          </p>
+          <label class="viz-field company-difficulty">
+            <span>Difficulty</span>
+            <select id="company-difficulty" class="settings-select">
+              <option value="all">All</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="settings-group" aria-labelledby="company-problems-title">
+          <h3 id="company-problems-title">Problems</h3>
+          <div id="company-problems"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="company-import-title">
+          <h3 id="company-import-title">Bring your own list</h3>
+          <details id="company-import-toggle">
+            <summary class="quiz-summary">Import a company list</summary>
+            <div id="company-import-panel" class="company-import" hidden>
+              <p class="viz-note--plain">
+                Quanta will not scrape company question lists: none is published as an API, and scraping one
+                would mean copying content you have no right to redistribute. If you already hold a list — your
+                team&rsquo;s, a course&rsquo;s, a company&rsquo;s own — import it here.
+              </p>
+              <p class="pattern-intro">
+                CSV with a header row (<code>slug,title,company,confidence</code>) or JSON as an array of
+                <code>{ "slug": "two-sum", "company": "Amazon", "confidence": "reported" }</code>.
+                Only problems already in your catalog are linked; the rest are reported as skipped.
+              </p>
+              <label class="viz-field">
+                <span>Where this list came from</span>
+                <input id="company-import-source" class="settings-input" type="text" value="my team's list" autocomplete="off" />
+              </label>
+              <label class="viz-field">
+                <span>The list</span>
+                <textarea id="company-import-data" class="settings-input" rows="8" spellcheck="false" placeholder="slug,company&#10;two-sum,Amazon&#10;valid-parentheses,Amazon"></textarea>
+              </label>
+              <button id="company-import-btn" class="prog-btn" type="button">Import it</button>
+              <p id="company-import-report" class="company-import__ok" role="status" aria-live="polite" hidden></p>
+            </div>
+          </details>
+        </section>
+      </div>
+    </section>
     <!-- ============================ Mock page ============================== -->
     <section id="page-mock" class="page page--mock" data-page-id="mock" aria-label="Mock interview" hidden>
       <header class="page-head">
@@ -1342,6 +1414,6 @@
   <script src="patterns.js?v=1"></script>
   <script src="mock.js?v=1"></script>
   <script src="solutions.js?v=1"></script>
-  <script src="lab-notes.js?v=62"></script>
+  <script src="lab-notes.js?v=64"></script>
 </body>
 </html>

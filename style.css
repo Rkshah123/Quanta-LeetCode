@@ -2229,6 +2229,145 @@ body[data-theme="beige"] .btn-toggle {
   font-size: 0.72rem;
 }
 
+/* ====================== company-wise preparation ====================== */
+
+.companies-body {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 40px;
+}
+
+.company-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.company-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  min-height: 38px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--anim-fast), border-color var(--anim-fast), color var(--anim-fast);
+}
+
+.company-chip:hover {
+  border-color: var(--accent-line);
+}
+
+.company-chip.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.company-chip__count {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-c);
+  border: 1px solid var(--border);
+  font-size: 0.64rem;
+  font-weight: 750;
+  color: var(--text-c);
+  font-variant-numeric: tabular-nums;
+}
+
+.company-chip.is-active .company-chip__count {
+  color: inherit;
+}
+
+.company-difficulty {
+  max-width: 220px;
+  margin-top: 12px;
+}
+
+.company-problem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  margin-bottom: 7px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+}
+
+.company-problem__name {
+  font-size: 0.8rem;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+}
+
+/* Provenance is always shown. A company record is somebody's claim, and the
+   page never dresses it up as Quanta having verified it. */
+.company-problem__source {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-c);
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: var(--text-c);
+  white-space: nowrap;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.company-problem__source.is-curated {
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #34d399;
+}
+
+.company-import {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.company-import textarea {
+  min-height: 120px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.74rem;
+}
+
+.company-import__ok {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.09);
+  color: #9ff0cd;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.company-import__rejects {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 0.72rem;
+  color: var(--text-c);
+}
+
+@media (max-width: 560px) {
+  .company-problem {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 7px;
+  }
+  .company-problem .prog-btn {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ===================== solution comparison ============================ */
 /* Sits directly above the existing solution list in the Solutions tab. */
 

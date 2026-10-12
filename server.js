@@ -1062,6 +1062,103 @@ app.get("/api/problems-facets", rateLimit, async (_req, res) => {
 
 /* One problem by its stable ID. `:id` accepts the database primary key
    (digits) or the LeetCode slug ("two-sum"), which is what the apps use. */
+/* ----------------------- company-wise preparation ---------------------
+   Companies with a real problem count, and the problems behind one.
+
+   Both routes answer honestly when the table is empty, because it ships empty
+   on purpose: a company row asserts that company asks that problem, and no
+   permitted public dataset says so. The endpoint returns an empty list plus a
+   `note` explaining why, so the page can say it rather than look broken. */
+app.get("/api/companies", rateLimit, async (req, res) => {
+  try {
+    const companiesRepo = require("./db/companies");
+    const companies = await companiesRepo.listCompanies();
+    res.json({
+      ok: true,
+      companies,
+      total: companies.reduce((sum, c) => sum + c.problemCount, 0),
+      note: await companiesRepo.companiesEmptyNote()
+    });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+/* The problems recorded for one company, with difficulty and topic so the page
+   can filter without a second round trip. */
+app.get("/api/companies/:slug/problems", rateLimit, async (req, res) => {
+  const slug = String(req.params.slug || "").trim();
+  if (!slug || slug.length > 64 || !/^[a-z0-9-]+$/.test(slug)) {
+    res.status(400).json({ ok: false, error: "Invalid company." });
+    return;
+  }
+  const difficulty = req.query.difficulty === undefined ? "" : String(req.query.difficulty);
+  if (difficulty && !["", "all", "Easy", "Medium", "Hard"].includes(difficulty)) {
+    res.status(400).json({ ok: false, error: "Difficulty must be Easy, Medium, Hard or all." });
+    return;
+  }
+  const topic = req.query.topic === undefined ? "" : String(req.query.topic);
+  if (topic && topic.length > 60) {
+    res.status(400).json({ ok: false, error: "Invalid topic." });
+    return;
+  }
+
+  try {
+    const companiesRepo = require("./db/companies");
+    const items = await companiesRepo.listCompanyProblems(slug, {
+      difficulty: difficulty === "all" ? "" : difficulty,
+      topic
+    });
+    res.json({ ok: true, company: slug, items, total: items.length });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+/* Import a company list the caller already holds - their own team's prep list,
+   a course's list, a company's published list. This is deliberately an import
+   rather than a scrape: the data is the user's to supply, and Quanta refuses to
+   harvest one itself. */
+app.post("/api/companies/import", rateLimit, async (req, res) => {
+  const body = req.body || {};
+  if (typeof body.data !== "string" || !body.data.trim()) {
+    res.status(400).json({ ok: false, error: "Send the list as `data`." });
+    return;
+  }
+  if (body.data.length > 500000) {
+    res.status(400).json({ ok: false, error: "That file is too large to import at once - split it." });
+    return;
+  }
+
+  try {
+    const companiesRepo = require("./db/companies");
+    const parsed = companiesRepo.parseCompanyData(body.data, body.source);
+    if (parsed.error) {
+      res.status(400).json({ ok: false, error: parsed.error });
+      return;
+    }
+    if (!parsed.rows.length) {
+      res.status(400).json({
+        ok: false,
+        error: "Nothing usable in that. Each row needs a problem slug and a company name.",
+        rejected: parsed.rejected.slice(0, 20)
+      });
+      return;
+    }
+
+    const result = await companiesRepo.importCompanyData(parsed.rows, parsed.rows[0].note);
+    res.json({
+      ok: true,
+      ...result,
+      /* Rows that were usable but are not in Quanta's catalog. Named so a
+         partial import is visible instead of quietly dropping half the file. */
+      rejected: parsed.rejected.slice(0, 20)
+    });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
 app.get("/api/problems/:id", rateLimit, async (req, res) => {
   const raw = String(req.params.id || "").trim();
   if (!raw || raw.length > 191) {

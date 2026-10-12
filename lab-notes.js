@@ -11637,6 +11637,292 @@ const refreshStudyForActiveProblem = () => {
   };
 
 
+  /* ---------------------- company preparation --------------------------- */
+  /* The page reads real company records and can import a list the user
+     already holds. It never scrapes one: no company question list is
+     published as an API, and every imported row is labelled with where it
+     came from so a claim is never shown as something Quanta verified. */
+
+  /* ====================== company-wise preparation =======================
+     The company page, and the import that gives it data.
+
+     Two halves, because the truth about this feature is that the page works and
+     the data does not exist:
+
+       - The browse half reads companies, their problem counts and their
+         difficulties from the database. It is fully functional and empty for a
+         reason, which it states.
+       - The import half takes a list the user already holds and loads it. That
+         is the honest way to have company data: it is theirs, not harvested.
+
+     Every imported row is labelled with where it came from, so a company list
+     someone typed at a desk is never presented as though Quanta verified it. */
+
+  const COMPANY_KEY = "quantaCompaniesV1";
+  const companyState = { companies: [], note: "", selected: null, difficulty: "all", problems: [], importReport: null };
+
+  const companyEl = (id) => document.getElementById(id);
+
+  const companyLoadState = () => {
+    const raw = readJson(COMPANY_KEY, () => ({}));
+    const saved = raw && typeof raw === "object" ? raw : {};
+    companyState.selected = typeof saved.selected === "string" ? saved.selected : null;
+    companyState.difficulty = ["all", "Easy", "Medium", "Hard"].includes(saved.difficulty) ? saved.difficulty : "all";
+    return raw;
+  };
+
+  const companySaveState = () => {
+    writeJson(COMPANY_KEY, { selected: companyState.selected, difficulty: companyState.difficulty });
+  };
+
+  const companyFetch = async (path) => {
+    const base = getApiBase();
+    const response = await fetch(`${base}${path}`, { headers: { Accept: "application/json" } });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body?.error || `The server answered ${response.status}.`);
+    }
+    return response.json();
+  };
+
+  const companyRender = () => {
+    const host = companyEl("company-list");
+    const note = companyEl("company-note");
+    const empty = companyEl("company-empty");
+    if (!host) return;
+    host.innerHTML = "";
+
+    if (!companyState.companies.length) {
+      if (note) {
+        note.hidden = false;
+        note.textContent = companyState.note || "No company lists are recorded yet.";
+      }
+      if (empty) empty.hidden = false;
+      return;
+    }
+    if (note) note.hidden = true;
+    if (empty) empty.hidden = true;
+
+    for (const company of companyState.companies) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `company-chip${companyState.selected === company.slug ? " is-active" : ""}`;
+      button.dataset.company = company.slug;
+
+      const name = document.createElement("span");
+      name.className = "company-chip__name";
+      name.textContent = company.name;
+
+      const count = document.createElement("span");
+      count.className = "company-chip__count";
+      count.textContent = String(company.problemCount);
+      count.title = `${company.problemCount} problems in your catalog`;
+
+      button.append(name, count);
+      button.addEventListener("click", () => {
+        companyState.selected = company.slug;
+        companySaveState();
+        companyRender();
+        void companyLoadProblems();
+      });
+      host.appendChild(button);
+    }
+  };
+
+  const companyLoadProblems = async () => {
+    const host = companyEl("company-problems");
+    if (!host) return;
+    host.innerHTML = "";
+
+    if (!companyState.selected) {
+      const hint = document.createElement("p");
+      hint.className = "viz-note--plain";
+      hint.textContent = "Pick a company to see the problems recorded for it.";
+      host.appendChild(hint);
+      return;
+    }
+
+    const difficulty = companyState.difficulty === "all" ? "" : `&difficulty=${encodeURIComponent(companyState.difficulty)}`;
+    try {
+      const payload = await companyFetch(`/api/companies/${encodeURIComponent(companyState.selected)}/problems?${difficulty}`);
+      companyState.problems = payload.items || [];
+    } catch (error) {
+      const failed = document.createElement("p");
+      failed.className = "viz-note--error";
+      failed.textContent = error.message;
+      host.appendChild(failed);
+      return;
+    }
+
+    const heading = document.createElement("p");
+    heading.className = "pattern-intro";
+    heading.textContent = companyState.problems.length
+      ? `${companyState.problems.length} problem${companyState.problems.length === 1 ? "" : "s"}. Every one is tagged with where this record came from.`
+      : "No problems recorded for this combination of filters.";
+    host.appendChild(heading);
+
+    for (const problem of companyState.problems) {
+      const row = document.createElement("div");
+      row.className = "company-problem";
+
+      const meta = document.createElement("span");
+      meta.className = `discovery-card__difficulty is-${String(problem.difficulty || "").toLowerCase()}`;
+      meta.textContent = problem.difficulty || "";
+
+      const name = document.createElement("span");
+      name.className = "company-problem__name";
+      name.textContent = problem.title;
+
+      /* The provenance badge. This is the whole point: a company record says who
+         claimed it, not that Quanta verified the claim. */
+      const source = document.createElement("span");
+      source.className = `company-problem__source is-${problem.confidence || "reported"}`;
+      source.textContent = problem.confidence === "curated" ? "curated" : `from: ${problem.source || "an imported list"}`;
+      source.title = problem.confidence === "curated"
+        ? "Marked as curated rather than reported"
+        : "Reported by an imported list, not verified by Quanta";
+
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "prog-btn";
+      open.textContent = "Open";
+      open.addEventListener("click", () => {
+        const stored = Array.isArray(lcState?.problems) ? lcState.problems : [];
+        const local = stored.find((p) => p.slug === problem.slug);
+        if (local) {
+          showPage("quantalab");
+          selectLcProblem(local.id);
+          return;
+        }
+        showPage("quantalab");
+        const input = document.querySelector("#lc-search-input");
+        if (input) {
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+          setter.call(input, problem.title);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      });
+
+      row.append(meta, name, source, open);
+      host.appendChild(row);
+    }
+  };
+
+  /* Imports a list the user pasted or picked. Every outcome is reported: how
+     many landed, which problems were not in the catalog, and which rows were
+     unusable. A silent partial import would look like success. */
+  const companyImport = async () => {
+    const field = companyEl("company-import-data");
+    const sourceField = companyEl("company-import-source");
+    const report = companyEl("company-import-report");
+    const button = companyEl("company-import-btn");
+    if (!field || !button) return;
+
+    const data = field.value.trim();
+    if (!data) {
+      if (report) {
+        report.className = "viz-note--error";
+        report.hidden = false;
+        report.textContent = "Paste a list first.";
+      }
+      return;
+    }
+
+    button.disabled = true;
+    const original = button.textContent;
+    button.textContent = "Importing…";
+    try {
+      const base = getApiBase();
+      const response = await fetch(`${base}/api/companies/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data, source: sourceField?.value || "imported list" })
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (report) {
+        report.hidden = false;
+        if (!response.ok || !payload.ok) {
+          report.className = "viz-note--error";
+          report.textContent = payload.error || "The import did not go through.";
+          if (Array.isArray(payload.rejected) && payload.rejected.length) {
+            const list = document.createElement("ul");
+            list.className = "company-import__rejects";
+            for (const item of payload.rejected) {
+              const li = document.createElement("li");
+              li.textContent = `${item.slug}: ${item.why}`;
+              list.appendChild(li);
+            }
+            report.appendChild(list);
+          }
+        } else {
+          report.className = "company-import__ok";
+          const parts = [
+            `Linked ${payload.linked} problem${payload.linked === 1 ? "" : "s"} to ${payload.companies} compan${payload.companies === 1 ? "y" : "ies"}.`
+          ];
+          if (payload.skippedCount) {
+            parts.push(`${payload.skippedCount} problem${payload.skippedCount === 1 ? " is" : "s are"} not in your catalog, so they were skipped.`);
+          }
+          report.textContent = parts.join(" ");
+          field.value = "";
+          await companyRefresh();
+        }
+      }
+    } catch {
+      if (report) {
+        report.className = "viz-note--error";
+        report.hidden = false;
+        report.textContent = "The server could not be reached, so nothing was imported.";
+      }
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  };
+
+  const companyRefresh = async () => {
+    try {
+      const payload = await companyFetch("/api/companies");
+      companyState.companies = payload.companies || [];
+      companyState.note = payload.note || "";
+    } catch (error) {
+      companyState.companies = [];
+      companyState.note = `Could not reach the server: ${error.message}`;
+    }
+    if (companyState.selected && !companyState.companies.some((c) => c.slug === companyState.selected)) {
+      companyState.selected = null;
+    }
+    companyRender();
+    await companyLoadProblems();
+  };
+
+  const initCompanies = () => {
+    companyLoadState();
+
+    const difficulty = companyEl("company-difficulty");
+    if (difficulty) {
+      difficulty.value = companyState.difficulty;
+      difficulty.addEventListener("change", () => {
+        companyState.difficulty = difficulty.value;
+        companySaveState();
+        void companyLoadProblems();
+      });
+    }
+
+    companyEl("company-import-btn")?.addEventListener("click", () => void companyImport());
+
+    const toggle = companyEl("company-import-toggle");
+    if (toggle) {
+      toggle.addEventListener("change", () => {
+        const panel = companyEl("company-import-panel");
+        if (panel) panel.hidden = !toggle.checked;
+      });
+    }
+
+    void companyRefresh();
+  };
+
+
   /* -------------------------------- init -------------------------------- */
 
   ensureActiveSession();
@@ -11650,6 +11936,7 @@ const refreshStudyForActiveProblem = () => {
   window.initAcademy();
   initPatterns();
   initMock();
+  initCompanies();
   initLcFilters();
   renderTabs();
   renderLcAll();
