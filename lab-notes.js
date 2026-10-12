@@ -10901,6 +10901,211 @@ const refreshStudyForActiveProblem = () => {
   })();
 
 
+  /* ------------------------ DSA pattern trainer ------------------------- */
+  /* Content and the topic-tag matching come from patterns.js, checked by
+     scripts/test-patterns.js. Practice lists are built from the live catalog
+     rather than hardcoded, so they cannot list a problem that is not there. */
+
+  /* =========================== DSA pattern trainer UI =====================
+     Renders patterns.js: pick a pattern, read when to use it and what shape it
+     has, copy the skeleton, work through the mistakes, then practise on real
+     problems pulled from the catalog by topic tag. */
+
+  const PATTERN_KEY = "quantaPatternsV1";
+  const patternState = { key: null, visited: new Set() };
+
+  const patternEl = (id) => document.getElementById(id);
+
+  const patternCatalog = () => {
+    const list = Array.isArray(lcState?.problems) ? lcState.problems : [];
+    return list.length ? list : normalizeLcProblems(seedProblems());
+  };
+
+  const patternLoad = () => {
+    const raw = readJson(PATTERN_KEY, () => ({}));
+    const saved = raw && typeof raw === "object" ? raw : {};
+    patternState.key = (window.PATTERNS || []).some((p) => p.key === saved.key) ? saved.key : (window.PATTERNS || [])[0]?.key || null;
+    patternState.visited = new Set(Array.isArray(saved.visited) ? saved.visited : []);
+  };
+
+  const patternSave = () => {
+    writeJson(PATTERN_KEY, { key: patternState.key, visited: [...patternState.visited] });
+  };
+
+  const patternRenderNav = () => {
+    const host = patternEl("pattern-nav");
+    if (!host) return;
+    host.innerHTML = "";
+    for (const pattern of window.PATTERNS || []) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `viz-chip${patternState.key === pattern.key ? " is-active" : ""}`;
+      button.dataset.pattern = pattern.key;
+      button.textContent = pattern.title;
+      button.setAttribute("aria-pressed", patternState.key === pattern.key ? "true" : "false");
+      if (patternState.visited.has(pattern.key)) button.classList.add("is-complete");
+      button.addEventListener("click", () => {
+        patternState.key = pattern.key;
+        patternState.visited.add(pattern.key);
+        patternSave();
+        patternRenderNav();
+        patternRenderBody();
+      });
+      host.appendChild(button);
+    }
+  };
+
+  const patternRenderBody = () => {
+    const host = patternEl("pattern-body");
+    if (!host) return;
+    host.innerHTML = "";
+    const pattern = (window.PATTERNS || []).find((p) => p.key === patternState.key);
+    if (!pattern) return;
+
+    const when = document.createElement("p");
+    when.className = "viz-about";
+    when.textContent = pattern.when;
+    host.appendChild(when);
+
+    const shapeCard = document.createElement("section");
+    shapeCard.className = "settings-group pattern-block";
+    const shapeTitle = document.createElement("h3");
+    shapeTitle.textContent = "The shape";
+    const shapeText = document.createElement("p");
+    shapeText.className = "pattern-shape";
+    shapeText.textContent = pattern.shape;
+    shapeCard.append(shapeTitle, shapeText);
+
+    const codePre = document.createElement("pre");
+    codePre.className = "viz-code";
+    codePre.textContent = pattern.skeleton;
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "prog-btn prog-btn--ghost pattern-copy";
+    copy.textContent = "Copy the skeleton";
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(pattern.skeleton);
+        copy.textContent = "Copied";
+      } catch {
+        /* Clipboard access can be refused. Say so rather than pretending. */
+        copy.textContent = "Select the code and copy it";
+      }
+      window.setTimeout(() => { copy.textContent = "Copy the skeleton"; }, 2200);
+    });
+    shapeCard.append(codePre, copy);
+    host.appendChild(shapeCard);
+
+    const checkCard = document.createElement("section");
+    checkCard.className = "settings-group pattern-block";
+    const checkTitle = document.createElement("h3");
+    checkTitle.textContent = "Where it goes wrong";
+    const list = document.createElement("ul");
+    list.className = "pattern-mistakes";
+    for (const item of pattern.checklist) {
+      const li = document.createElement("li");
+      li.textContent = item;
+      list.appendChild(li);
+    }
+    checkCard.append(checkTitle, list);
+    host.appendChild(checkCard);
+
+    /* Practice, built from the catalog by topic tag. */
+    const problems = window.patternProblems
+      ? window.patternProblems(window.PATTERNS, pattern.key, patternCatalog(), 8)
+      : [];
+    const practice = document.createElement("section");
+    practice.className = "settings-group pattern-block";
+
+    const practiceTitle = document.createElement("h3");
+    practiceTitle.textContent = "Practise it";
+    practice.appendChild(practiceTitle);
+
+    if (!problems.length) {
+      const empty = document.createElement("p");
+      empty.className = "viz-note--plain";
+      empty.textContent = `No problems in your catalog are tagged ${pattern.topics.join(" or ")} yet. Run the catalog sync to pick up more.`;
+      practice.appendChild(empty);
+    } else {
+      const intro = document.createElement("p");
+      intro.className = "pattern-intro";
+      intro.textContent = `Easiest first. These are the ${problems.length} easiest catalog problems tagged ${pattern.topics.join(" or ")}.`;
+      practice.appendChild(intro);
+
+      const list2 = document.createElement("div");
+      list2.className = "pattern-problems";
+      for (const problem of problems) {
+        const row = document.createElement("div");
+        row.className = "pattern-problem";
+
+        const meta = document.createElement("span");
+        meta.className = `discovery-card__difficulty is-${String(problem.difficulty || "").toLowerCase()}`;
+        meta.textContent = problem.difficulty || "";
+
+        const name = document.createElement("span");
+        name.className = "pattern-problem__name";
+        name.textContent = problem.name || problem.title || problem.slug;
+
+        const platform = document.createElement("span");
+        platform.className = "pattern-problem__platform";
+        platform.textContent = problem.platform && problem.platform !== "leetcode" ? problem.platform : "";
+
+        const open = document.createElement("button");
+        open.type = "button";
+        open.className = "prog-btn";
+        open.textContent = "Open";
+        open.addEventListener("click", () => {
+          showPage("quantalab");
+          selectLcProblem(problem.id);
+        });
+
+        row.append(meta, name, platform, open);
+        list2.appendChild(row);
+      }
+      practice.appendChild(list2);
+    }
+    host.appendChild(practice);
+  };
+
+  const patternRenderGaps = () => {
+    const host = patternEl("pattern-gaps");
+    if (!host) return;
+    host.innerHTML = "";
+    if (!window.patternGaps) return;
+    const gaps = window.patternGaps(window.PATTERNS, patternCatalog());
+    if (!gaps.length) {
+      const none = document.createElement("p");
+      none.className = "viz-note--plain";
+      none.textContent = "Every topic in your catalog is covered by a pattern here.";
+      host.appendChild(none);
+      return;
+    }
+    /* Reported, not hidden. A topic with problems but no teaching page should
+       look like a known gap rather than like a bug. */
+    const note = document.createElement("p");
+    note.className = "pattern-intro";
+    note.textContent = `Topics in your catalog with no pattern page yet: ${gaps.map((g) => `${g.topic} (${g.count})`).join(", ")}.`;
+    host.appendChild(note);
+  };
+
+  const initPatterns = () => {
+    patternLoad();
+    patternEl("pattern-reset")?.addEventListener("click", () => {
+      const confirmed = window.confirm(
+        "Clear the patterns you have visited?\n\nThis only forgets which pattern pages you opened. Your problems, notes and revision schedule are not affected."
+      );
+      if (!confirmed) return;
+      patternState.visited = new Set();
+      patternSave();
+      patternRenderNav();
+      showLabToast("Pattern history cleared");
+    });
+    patternRenderNav();
+    patternRenderBody();
+    patternRenderGaps();
+  };
+
+
   /* -------------------------------- init -------------------------------- */
 
   ensureActiveSession();
@@ -10912,6 +11117,7 @@ const refreshStudyForActiveProblem = () => {
   initVisualizer();
   initDiscovery();
   window.initAcademy();
+  initPatterns();
   initLcFilters();
   renderTabs();
   renderLcAll();

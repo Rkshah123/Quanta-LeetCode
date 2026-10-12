@@ -2229,6 +2229,116 @@ body[data-theme="beige"] .btn-toggle {
   font-size: 0.72rem;
 }
 
+/* ========================== DSA pattern trainer ======================== */
+
+.patterns-body {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 40px;
+}
+
+.patterns-honest {
+  margin: 0;
+}
+
+.pattern-body {
+  display: grid;
+  gap: 14px;
+}
+
+.pattern-block {
+  margin: 0;
+}
+
+.pattern-shape {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-b);
+}
+
+.pattern-copy {
+  margin-top: 9px;
+}
+
+.pattern-mistakes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pattern-mistakes li {
+  position: relative;
+  padding: 10px 12px 10px 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(248, 113, 113, 0.32);
+  background: rgba(248, 113, 113, 0.07);
+  color: var(--text-b);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.pattern-mistakes li::before {
+  content: "!";
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+
+.pattern-intro {
+  margin: 0 0 10px;
+  font-size: 0.74rem;
+  color: var(--text-c);
+}
+
+.pattern-problems {
+  display: grid;
+  gap: 7px;
+}
+
+.pattern-problem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+}
+
+.pattern-problem__name {
+  font-size: 0.8rem;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+}
+
+.pattern-problem__platform {
+  font-size: 0.66rem;
+  color: var(--text-c);
+}
+
+@media (max-width: 520px) {
+  .pattern-problem {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 7px;
+  }
+  .pattern-problem .prog-btn {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ====================== technical interview academy ===================== */
 
 .academy-body {

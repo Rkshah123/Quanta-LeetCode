@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=30" />
+  <link rel="stylesheet" href="style.css?v=31" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -52,6 +52,7 @@
     <button class="nav-btn" type="button" data-page="visualizer">Visualizer</button>
     <button class="nav-btn" type="button" data-page="discovery">What&rsquo;s next</button>
     <button class="nav-btn" type="button" data-page="academy">Academy</button>
+    <button class="nav-btn" type="button" data-page="patterns">Patterns</button>
     <button class="nav-btn" type="button" data-page="settings">Settings</button>
     <button class="nav-btn" type="button" data-page="about">About</button>
     <div class="nav-drawer-extra" aria-hidden="false">
@@ -820,6 +821,38 @@
         </section>
       </div>
     </section>
+    <!-- ========================== Patterns page ============================ -->
+    <section id="page-patterns" class="page page--patterns" data-page-id="patterns" aria-label="DSA pattern trainer" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Pattern trainer</h2>
+          <p class="page-sub">Learn the shape, then practise it on real problems</p>
+        </div>
+        <button id="pattern-reset" class="icon-btn" type="button" aria-label="Clear visited patterns" title="Clear history">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7zm3-4h6l1 2H8l1-2zM4 6h16v2H4V6z"/></svg>
+        </button>
+      </header>
+
+      <div class="settings-body patterns-body">
+        <p class="viz-note--plain patterns-honest">
+          Practice lists come from your own catalog by topic tag, so they are real problems you can open and solve —
+          not a fixed list that might not match what you have.
+        </p>
+
+        <section class="settings-group" aria-labelledby="pattern-pick-title">
+          <h3 id="pattern-pick-title">Pattern</h3>
+          <div id="pattern-nav" class="viz-picker" role="group" aria-label="Choose a pattern"></div>
+        </section>
+
+        <div id="pattern-body" class="pattern-body"></div>
+
+        <section class="settings-group" aria-labelledby="pattern-gaps-title">
+          <h3 id="pattern-gaps-title">Coverage</h3>
+          <div id="pattern-gaps"></div>
+        </section>
+      </div>
+    </section>
     <!-- =========================== Academy page ============================= -->
     <section id="page-academy" class="page page--academy" data-page-id="academy" aria-label="Interview academy" hidden>
       <header class="page-head">
@@ -1256,6 +1289,7 @@
   <script src="visualizer.js?v=4"></script>
   <script src="discovery.js?v=1"></script>
   <script src="academy.js?v=1"></script>
-  <script src="lab-notes.js?v=59"></script>
+  <script src="patterns.js?v=1"></script>
+  <script src="lab-notes.js?v=60"></script>
 </body>
 </html>
