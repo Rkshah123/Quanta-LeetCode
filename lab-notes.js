@@ -12866,6 +12866,593 @@ const refreshStudyForActiveProblem = () => {
     }
   };
 
+  /* ============================ interactive debugger =======================
+     Step through JavaScript and watch every variable change.
+
+     The one rule this page is built around
+     --------------------------------------
+     It runs the reader's code. It does not interpret it, approximate it, or
+     replay a canned trace. Every value in the state panel was read out of a
+     scope that was live at that exact statement, and the tests check the debugger's
+     answers against what plain JavaScript does with the same snippet.
+
+     That is why the supported syntax is a subset. A construct the instrumenter
+     cannot rewrite correctly is refused, with its line and its name, rather than
+     run approximately - an approximation here would be indistinguishable from the
+     truth while being wrong, which is the one thing a learning tool must not be.
+
+     What the controls mean
+     ----------------------
+     There is no separate "step into" and "step over". Every function in the
+     snippet is instrumented, so stepping always enters what it can and reports
+     honestly when a function runs as one step - an object method, a callback, a
+     constructor. Saying so beats offering a control that quietly does nothing
+     different.
+
+     Running happens on the main thread, in this page, on the reader's machine.
+     Nothing is uploaded. A step cap means an infinite loop stops at a real
+     boundary instead of freezing the tab. */
+
+  const DEBUG_KEY = "quantaDebuggerV1";
+
+  /* Snippets that are worth stepping through because the thing they teach is
+     invisible when you only read them: the loop counter, the call stack, the
+     moment a closure sees an updated binding. Each is real code that runs. */
+  const DEBUG_EXAMPLES = [
+    {
+      key: "loop",
+      title: "A loop, one pass at a time",
+      why: "Shows the loop counter and the accumulator at each statement, and the pass number.",
+      code: `let total = 0;
+  for (let i = 1; i <= 5; i++) {
+    total += i;
+  }
+  console.log("total", total);`
+    },
+    {
+      key: "stack",
+      title: "What the call stack looks like",
+      why: "The stack panel fills and unwinds as add() is called from three places.",
+      code: `function add(a, b) {
+    return a + b;
+  }
+
+  let first = add(1, 2);
+  let second = add(3, 4);
+  let sum = first + second;
+  console.log("sum", sum);`
+    },
+    {
+      key: "recursion",
+      title: "Recursion, frame by frame",
+      why: "Each call gets its own copy of n. The stack grows, then unwinds.",
+      code: `function fact(n) {
+    if (n <= 1) return 1;
+    return n * fact(n - 1);
+  }
+
+  console.log("5! is", fact(5));`
+    },
+    {
+      key: "closure",
+      title: "A closure reading a live binding",
+      why: "Two calls to the same function see two different values of c. A snapshot taken at declaration time could not.",
+      code: `let count = 0;
+
+  function bump() {
+    count += 1;
+  }
+
+  bump();
+  console.log("after one", count);
+  bump();
+  console.log("after two", count);`
+    },
+    {
+      key: "array",
+      title: "Mutating an array and an object",
+      why: "The state panel shows the real collection after each mutation, not a copy from earlier.",
+      code: `const scores = [3, 1, 2];
+  const tally = {};
+
+  for (const score of scores) {
+    tally[score] = (tally[score] || 0) + 1;
+    scores.push(score);
+  }
+
+  console.log(scores);
+  console.log(tally);`
+    },
+    {
+      key: "binary-search",
+      title: "Binary search, the reason it works",
+      why: "Watch lo and hi cross. This is the part people cannot see by reading.",
+      code: `function search(xs, target) {
+    let lo = 0;
+    let hi = xs.length - 1;
+
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (xs[mid] === target) return mid;
+      if (xs[mid] < target) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    return -1;
+  }
+
+  const sorted = [1, 3, 5, 8, 13, 21];
+  console.log("index of 13:", search(sorted, 13));
+  console.log("index of 4:", search(sorted, 4));`
+    },
+    {
+      key: "error",
+      title: "An error, caught where it happens",
+      why: "The panel names the real error and the line it came from.",
+      code: `function firstItem(xs) {
+    return xs[0];
+  }
+
+  const empty = [];
+  console.log(firstItem(empty));`
+    },
+    {
+      key: "two-sum",
+      title: "Two Sum, the wrong way first",
+      why: "The nested loop is what makes this O(n^2). Watch the inner counter climb, then compare with the map version.",
+      code: `const nums = [2, 7, 11, 15];
+  const target = 9;
+
+  function bruteForce(a, want) {
+    for (let i = 0; i < a.length; i++) {
+      for (let j = i + 1; j < a.length; j++) {
+        if (a[i] + a[j] === want) return [i, j];
+      }
+    }
+    return [];
+  }
+
+  console.log(bruteForce(nums, target));`
+    }
+  ];
+
+  const debugState = {
+    source: DEBUG_EXAMPLES[0].code,
+    example: "loop",
+    breakpoints: new Set(),
+    session: null,
+    analysed: null,
+    error: null,
+    warnings: [],
+    /* The line the gutter should highlight, and the one the reader clicked. */
+    cursorLine: 1
+  };
+
+  const dbgEl = (id) => document.getElementById(id);
+
+  const dbgLoadState = () => {
+    const saved = readJson(DEBUG_KEY, () => ({}));
+    if (saved && typeof saved === "object") {
+      if (typeof saved.source === "string" && saved.source.trim()) debugState.source = saved.source;
+      if (Array.isArray(saved.breakpoints)) debugState.breakpoints = new Set(saved.breakpoints.filter((n) => Number.isInteger(n)));
+    }
+  };
+
+  const dbgSaveState = () => {
+    writeJson(DEBUG_KEY, { source: debugState.source, breakpoints: [...debugState.breakpoints] });
+  };
+
+  /* ------------------------------ compiling ------------------------------- */
+
+  /* Turns the editor's contents into a runnable session, or into a refusal.
+
+     Refusal is a first-class outcome here, not an error state: the page shows
+     the line and the construct, and the previous working session stays put so a
+     reader who mistypes a brace sees an empty panel that says why, rather than the
+   old trace still sitting there looking current. */
+  const dbgCompile = ({ reset = true } = {}) => {
+    const editor = dbgEl("dbg-code");
+    if (editor) debugState.source = editor.value;
+    debugState.error = null;
+
+    try {
+      const prepared = window.debuggerEngine.prepare(debugState.source, { maxSteps: 5000 });
+      debugState.analysed = prepared.analysed;
+      debugState.warnings = prepared.analysed.warnings || [];
+      debugState.session = prepared.session;
+      if (reset) {
+        debugState.session.reset();
+        debugState.breakpoints = new Set(
+          [...debugState.breakpoints].filter((line) => line <= prepared.analysed.source.split("\n").length)
+        );
+      }
+    } catch (error) {
+      debugState.error = {
+        message: error.message,
+        line: error.line ?? null,
+        construct: error.construct ?? null
+      };
+      /* Cleared so no panel can show a trace belonging to code that has since
+         been replaced. A stale value that looks current is worse than an empty
+         panel that says why it is empty. */
+      debugState.session = null;
+      debugState.analysed = null;
+      debugState.warnings = [];
+    }
+    dbgSaveState();
+    dbgRenderAll();
+  };
+
+  /* ------------------------------- the gutter ----------------------------- */
+
+  /* Line numbers down the side, doubling as the breakpoint control and the
+     "you are here" indicator. A plain textarea with a synced scroll rather than a
+     full code editor: the thing this page needs from an editor is clickable line
+     numbers, and Monaco's line decorations are not worth the wiring when a gutter
+     does the job and stays correct. */
+  const dbgRenderGutter = () => {
+    const gutter = dbgEl("dbg-gutter");
+    if (!gutter) return;
+    const lines = debugState.source.split("\n");
+    const current = debugState.session?.state.current;
+
+    gutter.innerHTML = "";
+    for (let line = 1; line <= lines.length; line += 1) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "dbg-line";
+      row.dataset.line = String(line);
+      row.setAttribute("aria-label", `Line ${line}`);
+
+      if (debugState.breakpoints.has(line)) {
+        row.classList.add("has-breakpoint");
+        row.title = `Breakpoint on line ${line}. Click to remove.`;
+      } else {
+        row.title = `Toggle a breakpoint on line ${line}`;
+      }
+      if (current?.line === line) {
+        row.classList.add("is-current");
+        row.title += current.finished ? " - the program finished here" : " - executing now";
+      }
+
+      const dot = document.createElement("span");
+      dot.className = "dbg-line__mark";
+      dot.setAttribute("aria-hidden", "true");
+      const number = document.createElement("span");
+      number.className = "dbg-line__number";
+      number.textContent = String(line);
+      row.append(dot, number);
+
+      row.addEventListener("click", () => {
+        if (debugState.breakpoints.has(line)) debugState.breakpoints.delete(line);
+        else debugState.breakpoints.add(line);
+        dbgSaveState();
+        dbgRenderGutter();
+      });
+
+      gutter.appendChild(row);
+    }
+
+    /* Kept in step with the textarea. Without this the two disagree the moment
+       either is scrolled, and the line you are looking at is not the line marked
+       as current. */
+    const editor = dbgEl("dbg-code");
+    if (editor) gutter.scrollTop = editor.scrollTop;
+  };
+
+  /* ------------------------------- rendering ------------------------------ */
+
+  const dbgRenderStatus = () => {
+    const host = dbgEl("dbg-status");
+    if (!host) return;
+    const state = debugState.session?.state;
+    host.innerHTML = "";
+
+    const add = (label, value, className) => {
+      const cell = document.createElement("span");
+      cell.className = `dbg-status__item${className ? ` ${className}` : ""}`;
+      const k = document.createElement("span");
+      k.className = "dbg-status__label";
+      k.textContent = label;
+      const v = document.createElement("span");
+      v.className = "dbg-status__value";
+      v.textContent = value;
+      cell.append(k, v);
+      host.appendChild(cell);
+    };
+
+    if (debugState.error) {
+      add("not run", debugState.error.construct || "refused", "is-error");
+      return;
+    }
+    if (!state) {
+      add("ready", "press Step");
+      return;
+    }
+
+    const current = state.current;
+    add("step", `${state.stepCount}${state.maxSteps ? ` of ${state.maxSteps}` : ""}`);
+    if (current) {
+      add(current.finished ? "finished at" : "at line", current.finished ? "end of snippet" : String(current.line));
+      if (current.loopId) add("pass", String(current.iteration ?? 1), "is-loop");
+    }
+    if (state.error) add("threw", `${state.error.name}: ${state.error.message}`, "is-error");
+    else if (state.capped) add("stopped", `step limit of ${state.maxSteps} reached`, "is-warn");
+    else if (state.finished) add("state", "ran to the end", "is-done");
+    else add("state", "paused", "is-live");
+  };
+
+  const dbgRenderVariables = () => {
+    const host = dbgEl("dbg-variables");
+    if (!host) return;
+    host.innerHTML = "";
+
+    const current = debugState.session?.state.current;
+    if (!current) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = debugState.error
+        ? "Nothing to show until the snippet compiles."
+        : "Press Step to run. Every variable is read out of the live scope at that point.";
+      host.appendChild(p);
+      return;
+    }
+
+    const rows = current.variables;
+    const visible = rows.filter((row) => row.present);
+    const hidden = rows.filter((row) => !row.present);
+
+    if (!visible.length) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = "No variables are in scope here.";
+      host.appendChild(p);
+    }
+
+    for (const row of visible) {
+      const line = document.createElement("div");
+      line.className = `dbg-var${row.undeclared ? " is-undeclared" : ""}`;
+
+      const name = document.createElement("span");
+      name.className = "dbg-var__name";
+      name.textContent = row.name;
+      if (row.undeclared) name.title = "Not declared with let, const or var - a global, or assigned without a declaration";
+
+      const type = document.createElement("span");
+      type.className = "dbg-var__type";
+      type.textContent = row.kind;
+      type.title = `JavaScript type: ${row.kind}`;
+
+      const value = document.createElement("span");
+      value.className = `dbg-var__value is-${row.kind}`;
+      value.textContent = row.display;
+
+      line.append(name, type, value);
+      host.appendChild(line);
+    }
+
+    /* Out of scope names are listed, not hidden. "Where did x go?" is the single
+       most common question at a debugger, and an empty row is a worse answer than
+       one that says so. */
+    if (hidden.length) {
+      const note = document.createElement("p");
+      note.className = "dbg-var__hidden";
+      note.textContent = `Not in scope here: ${hidden.map((row) => row.name).join(", ")}`;
+      host.appendChild(note);
+    }
+  };
+
+  const dbgRenderStack = () => {
+    const host = dbgEl("dbg-stack");
+    if (!host) return;
+    host.innerHTML = "";
+
+    const current = debugState.session?.state.current;
+    if (!current || !current.stack.length) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = "The call stack appears once the snippet is running.";
+      host.appendChild(p);
+      return;
+    }
+
+    /* Innermost first, which is the order you read a stack trace in. */
+    [...current.stack].reverse().forEach((frame, index) => {
+      const line = document.createElement("div");
+      line.className = `dbg-frame${index === 0 ? " is-top" : ""}`;
+      const depth = document.createElement("span");
+      depth.className = "dbg-frame__depth";
+      depth.textContent = String(index);
+      const name = document.createElement("span");
+      name.className = "dbg-frame__name";
+      name.textContent = frame;
+      line.append(depth, name);
+      host.appendChild(line);
+    });
+
+    const note = document.createElement("p");
+    note.className = "dbg-frame__note";
+    note.textContent = current.stack.length > 1
+      ? "Functions Quanta rewrote can be entered. Object methods, callbacks and constructors run as one step, because rewriting them would change what calling them returns."
+      : "Nothing is on the stack but the snippet itself.";
+    host.appendChild(note);
+  };
+
+  const dbgRenderOutput = () => {
+    const host = dbgEl("dbg-output");
+    if (!host) return;
+    host.innerHTML = "";
+
+    const output = debugState.session?.state.output || [];
+    if (!output.length) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = "console.log output appears here as the snippet runs, not afterwards.";
+      host.appendChild(p);
+      return;
+    }
+    for (const entry of output) {
+      const line = document.createElement("div");
+      line.className = `dbg-log is-${entry.level}`;
+      line.textContent = entry.text;
+      host.appendChild(line);
+    }
+  };
+
+  const dbgRenderNotice = () => {
+    const host = dbgEl("dbg-notice");
+    if (!host) return;
+    host.innerHTML = "";
+
+    if (debugState.error) {
+      const box = document.createElement("div");
+      box.className = "dbg-notice__box is-error";
+      const text = document.createElement("p");
+      text.textContent = debugState.error.message;
+      box.appendChild(text);
+      if (debugState.error.line) {
+        const where = document.createElement("p");
+        where.className = "dbg-notice__where";
+        where.textContent = `Line ${debugState.error.line}${debugState.error.construct ? ` (${debugState.error.construct})` : ""}. Quanta did not run any of it.`;
+        box.appendChild(where);
+      }
+      host.appendChild(box);
+      return;
+    }
+
+    if (debugState.warnings.length) {
+      const box = document.createElement("div");
+      box.className = "dbg-notice__box";
+      for (const warning of debugState.warnings) {
+        const p = document.createElement("p");
+        p.textContent = warning;
+        box.appendChild(p);
+      }
+      host.appendChild(box);
+    }
+  };
+
+  const dbgRenderAll = () => {
+    dbgRenderNotice();
+    dbgRenderStatus();
+    dbgRenderGutter();
+    dbgRenderVariables();
+    dbgRenderStack();
+    dbgRenderOutput();
+  };
+
+  /* -------------------------------- controls ------------------------------ */
+
+  const dbgStep = () => {
+    if (debugState.error || !debugState.session) return;
+    debugState.session.advance();
+    dbgRenderAll();
+  };
+
+  const dbgContinue = () => {
+    if (debugState.error || !debugState.session) return;
+    /* With no breakpoints this is the same as running to the end, and the button
+       says so rather than pretending to have done something less. */
+    if (!debugState.breakpoints.size) {
+      dbgState.session.runToEnd();
+    } else {
+      debugState.session.runTo(debugState.breakpoints);
+    }
+    dbgRenderAll();
+  };
+
+  const dbgRunToEnd = () => {
+    if (debugState.error || !debugState.session) return;
+    debugState.session.runToEnd();
+    dbgRenderAll();
+  };
+
+  const dbgReset = () => {
+    dbgCompile({ reset: true });
+  };
+
+  const dbgLoadExample = (key) => {
+    const example = DEBUG_EXAMPLES.find((e) => e.key === key);
+    if (!example) return;
+    debugState.example = key;
+    debugState.source = example.code;
+    const editor = dbgEl("dbg-code");
+    if (editor) editor.value = example.code;
+    dbgCompile({ reset: true });
+  };
+
+  /* ---------------------------------- init -------------------------------- */
+
+  const initDebugger = () => {
+    dbgLoadState();
+
+    const editor = dbgEl("dbg-code");
+    if (editor) {
+      editor.value = debugState.source;
+      /* Recompiled on a pause rather than on every keystroke. Compiling is cheap
+         but the trace resets, and losing your place because you were still typing
+         is the fastest way to make someone stop using a debugger. */
+      let timer = null;
+      editor.addEventListener("input", () => {
+        debugState.source = editor.value;
+        clearTimeout(timer);
+        timer = setTimeout(() => dbgCompile({ reset: true }), 700);
+      });
+      editor.addEventListener("scroll", () => {
+        const gutter = dbgEl("dbg-gutter");
+        if (gutter) gutter.scrollTop = editor.scrollTop;
+      });
+      editor.addEventListener("keydown", (event) => {
+        /* Tab indents rather than leaving the editor, which is what a person
+           writing code in a textarea expects. */
+        if (event.key !== "Tab") return;
+        event.preventDefault();
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        editor.setRangeText("  ", start, end, "end");
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    }
+
+    dbgEl("dbg-step")?.addEventListener("click", dbgStep);
+    dbgEl("dbg-continue")?.addEventListener("click", dbgContinue);
+    dbgEl("dbg-run-end")?.addEventListener("click", dbgRunToEnd);
+    dbgEl("dbg-reset")?.addEventListener("click", dbgReset);
+
+    const picker = dbgEl("dbg-examples");
+    if (picker) {
+      picker.innerHTML = "";
+      for (const example of DEBUG_EXAMPLES) {
+        const option = document.createElement("option");
+        option.value = example.key;
+        option.textContent = example.title;
+        option.title = example.why;
+        picker.appendChild(option);
+      }
+      /* The current text is a snippet of the reader's own if it no longer matches
+         one of the examples, so the picker says "your own" rather than pretending
+         to have a selection that does not exist. */
+      const custom = document.createElement("option");
+      custom.value = "";
+      custom.textContent = "Your own code";
+      picker.appendChild(custom);
+      picker.value = debugState.example || "";
+      picker.addEventListener("change", () => dbgLoadExample(picker.value));
+    }
+
+    const why = dbgEl("dbg-example-why");
+    if (why) {
+      const sync = () => {
+        const example = DEBUG_EXAMPLES.find((e) => e.key === picker?.value);
+        why.textContent = example ? example.why : "Paste any JavaScript above. It runs here, in this page, and is never uploaded.";
+      };
+      sync();
+      picker?.addEventListener("change", sync);
+    }
+
+    dbgCompile({ reset: true });
+  };
+
+
   /* ---------------------------------- init -------------------------------- */
 
   const initArena = () => {
@@ -12917,6 +13504,7 @@ const refreshStudyForActiveProblem = () => {
   window.initAcademy();
   initPatterns();
   initMock();
+  initDebugger();
   initCompanies();
   initArena();
   initLcFilters();

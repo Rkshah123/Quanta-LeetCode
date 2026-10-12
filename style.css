@@ -2229,6 +2229,383 @@ body[data-theme="beige"] .btn-toggle {
   font-size: 0.72rem;
 }
 
+/* ============================ step debugger ============================= */
+
+.debugger-body {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 40px;
+}
+
+.dbg-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.dbg-examples-field {
+  flex: 0 1 300px;
+}
+
+.dbg-example-why {
+  flex: 1 1 260px;
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-c);
+  line-height: 1.55;
+}
+
+/* The editor: a line-number gutter beside a textarea.
+
+   A gutter rather than an in-place highlighted editor, because what a debugger
+   needs from its editor is clickable line numbers and an unmistakable "you are
+   here". Both are a column of buttons, and that stays correct without wiring an
+   editor's decorations to the debugger's state on every step. */
+.dbg-editor {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  overflow: hidden;
+}
+
+.dbg-gutter {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 10px 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-c);
+}
+
+.dbg-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  height: 20px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  color: var(--text-c);
+  font-variant-numeric: tabular-nums;
+}
+
+.dbg-line:hover {
+  background: var(--accent-soft);
+}
+
+/* The breakpoint dot. Empty by default so a reader can tell "no breakpoint"
+   from "a breakpoint on a line that is also blank". */
+.dbg-line__mark {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+}
+
+.dbg-line.has-breakpoint .dbg-line__mark {
+  background: #f87171;
+  border-color: #f87171;
+}
+
+.dbg-line.is-current {
+  background: var(--accent-soft);
+}
+
+.dbg-line.is-current .dbg-line__number {
+  color: var(--accent-text);
+  font-weight: 750;
+}
+
+.dbg-line__number {
+  text-align: right;
+  width: 100%;
+}
+
+.dbg-code {
+  width: 100%;
+  min-height: 280px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-a);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
+  line-height: 20px;
+  resize: vertical;
+  tab-size: 2;
+}
+
+.dbg-code:focus {
+  outline: none;
+}
+
+.dbg-help {
+  margin: 7px 0 0;
+  font-size: 0.68rem;
+  color: var(--text-c);
+}
+
+.dbg-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dbg-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 11px;
+}
+
+.dbg-status__item {
+  display: grid;
+  gap: 1px;
+}
+
+.dbg-status__label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-c);
+}
+
+.dbg-status__value {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--text-b);
+  font-variant-numeric: tabular-nums;
+}
+
+.dbg-status__item.is-live .dbg-status__value {
+  color: #34d399;
+}
+
+.dbg-status__item.is-done .dbg-status__value {
+  color: #34d399;
+}
+
+.dbg-status__item.is-warn .dbg-status__value {
+  color: #fbbf24;
+}
+
+.dbg-status__item.is-error .dbg-status__value {
+  color: #fca5a5;
+}
+
+.dbg-notice {
+  margin-top: 10px;
+}
+
+.dbg-notice__box {
+  padding: 11px 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.08);
+  color: #fde68a;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.dbg-notice__box.is-error {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+}
+
+.dbg-notice__box p {
+  margin: 0 0 4px;
+}
+
+.dbg-notice__where {
+  font-size: 0.7rem;
+  opacity: 0.85;
+}
+
+.dbg-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.dbg-panel--wide {
+  grid-column: 1 / -1;
+}
+
+/* ---- variables --------------------------------------------------------- */
+
+.dbg-var {
+  display: grid;
+  grid-template-columns: minmax(70px, 0.5fr) auto minmax(0, 1.5fr);
+  align-items: baseline;
+  gap: 9px;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  margin-bottom: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.73rem;
+}
+
+.dbg-var__name {
+  color: var(--accent-text);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.dbg-var__type {
+  font-size: 0.6rem;
+  color: var(--text-c);
+  text-transform: lowercase;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.dbg-var__value {
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The value's own type gets a colour, so "the string 1" and "the number 1" are
+   distinguishable at a glance - which is exactly the confusion that makes a
+   `==` bug hard to see. */
+.dbg-var__value.is-string {
+  color: #9ff0cd;
+}
+
+.dbg-var__value.is-number {
+  color: #fbbf24;
+}
+
+.dbg-var__value.is-boolean,
+.dbg-var__value.is-null,
+.dbg-var__value.is-undefined {
+  color: #c4b5fd;
+}
+
+.dbg-var__value.is-object,
+.dbg-var__value.is-array {
+  color: #93c5fd;
+}
+
+.dbg-var__value.is-function {
+  color: #f9a8d4;
+  font-style: italic;
+}
+
+.dbg-var__value.is-error {
+  color: #fca5a5;
+}
+
+.dbg-var__value.is-circular,
+.dbg-var__value.is-truncated {
+  color: var(--text-c);
+  font-style: italic;
+}
+
+.dbg-var.is-undeclared {
+  border: 1px dashed var(--border);
+}
+
+.dbg-var__hidden {
+  margin: 7px 0 0;
+  font-size: 0.68rem;
+  color: var(--text-c);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ---- call stack -------------------------------------------------------- */
+
+.dbg-frame {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  margin-bottom: 3px;
+  font-size: 0.74rem;
+}
+
+.dbg-frame.is-top {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent-line);
+}
+
+.dbg-frame__depth {
+  min-width: 18px;
+  text-align: right;
+  font-size: 0.62rem;
+  color: var(--text-c);
+  font-variant-numeric: tabular-nums;
+}
+
+.dbg-frame__name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+}
+
+.dbg-frame__note {
+  margin: 8px 0 0;
+  font-size: 0.68rem;
+  color: var(--text-c);
+  line-height: 1.55;
+}
+
+/* ---- output ------------------------------------------------------------ */
+
+.dbg-output {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.73rem;
+  line-height: 1.7;
+}
+
+.dbg-log {
+  padding: 2px 8px;
+  border-left: 2px solid var(--border);
+  color: var(--text-b);
+  overflow-wrap: anywhere;
+}
+
+.dbg-log.is-warn {
+  border-left-color: #fbbf24;
+  color: #fde68a;
+}
+
+.dbg-log.is-error {
+  border-left-color: #f87171;
+  color: #fca5a5;
+}
+
+@media (max-width: 760px) {
+  .dbg-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dbg-var {
+    grid-template-columns: minmax(60px, 0.6fr) minmax(0, 1.6fr);
+  }
+
+  /* The type badge is the first thing dropped on a narrow screen: the value is
+     what the reader came for, and the name is already there beside it. */
+  .dbg-var__type {
+    display: none;
+  }
+}
+
 /* ============================ contest arena ============================ */
 
 .arena-body {

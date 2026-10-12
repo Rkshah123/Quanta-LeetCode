@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=40" />
+  <link rel="stylesheet" href="style.css?v=41" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -53,6 +53,7 @@
     <button class="nav-btn" type="button" data-page="discovery">What&rsquo;s next</button>
     <button class="nav-btn" type="button" data-page="academy">Academy</button>
     <button class="nav-btn" type="button" data-page="patterns">Patterns</button>
+    <button class="nav-btn" type="button" data-page="debugger">Debugger</button>
     <button class="nav-btn" type="button" data-page="arena">Arena</button>
     <button class="nav-btn" type="button" data-page="mock">Mock</button>
     <button class="nav-btn" type="button" data-page="companies">Companies</button>
@@ -825,6 +826,69 @@
         </section>
       </div>
     </section>
+    <!-- ========================== Debugger page ============================ -->
+    <section id="page-debugger" class="page page--debugger" data-page-id="debugger" aria-label="Interactive debugger" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Step debugger</h2>
+          <p class="page-sub">Run JavaScript one statement at a time and watch every variable change</p>
+        </div>
+      </header>
+
+      <div class="settings-body debugger-body">
+        <p class="viz-note--plain">
+          This runs your code, in this page, on your machine. Nothing is uploaded. Every value below was read
+          out of a live scope at that exact statement &mdash; it is not a replay, an estimate or a sample.
+          Syntax Quanta cannot step through correctly is refused before anything runs, with the line named.
+        </p>
+
+        <section class="settings-group" aria-labelledby="dbg-source-title">
+          <h3 id="dbg-source-title">Code</h3>
+          <div class="dbg-toolbar">
+            <label class="viz-field dbg-examples-field">
+              <span>Start from</span>
+              <select id="dbg-examples" class="settings-select"></select>
+            </label>
+            <p id="dbg-example-why" class="dbg-example-why"></p>
+          </div>
+          <div class="dbg-editor">
+            <div id="dbg-gutter" class="dbg-gutter" aria-label="Line numbers and breakpoints"></div>
+            <textarea id="dbg-code" class="dbg-code" rows="14" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="JavaScript to step through"></textarea>
+          </div>
+          <p class="dbg-help">Click a line number to set or clear a breakpoint &mdash; the dot fills in.</p>
+        </section>
+
+        <section class="settings-group" aria-labelledby="dbg-run-title">
+          <h3 id="dbg-run-title">Run</h3>
+          <div class="dbg-actions">
+            <button id="dbg-step" class="prog-btn" type="button">Step</button>
+            <button id="dbg-continue" class="prog-btn" type="button">Continue</button>
+            <button id="dbg-run-end" class="prog-btn" type="button">Run to end</button>
+            <button id="dbg-reset" class="prog-btn is-quiet" type="button">Reset</button>
+          </div>
+          <div id="dbg-status" class="dbg-status" role="status" aria-live="polite"></div>
+          <div id="dbg-notice"></div>
+        </section>
+
+        <div class="dbg-panels">
+          <section class="settings-group dbg-panel" aria-labelledby="dbg-vars-title">
+            <h3 id="dbg-vars-title">Variables</h3>
+            <div id="dbg-variables"></div>
+          </section>
+
+          <section class="settings-group dbg-panel" aria-labelledby="dbg-stack-title">
+            <h3 id="dbg-stack-title">Call stack</h3>
+            <div id="dbg-stack"></div>
+          </section>
+
+          <section class="settings-group dbg-panel dbg-panel--wide" aria-labelledby="dbg-output-title">
+            <h3 id="dbg-output-title">Output</h3>
+            <div id="dbg-output" class="dbg-output"></div>
+          </section>
+        </div>
+      </div>
+    </section>
     <!-- ============================ Arena page ============================= -->
     <section id="page-arena" class="page page--arena" data-page-id="arena" aria-label="Contest arena" hidden>
       <header class="page-head">
@@ -1465,7 +1529,8 @@
     </div>
   </div>
 
-  <script src="vendor/monaco/min/vs/loader.js"></script>
+  <script src="vendor/acorn/acorn.js?v=1"></script>
+<script src="vendor/monaco/min/vs/loader.js"></script>
   <script src="script.js?v=16"></script>
   <script src="visualizer.js?v=4"></script>
   <script src="discovery.js?v=1"></script>
@@ -1473,7 +1538,8 @@
   <script src="patterns.js?v=1"></script>
   <script src="mock.js?v=1"></script>
   <script src="solutions.js?v=1"></script>
+<script src="debugger.js?v=1"></script>
 <script src="contests.js?v=1"></script>
-  <script src="lab-notes.js?v=72"></script>
+  <script src="lab-notes.js?v=74"></script>
 </body>
 </html>
