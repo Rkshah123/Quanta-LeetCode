@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=27" />
+  <link rel="stylesheet" href="style.css?v=28" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -49,6 +49,7 @@
     <button class="nav-btn" type="button" data-page="revision">Revision</button>
     <button class="nav-btn" type="button" data-page="notes">Notes</button>
     <button class="nav-btn" type="button" data-page="lab">Lab</button>
+    <button class="nav-btn" type="button" data-page="visualizer">Visualizer</button>
     <button class="nav-btn" type="button" data-page="settings">Settings</button>
     <button class="nav-btn" type="button" data-page="about">About</button>
     <div class="nav-drawer-extra" aria-hidden="false">
@@ -706,6 +707,82 @@
         </div>
       </div>
     </section>
+    <!-- ========================= Visualizer page ============================ -->
+    <section id="page-visualizer" class="page page--visualizer" data-page-id="visualizer" aria-label="Algorithm visualizer" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Visualizer</h2>
+          <p class="page-sub">Watch an algorithm work, one step at a time</p>
+        </div>
+      </header>
+
+      <div class="settings-body viz-body">
+        <div id="viz-picker" class="settings-group viz-picker" role="tablist" aria-label="Algorithm category"></div>
+
+        <section class="settings-group" aria-labelledby="viz-alg-title">
+          <h3 id="viz-alg-title">Algorithm</h3>
+          <div id="viz-algorithms" class="viz-algorithms" role="tablist" aria-label="Algorithm"></div>
+          <p id="viz-about" class="viz-about"></p>
+        </section>
+
+        <section class="settings-group" aria-labelledby="viz-input-title">
+          <h3 id="viz-input-title">Input</h3>
+          <div id="viz-inputs" class="viz-inputs"></div>
+          <div class="viz-run-row">
+            <button id="viz-run" class="prog-btn" type="button">Run it</button>
+            <button id="viz-shuffle" class="prog-btn prog-btn--ghost" type="button" hidden>Different values</button>
+          </div>
+        </section>
+
+        <section class="settings-group viz-stage-group" aria-labelledby="viz-stage-title">
+          <h3 id="viz-stage-title">Step</h3>
+          <div class="viz-controls">
+            <button id="viz-first" class="viz-icon-btn" type="button" aria-label="Jump to the first step" title="First">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+            </button>
+            <button id="viz-prev" class="viz-icon-btn" type="button" aria-label="Previous step" title="Previous">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 6 8 12l7.5 6z"/></svg>
+            </button>
+            <button id="viz-play" class="viz-icon-btn viz-icon-btn--play" type="button" aria-label="Play" title="Play">
+              <svg viewBox="0 0 24 24" aria-hidden="true" data-icon="play"><path d="M8 5v14l11-7z"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" data-icon="pause" hidden><path d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg>
+            </button>
+            <button id="viz-next" class="viz-icon-btn" type="button" aria-label="Next step" title="Next">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 6 16 12l-7.5 6z"/></svg>
+            </button>
+            <button id="viz-last" class="viz-icon-btn" type="button" aria-label="Jump to the last step" title="Last">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg>
+            </button>
+            <label class="viz-speed">
+              <span>Speed</span>
+              <select id="viz-speed" class="settings-select">
+                <option value="900">Slow</option>
+                <option value="450" selected>Normal</option>
+                <option value="200">Fast</option>
+                <option value="80">Very fast</option>
+              </select>
+            </label>
+          </div>
+
+          <input id="viz-scrub" class="viz-scrub" type="range" min="0" max="0" value="0" step="1" aria-label="Step position" />
+
+          <div class="viz-counter">
+            <span id="viz-step">Step 0</span>
+            <span id="viz-total"></span>
+          </div>
+
+          <p id="viz-note" class="viz-note" role="status" aria-live="polite"></p>
+
+          <div id="viz-canvas" class="viz-canvas" aria-label="Algorithm visualisation"></div>
+
+          <details id="viz-code-details" class="viz-code-details">
+            <summary>Show the code</summary>
+            <pre id="viz-code" class="viz-code"></pre>
+          </details>
+        </section>
+      </div>
+    </section>
     <!-- ============================ Settings page ============================ -->
     <section id="page-settings" class="page page--settings" data-page-id="settings" aria-label="Settings" hidden>
       <header class="page-head">
@@ -1095,6 +1172,7 @@
 
   <script src="vendor/monaco/min/vs/loader.js"></script>
   <script src="script.js?v=16"></script>
-  <script src="lab-notes.js?v=50"></script>
+  <script src="visualizer.js?v=3"></script>
+  <script src="lab-notes.js?v=56"></script>
 </body>
 </html>

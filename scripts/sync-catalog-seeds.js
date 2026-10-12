@@ -53,12 +53,33 @@ const readEmbedded = () => {
   }
   if (end < 0) throw new Error("the end of the generated list was not found");
 
+  /* Rows are `p(num, slug, title, difficulty)` for LeetCode and
+     `p(num, slug, title, difficulty, platform, url)` for anything else. The
+     trailing group is optional so both forms parse with one pattern; a row that
+     matches neither is a real problem and is reported rather than skipped. */
+  const ROW = /^p\((-?\d+),\s*(".*?"),\s*(".*?"),\s*("(?:Easy|Medium|Hard)")(?:,\s*("[a-z]+")?,\s*(".*?"))?\)/;
+
   const entries = [];
+  const unparsed = [];
   for (let i = retIndex + 1; i < end; i += 1) {
-    const match = lines[i].trim().match(/^p\((-?\d+),\s*(".*?"),\s*(".*?"),\s*("(?:Easy|Medium|Hard)")\)/);
-    if (match) entries.push({ line: i, num: Number(match[1]), slug: JSON.parse(match[2]), title: JSON.parse(match[3]), difficulty: JSON.parse(match[4]) });
+    const text = lines[i].trim();
+    if (!text || !text.startsWith("p(")) continue;
+    const match = text.match(ROW);
+    if (!match) {
+      unparsed.push(`${i + 1}: ${text.slice(0, 90)}`);
+      continue;
+    }
+    entries.push({
+      line: i,
+      num: Number(match[1]),
+      slug: JSON.parse(match[2]),
+      title: JSON.parse(match[3]),
+      difficulty: JSON.parse(match[4]),
+      platform: match[5] ? JSON.parse(match[5]) : "leetcode",
+      url: match[6] ? JSON.parse(match[6]) : ""
+    });
   }
-  return { source, lines, retIndex, end, entries };
+  return { source, lines, retIndex, end, entries, unparsed };
 };
 
 const main = async () => {
@@ -73,8 +94,15 @@ const main = async () => {
   }
   console.log(`  ${dbProblems.length} problems read (the database reports the catalog as ${pageSize ? dbProblems.length : 0})`);
 
-  const { lines, retIndex, end, entries } = readEmbedded();
+  const { lines, retIndex, end, entries, unparsed } = readEmbedded();
   console.log(`  lab-notes.js currently embeds ${entries.length} problems`);
+  if (unparsed.length) {
+    /* A row the parser cannot read would be silently dropped from the rewrite,
+       so this stops the run instead. */
+    console.error(`  ${unparsed.length} generated row(s) could not be parsed:`);
+    for (const line of unparsed.slice(0, 5)) console.error(`    ${line}`);
+    throw new Error("lab-notes.js has generated rows this script cannot read; fix them by hand before syncing");
+  }
 
   const bySlug = new Map(dbProblems.map((p) => [p.slug, p]));
   const embeddedBySlug = new Map(entries.map((e) => [e.slug, e]));
@@ -90,18 +118,34 @@ const main = async () => {
   const adopt = [];
   const numberConflicts = [];
 
+  const dropped = [];
+
   for (const entry of entries) {
     const match = bySlug.get(entry.slug);
     if (!match) {
-      adopt.push({ ...entry, title: entry.title, difficulty: entry.difficulty });
+      /* Not in the database. This used to mean "keep it, the database may just
+         not have caught up", which was safe while the catalog only ever grew.
+         It stopped being safe once the curator started pruning to a cap: a
+         pruned problem stayed embedded forever, the embedded list grew past
+         the cap, and the file became a copy of itself rather than of the
+         database. The database is the catalog of record, so an entry with no
+         database row is dropped and reported. */
+      dropped.push(entry);
       continue;
     }
+    /* Title and difficulty are reconciled below; platform and url always come
+       from the database, because they are facts about where a problem lives
+       rather than anything the app chose. Carrying the embedded values forward
+       would keep a stale "leetcode" on a problem the curator has since
+       recorded as coming from another platform. */
+    const identity = { platform: match.platform || "leetcode", url: match.url || "" };
+
     if (normaliseTitle(match.title) !== normaliseTitle(entry.title)) {
-      adopt.push({ ...entry, title: String(match.title).trim().replace(/\s+/g, " "), difficulty: match.difficulty });
+      adopt.push({ ...entry, ...identity, title: String(match.title).trim().replace(/\s+/g, " "), difficulty: match.difficulty });
     } else if (match.difficulty !== entry.difficulty) {
-      adopt.push({ ...entry, title: entry.title, difficulty: match.difficulty });
+      adopt.push({ ...entry, ...identity, title: entry.title, difficulty: match.difficulty });
     } else {
-      adopt.push({ ...entry, title: entry.title, difficulty: match.difficulty });
+      adopt.push({ ...entry, ...identity, title: entry.title, difficulty: match.difficulty });
     }
     if ((match.num ?? null) !== entry.num) {
       numberConflicts.push(`${entry.slug}: app ${entry.num} vs database ${match.num ?? "none"} (kept the app's)`);
@@ -111,7 +155,17 @@ const main = async () => {
   const embeddedSlugs = new Set(entries.map((e) => e.slug));
   const missing = dbProblems.filter((p) => !embeddedSlugs.has(p.slug));
   for (const p of missing) {
-    adopt.push({ num: Number(p.num) || 0, slug: p.slug, title: String(p.title).trim().replace(/\s+/g, " "), difficulty: p.difficulty });
+    /* platform and url travel with the row: the app has to link a Codeforces
+       problem to codeforces.com, not to a leetcode.com URL built from a
+       Codeforces slug. */
+    adopt.push({
+      num: Number(p.num) || 0,
+      slug: p.slug,
+      title: String(p.title).trim().replace(/\s+/g, " "),
+      difficulty: p.difficulty,
+      platform: p.platform || "leetcode",
+      url: p.url || ""
+    });
   }
 
   const diffs = [];
@@ -125,14 +179,34 @@ const main = async () => {
     if (match.difficulty !== entry.difficulty) diffs.push({ slug: entry.slug, what: `difficulty ${entry.difficulty} -> ${match.difficulty}` });
   }
 
-  if (!diffs.length && !missing.length && numberConflicts.length === 0) {
+  if (dropped.length) {
+    console.log(`  dropping ${dropped.length} embedded problem(s) that are no longer in the database:`);
+    for (const entry of dropped.slice(0, 8)) console.log(`    ${entry.slug} (${entry.difficulty})`);
+    if (dropped.length > 8) console.log(`    ... and ${dropped.length - 8} more`);
+  }
+
+  /* Renders one catalog row. Shared by the early-exit comparison and the real
+     rewrite so the two can never disagree about the output format - which is
+     exactly the bug that let a stale 4-argument form linger. */
+  const renderRow = (p) => {
+    const base = `      p(${Number(p.num) || 0}, ${jsString(p.slug)}, ${jsString(p.title)}, ${jsString(p.difficulty)}`;
+    if (!p.platform || p.platform === "leetcode") return `${base}),`;
+    return `${base}, ${jsString(p.platform)}, ${jsString(p.url || "")}),`;
+  };
+
+  const sortRows = (rows) =>
+    [...rows].sort((a, b) => {
+      if (!a.num && b.num) return 1;
+      if (a.num && !b.num) return -1;
+      if (a.num !== b.num) return a.num - b.num;
+      return String(a.title).localeCompare(String(b.title));
+    });
+
+  if (!diffs.length && !missing.length && numberConflicts.length === 0 && !dropped.length) {
     /* Still compare the generated block with what is in the file: if the text
        has drifted (a hand edit, a bad paste) the list is rewritten even though
        the data itself is identical, so the file always matches the script. */
-    const expected = adopt
-      .slice()
-      .sort((a, b) => (a.num && b.num ? a.num - b.num : a.num ? -1 : b.num ? 1 : String(a.title).localeCompare(String(b.title))))
-      .map((p) => `      p(${Number(p.num) || 0}, ${jsString(p.slug)}, ${jsString(p.title)}, ${jsString(p.difficulty)}),`);
+    const expected = sortRows(adopt).map(renderRow);
     const actual = lines.slice(retIndex + 1, end);
     if (JSON.stringify(expected) === JSON.stringify(actual)) {
       console.log("\nNothing to do: the app and the database already agree.");
@@ -159,16 +233,9 @@ const main = async () => {
 
   /* Written in catalog order so the embedded list is also the default order
      the app shows, which is what the API returns for sort=catalog. */
-  const ordered = [...adopt].sort((a, b) => {
-    if (!a.num && b.num) return 1;
-    if (a.num && !b.num) return -1;
-    if (a.num !== b.num) return a.num - b.num;
-    return String(a.title).localeCompare(String(b.title));
-  });
+  const ordered = sortRows(adopt);
 
-  const generated = ordered.map(
-    (p) => `      p(${Number(p.num) || 0}, ${jsString(p.slug)}, ${jsString(p.title)}, ${jsString(p.difficulty)}),`
-  );
+  const generated = ordered.map(renderRow);
 
   const crlf = lines.join("\n").includes("\r\n");
   const updated = [...lines.slice(0, retIndex + 1), ...generated, ...lines.slice(end)];
@@ -186,6 +253,15 @@ const main = async () => {
     if (!written) throw new Error(`${problem.slug} is missing from the rewritten list`);
     if (written.title !== problem.title || written.difficulty !== problem.difficulty) {
       throw new Error(`${problem.slug} was written as "${written.title}" (${written.difficulty}) instead of "${problem.title}" (${problem.difficulty})`);
+    }
+    /* A non-LeetCode problem must keep its own platform and link, or the app
+       would send the user to a leetcode.com URL built from a foreign slug. */
+    const expectedPlatform = problem.platform || "leetcode";
+    if ((written.platform || "leetcode") !== expectedPlatform) {
+      throw new Error(`${problem.slug} was written with platform "${written.platform}" instead of "${expectedPlatform}"`);
+    }
+    if (expectedPlatform !== "leetcode" && written.url !== (problem.url || "")) {
+      throw new Error(`${problem.slug} was written with url "${written.url}" instead of "${problem.url}"`);
     }
   }
 

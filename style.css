@@ -2229,6 +2229,568 @@ body[data-theme="beige"] .btn-toggle {
   font-size: 0.72rem;
 }
 
+/* ===================== algorithm visualizer ============================= */
+/* Every colour here comes from the existing theme tokens, so the visualizer
+   follows the theme switch exactly like the rest of the app and needs no
+   per-theme overrides of its own. */
+
+.viz-body {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 40px;
+}
+
+.viz-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.viz-picker h3 {
+  display: none;
+}
+
+.viz-chip {
+  flex: none;
+  padding: 8px 14px;
+  min-height: 38px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--anim-fast), color var(--anim-fast), border-color var(--anim-fast);
+}
+
+.viz-chip:hover {
+  border-color: var(--accent-line);
+}
+
+.viz-chip.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.viz-algorithms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.viz-alg {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--anim-fast), border-color var(--anim-fast), transform var(--anim-fast);
+}
+
+.viz-alg:hover {
+  border-color: var(--accent-line);
+  transform: translateY(-1px);
+}
+
+.viz-alg.is-active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.viz-alg__name {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.viz-alg__cost {
+  font-size: 0.68rem;
+  color: var(--text-c);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.viz-alg.is-active .viz-alg__cost {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.viz-about {
+  margin: 10px 0 0;
+  color: var(--text-c);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.viz-inputs {
+  display: grid;
+  gap: 10px;
+}
+
+.viz-field {
+  display: grid;
+  gap: 5px;
+  font-size: 0.74rem;
+  color: var(--text-b);
+}
+
+.viz-field small {
+  color: var(--text-c);
+  font-size: 0.68rem;
+}
+
+.viz-note--plain {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: var(--radius-md);
+  background: var(--field);
+  color: var(--text-c);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.viz-run-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-icon-btn {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+  cursor: pointer;
+  transition: background var(--anim-fast), border-color var(--anim-fast), transform var(--anim-fast);
+}
+
+.viz-icon-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.viz-icon-btn:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+  transform: translateY(-1px);
+}
+
+.viz-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.viz-icon-btn--play {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.viz-speed {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-c);
+}
+
+.viz-speed .settings-select {
+  min-height: 38px;
+}
+
+.viz-scrub {
+  width: 100%;
+  margin: 14px 0 6px;
+  accent-color: var(--accent-text);
+  cursor: pointer;
+}
+
+.viz-scrub:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.viz-counter {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-c);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-note {
+  margin: 10px 0 0;
+  min-height: 2.6em;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.viz-note--error {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f8a6a6;
+}
+
+.viz-note__title {
+  display: block;
+  color: var(--accent-text);
+  font-size: 0.74rem;
+  margin-bottom: 2px;
+}
+
+.viz-canvas {
+  margin-top: 14px;
+  padding: 16px 12px;
+  min-height: 190px;
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+/* --- bars --- */
+.viz-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  min-height: 130px;
+}
+
+.viz-bar-cell {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  flex: 1 1 0;
+  max-width: 54px;
+}
+
+.viz-bar {
+  width: 100%;
+  min-height: 6px;
+  border-radius: 5px 5px 2px 2px;
+  background: var(--border);
+  transition: height var(--anim-mid), background var(--anim-fast);
+}
+
+.viz-bar.is-window {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.viz-bar.is-active {
+  background: var(--accent-text);
+}
+
+.viz-bar.is-done {
+  background: rgba(52, 211, 153, 0.55);
+}
+
+.viz-bar.is-found {
+  background: #34d399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.55);
+}
+
+.viz-bar__label {
+  font-size: 0.64rem;
+  color: var(--text-c);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-indexes {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.viz-index {
+  flex: 1 1 0;
+  max-width: 54px;
+  text-align: center;
+  font-size: 0.6rem;
+  color: var(--text-d);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-index.is-active {
+  color: var(--accent-text);
+  font-weight: 800;
+}
+
+/* --- recursion stack --- */
+.viz-stack {
+  display: grid;
+  gap: 3px;
+  max-height: 260px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--field);
+}
+
+.viz-stack__row {
+  display: flex;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  color: var(--text-c);
+  white-space: pre-wrap;
+}
+
+.viz-stack__row.is-call {
+  color: var(--text-b);
+}
+
+.viz-stack__row.is-move,
+.viz-stack__row.is-return {
+  color: #34d399;
+}
+
+.viz-stack__row.is-current {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.viz-stack__indent {
+  color: var(--text-d);
+}
+
+/* --- trees and graphs --- */
+.viz-tree,
+.viz-graph {
+  position: relative;
+  width: 100%;
+  height: 260px;
+}
+
+.viz-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-a);
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: background var(--anim-fast), border-color var(--anim-fast), transform var(--anim-mid);
+}
+
+.viz-node.is-done {
+  background: rgba(52, 211, 153, 0.2);
+  border-color: rgba(52, 211, 153, 0.6);
+  color: #34d399;
+}
+
+.viz-node.is-active {
+  background: var(--accent-text);
+  border-color: var(--accent-text);
+  color: var(--panel);
+  transform: translate(-50%, -50%) scale(1.18);
+}
+
+.viz-tree__edges,
+.viz-graph__edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.viz-tree__edges line,
+.viz-graph__edges line {
+  stroke: var(--border);
+  stroke-width: 0.5;
+}
+
+.viz-graph__edges line.is-active {
+  stroke: var(--accent-text);
+  stroke-width: 0.9;
+}
+
+.viz-graph__weight {
+  fill: var(--text-c);
+  font-size: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.viz-graph__queue {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--text-c);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding-top: 6px;
+}
+
+/* --- DP tables --- */
+.viz-table--row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.viz-table--row .viz-table__cell {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 48px;
+  padding: 7px 6px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border);
+  background: var(--field);
+}
+
+.viz-table__key {
+  font-size: 0.6rem;
+  color: var(--text-c);
+}
+
+.viz-table__value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-a);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-table__cell.is-active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.viz-table__cell.is-active .viz-table__value {
+  color: var(--accent-text);
+}
+
+.viz-table--grid {
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.viz-table__row {
+  display: flex;
+  gap: 3px;
+}
+
+.viz-table--grid .viz-table__cell {
+  min-width: 34px;
+  padding: 6px 4px;
+  text-align: center;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--field);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-table__cell--head {
+  background: transparent;
+  color: var(--text-c);
+  font-size: 0.64rem;
+}
+
+.viz-table--grid .viz-table__cell.is-active {
+  background: var(--accent-text);
+  color: var(--panel);
+  font-weight: 800;
+}
+
+/* --- code --- */
+.viz-code-details {
+  margin-top: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  padding: 10px 12px;
+}
+
+.viz-code-details summary {
+  cursor: pointer;
+  font-size: 0.74rem;
+  color: var(--text-b);
+  font-weight: 650;
+}
+
+.viz-code {
+  margin: 10px 0 0;
+  padding: 11px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--bg-c);
+  color: var(--text-a);
+  font-size: 0.7rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 520px) {
+  .viz-controls {
+    justify-content: center;
+  }
+  .viz-speed {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+  .viz-bars,
+  .viz-indexes {
+    gap: 4px;
+  }
+  .viz-tree,
+  .viz-graph {
+    height: 220px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viz-bar,
+  .viz-node {
+    transition: none;
+  }
+}
+
 /* ================== connection and data-source diagnostics ================= */
 
 .diag-intro {

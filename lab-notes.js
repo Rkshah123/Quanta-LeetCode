@@ -106,6 +106,10 @@
     if (pageId === "progress") void renderProgressPage();
     if (pageId === "settings") void runConnectionDiagnostics();
     if (pageId === "revision") void loadRevisionDashboard();
+    /* The visualizer keeps its step position when you leave and come back, so
+       nothing needs re-running here - but a hidden page has no size, and the
+       stage is laid out in percentages, so it redraws on show either way. */
+    if (pageId === "visualizer") vizRenderFrame();
     if (pageId === "lab" || pageId === "quantalab") relayoutMonacoEditors();
     if (pageId !== "lab") clearLanguageAccent();
     /* Hidden pages measure 0x0, so stored split sizes could not be applied
@@ -1707,12 +1711,26 @@
 
   const LC_STATE_KEY = "quantaLeetCodeStateV1";
 
+  /* The catalog is generated from the database by scripts/sync-catalog-seeds.js.
+     `num` is the LeetCode problem number and is unique, which is why it was
+     once safe to use as the id. That stopped being true when the catalog grew
+     to more than one platform: Codeforces problems have no LeetCode number, so
+     every one of them would have arrived as num 0 and shared the id `seed-0`,
+     silently merging 1,300 distinct problems into one.
+
+     So the id is derived from the slug, which is unique per platform and is
+     already what every other part of the app keys on (revision, notes,
+     solutions, the API all address a problem by slug). `platform` and `url`
+     are carried through so a Codeforces row links to Codeforces instead of to
+     a fabricated leetcode.com address built from a Codeforces slug. */
   const seedProblems = () => {
-    const p = (num, slug, name, difficulty) => ({
-      id: `seed-${num}`,
+    const p = (num, slug, name, difficulty, platform = "leetcode", url = "") => ({
+      id: `seed-${slug}`,
       num,
+      slug,
       name,
-      url: `https://leetcode.com/problems/${slug}/`,
+      platform,
+      url: url || `https://leetcode.com/problems/${slug}/`,
       difficulty,
       solved: false,
       notes: [{ id: randomId("nsec"), title: "Approach", html: "", collapsed: false }],
@@ -2501,6 +2519,1244 @@
       p(3836, "choose-k-flips-to-maximize-xor", "Choose K Flips to Maximize XOR", "Hard"),
       p(3841, "paint-special-elements-in-grid", "Paint Special Elements in Grid", "Medium"),
       p(3846, "destroy-sequential-targets-ii", "Destroy Sequential Targets II", "Hard"),
+      p(0, "cf-1242b", "0-1 MST", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1242/B"),
+      p(0, "cf-1950f", "0, 1, 2, Tree!", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1950/F"),
+      p(0, "cf-2126f", "1-1-1, Free Tree!", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2126/F"),
+      p(0, "cf-1494c", "1D Sokoban", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1494/C"),
+      p(0, "cf-1692g", "2^Sort", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1692/G"),
+      p(0, "cf-1715d", "2+ doors", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1715/D"),
+      p(0, "cf-2127h", "23 Rises Again", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2127/H"),
+      p(0, "cf-1658d2", "388535 (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1658/D2"),
+      p(0, "cf-452b", "4-point polyline", "Medium", "codeforces", "https://codeforces.com/problemset/problem/452/B"),
+      p(0, "cf-519e", "A and B and Lecture Rooms", "Hard", "codeforces", "https://codeforces.com/problemset/problem/519/E"),
+      p(0, "cf-2241f", "A Bit Odd", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2241/F"),
+      p(0, "cf-1957d", "A BIT of an Inequality", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1957/D"),
+      p(0, "cf-1469e", "A Bit Similar", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1469/E"),
+      p(0, "cf-1260d", "A Game with Traps", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1260/D"),
+      p(0, "cf-455b", "A Lot of Games", "Medium", "codeforces", "https://codeforces.com/problemset/problem/455/B"),
+      p(0, "cf-2210f", "A Simple Problem", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2210/F"),
+      p(0, "cf-1805d", "A Wide, Wide Graph", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1805/D"),
+      p(0, "cf-1238d", "AB-string", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1238/D"),
+      p(0, "cf-1149d", "Abandoning Roads", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1149/D"),
+      p(0, "cf-1428c", "ABBB", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1428/C"),
+      p(0, "cf-2026c", "Action Figures", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2026/C"),
+      p(0, "cf-601d", "Acyclic Organic Compounds", "Hard", "codeforces", "https://codeforces.com/problemset/problem/601/D"),
+      p(0, "cf-1188a2", "Add on a Tree: Revolution", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1188/A2"),
+      p(0, "cf-2027c", "Add Zeros", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2027/C"),
+      p(0, "cf-2157e", "Adjusting Drones", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2157/E"),
+      p(0, "cf-2053i2", "Affectionate Arrays (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2053/I2"),
+      p(0, "cf-2194f1", "Again Trees... (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2194/F1"),
+      p(0, "cf-2194f2", "Again Trees... (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2194/F2"),
+      p(0, "cf-1648e", "Air Reform", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1648/E"),
+      p(0, "cf-2187f1", "Al Fine (Maximizing Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2187/F1"),
+      p(0, "cf-1767e", "Algebra Flash", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1767/E"),
+      p(0, "cf-2028e", "Alice's Adventures in the Rabbit Hole", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2028/E"),
+      p(0, "cf-1759f", "All Possible Digits", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1759/F"),
+      p(0, "cf-1492e", "Almost Fault-Tolerant Database", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1492/E"),
+      p(0, "cf-1608g", "Alphabetic Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1608/G"),
+      p(0, "cf-786e", "ALT", "Hard", "codeforces", "https://codeforces.com/problemset/problem/786/E"),
+      p(0, "cf-2005d", "Alter the GCD", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2005/D"),
+      p(0, "cf-2204d", "Alternating Path", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2204/D"),
+      p(0, "cf-2008e", "Alternating String", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2008/E"),
+      p(0, "cf-960e", "Alternating Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/960/E"),
+      p(0, "cf-739b", "Alyona and a tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/739/B"),
+      p(0, "cf-777c", "Alyona and Spreadsheet", "Medium", "codeforces", "https://codeforces.com/problemset/problem/777/C"),
+      p(0, "cf-1949j", "Amanda the Amoeba", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1949/J"),
+      p(0, "cf-1773a", "Amazing Trick", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1773/A"),
+      p(0, "cf-558c", "Amr and Chemistry", "Medium", "codeforces", "https://codeforces.com/problemset/problem/558/C"),
+      p(0, "cf-1610e", "AmShZ and G.O.A.T.", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1610/E"),
+      p(0, "cf-1327f", "AND Segments", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1327/F"),
+      p(0, "cf-1689e", "ANDfinity", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1689/E"),
+      p(0, "cf-1859d", "Andrey and Escape from Capygrad", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1859/D"),
+      p(0, "cf-442b", "Andrey and Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/442/B"),
+      p(0, "cf-1935f", "Andrey's Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1935/F"),
+      p(0, "cf-2092f", "Andryusha and CCB", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2092/F"),
+      p(0, "cf-780c", "Andryusha and Colored Balloons", "Medium", "codeforces", "https://codeforces.com/problemset/problem/780/C"),
+      p(0, "cf-1900c", "Anji's Binary Tree", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1900/C"),
+      p(0, "cf-557e", "Ann and Half-Palindrome", "Hard", "codeforces", "https://codeforces.com/problemset/problem/557/E"),
+      p(0, "cf-1949c", "Annual Ants' Gathering", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1949/C"),
+      p(0, "cf-1641c", "Anonymity Is Important", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1641/C"),
+      p(0, "cf-1893a", "Anonymous Informant", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1893/A"),
+      p(0, "cf-2057e1", "Another Exercise on Graphs (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2057/E1"),
+      p(0, "cf-2057e2", "Another Exercise on Graphs (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2057/E2"),
+      p(0, "cf-1859c", "Another Permutation Problem", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1859/C"),
+      p(0, "cf-165c", "Another Problem on Strings", "Medium", "codeforces", "https://codeforces.com/problemset/problem/165/C"),
+      p(0, "cf-1743g", "Antifibonacci Cut", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1743/G"),
+      p(0, "cf-1007d", "Ants", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1007/D"),
+      p(0, "cf-2244f", "Anya Loves Trees!", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2244/F"),
+      p(0, "cf-1466e", "Apollo versus Pan", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1466/E"),
+      p(0, "cf-1843d", "Apple Tree", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1843/D"),
+      p(0, "cf-1545c", "AquaMoon and Permutations", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1545/C"),
+      p(0, "cf-2131d", "Arboris Contractio", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2131/D"),
+      p(0, "cf-1178e", "Archaeology", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1178/E"),
+      p(0, "cf-1654e", "Arithmetic Operations", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1654/E"),
+      p(0, "cf-2132e", "Arithmetics Competition", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2132/E"),
+      p(0, "cf-860e", "Arkady and a Nobody-men", "Hard", "codeforces", "https://codeforces.com/problemset/problem/860/E"),
+      p(0, "cf-1525d", "Armchairs", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1525/D"),
+      p(0, "cf-1299d", "Around the World", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1299/D"),
+      p(0, "cf-741d", "Arpa’s letter-marked tree and Mehrdad’s Dokhtar-kosh paths", "Hard", "codeforces", "https://codeforces.com/problemset/problem/741/D"),
+      p(0, "cf-1474c", "Array Destruction", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1474/C"),
+      p(0, "cf-1552d", "Array Differentiation", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1552/D"),
+      p(0, "cf-1605e", "Array Equalizer", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1605/E"),
+      p(0, "cf-1904c", "Array Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1904/C"),
+      p(0, "cf-1920d", "Array Repetition", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1920/D"),
+      p(0, "cf-1579f", "Array Stabilization (AND version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1579/F"),
+      p(0, "cf-1547f", "Array Stabilization (GCD version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1547/F"),
+      p(0, "cf-1983f", "array-value", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1983/F"),
+      p(0, "cf-1948c", "Arrow Path", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1948/C"),
+      p(0, "cf-557c", "Arthur and Table", "Medium", "codeforces", "https://codeforces.com/problemset/problem/557/C"),
+      p(0, "cf-2022d1", "Asesino (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2022/D1"),
+      p(0, "cf-1371e1", "Asterism (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1371/E1"),
+      p(0, "cf-2025d", "Attribute Checks", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2025/D"),
+      p(0, "cf-2041i", "Auto Complete", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2041/I"),
+      p(0, "cf-1312g", "Autocompletion", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1312/G"),
+      p(0, "cf-1408e", "Avoid Rainbow Cycles", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1408/E"),
+      p(0, "cf-1697c", "awoo's Favorite Problem", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1697/C"),
+      p(0, "cf-1620c", "BA-String", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1620/C"),
+      p(0, "cf-1903f", "Babysitting", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1903/F"),
+      p(0, "cf-2097b", "Baggage Claim", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2097/B"),
+      p(0, "cf-1592c", "Bakry and Partitioning", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1592/C"),
+      p(0, "cf-317c", "Balance", "Hard", "codeforces", "https://codeforces.com/problemset/problem/317/C"),
+      p(0, "cf-1237c2", "Balanced Removals (Harder)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1237/C2"),
+      p(0, "cf-1814d", "Balancing Weapons", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1814/D"),
+      p(0, "cf-1876e", "Ball-Stackable", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1876/E"),
+      p(0, "cf-830c", "Bamboo Partition", "Hard", "codeforces", "https://codeforces.com/problemset/problem/830/C"),
+      p(0, "cf-1436d", "Bandit in a City", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1436/D"),
+      p(0, "cf-796c", "Bank Hacking", "Medium", "codeforces", "https://codeforces.com/problemset/problem/796/C"),
+      p(0, "cf-2155d", "Batteries", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2155/D"),
+      p(0, "cf-2185h", "BattleCows 2", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2185/H"),
+      p(0, "cf-2106g2", "Baudelaire (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2106/G2"),
+      p(0, "cf-679d", "Bear and Chase", "Hard", "codeforces", "https://codeforces.com/problemset/problem/679/D"),
+      p(0, "cf-639f", "Bear and Chemistry", "Hard", "codeforces", "https://codeforces.com/problemset/problem/639/F"),
+      p(0, "cf-653b", "Bear and Compressing", "Easy", "codeforces", "https://codeforces.com/problemset/problem/653/B"),
+      p(0, "cf-385c", "Bear and Prime Numbers", "Medium", "codeforces", "https://codeforces.com/problemset/problem/385/C"),
+      p(0, "cf-385b", "Bear and Strings", "Easy", "codeforces", "https://codeforces.com/problemset/problem/385/B"),
+      p(0, "cf-574b", "Bear and Three Musketeers", "Medium", "codeforces", "https://codeforces.com/problemset/problem/574/B"),
+      p(0, "cf-1155d", "Beautiful Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1155/D"),
+      p(0, "cf-279e", "Beautiful Decomposition", "Medium", "codeforces", "https://codeforces.com/problemset/problem/279/E"),
+      p(0, "cf-87d", "Beautiful Road", "Hard", "codeforces", "https://codeforces.com/problemset/problem/87/D"),
+      p(0, "cf-2075f", "Beautiful Sequence Returns", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2075/F"),
+      p(0, "cf-1904f", "Beautiful Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1904/F"),
+      p(0, "cf-1982d", "Beauty of the mountains", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1982/D"),
+      p(0, "cf-79c", "Beaver", "Medium", "codeforces", "https://codeforces.com/problemset/problem/79/C"),
+      p(0, "cf-1494b", "Berland Crossword", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1494/B"),
+      p(0, "cf-1073d", "Berland Fair", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1073/D"),
+      p(0, "cf-533a", "Berland Miners", "Hard", "codeforces", "https://codeforces.com/problemset/problem/533/A"),
+      p(0, "cf-1519c", "Berland Regional", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1519/C"),
+      p(0, "cf-847l", "Berland SU Computer Network", "Hard", "codeforces", "https://codeforces.com/problemset/problem/847/L"),
+      p(0, "cf-2026f", "Bermart Ice Cream", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2026/F"),
+      p(0, "cf-1922d", "Berserk Monsters", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1922/D"),
+      p(0, "cf-489b", "BerSU Ball", "Easy", "codeforces", "https://codeforces.com/problemset/problem/489/B"),
+      p(0, "cf-827d", "Best Edge Weight", "Hard", "codeforces", "https://codeforces.com/problemset/problem/827/D"),
+      p(0, "cf-2051e", "Best Price", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2051/E"),
+      p(0, "cf-1495d", "BFS Trees", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1495/D"),
+      p(0, "cf-424d", "Biathlon Track", "Hard", "codeforces", "https://codeforces.com/problemset/problem/424/D"),
+      p(0, "cf-1915g", "Bicycles", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1915/G"),
+      p(0, "cf-418d", "Big Problems for Organizers", "Hard", "codeforces", "https://codeforces.com/problemset/problem/418/D"),
+      p(0, "cf-2126g2", "Big Wins! (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2126/G2"),
+      p(0, "cf-2022e1", "Billetes MX (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2022/E1"),
+      p(0, "cf-2022e2", "Billetes MX (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2022/E2"),
+      p(0, "cf-2259f", "Binary Bubble Sort Inversions", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2259/F"),
+      p(0, "cf-1508a", "Binary Literature", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1508/A"),
+      p(0, "cf-2203f", "Binary Search with One Swap", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2203/F"),
+      p(0, "cf-1625d", "Binary Spiders", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1625/D"),
+      p(0, "cf-1849c", "Binary String Copying", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1849/C"),
+      p(0, "cf-901c", "Bipartite Segments", "Hard", "codeforces", "https://codeforces.com/problemset/problem/901/C"),
+      p(0, "cf-494d", "Birthday", "Hard", "codeforces", "https://codeforces.com/problemset/problem/494/D"),
+      p(0, "cf-1946d", "Birthday Gift", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1946/D"),
+      p(0, "cf-1208f", "Bits And Pieces", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1208/F"),
+      p(0, "cf-2020c", "Bitwise Balancing", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2020/C"),
+      p(0, "cf-778b", "Bitwise Formula", "Medium", "codeforces", "https://codeforces.com/problemset/problem/778/B"),
+      p(0, "cf-1936d", "Bitwise Paradox", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1936/D"),
+      p(0, "cf-1626e", "Black and White Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1626/E"),
+      p(0, "cf-1821d", "Black Cells", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1821/D"),
+      p(0, "cf-1442e", "Black, White and Grey Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1442/E"),
+      p(0, "cf-1795f", "Blocking Chips", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1795/F"),
+      p(0, "cf-1918d", "Blocking Elements", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1918/D"),
+      p(0, "cf-246e", "Blood Cousins Return", "Hard", "codeforces", "https://codeforces.com/problemset/problem/246/E"),
+      p(0, "cf-533c", "Board Game", "Medium", "codeforces", "https://codeforces.com/problemset/problem/533/C"),
+      p(0, "cf-1394a", "Boboniu Chats with Du", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1394/A"),
+      p(0, "cf-1572a", "Book", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1572/A"),
+      p(0, "cf-279b", "Books", "Easy", "codeforces", "https://codeforces.com/problemset/problem/279/B"),
+      p(0, "cf-1982c", "Boring Day", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1982/C"),
+      p(0, "cf-1779d", "Boris and His Amazing Haircut", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1779/D"),
+      p(0, "cf-442a", "Borya and Hanabi", "Medium", "codeforces", "https://codeforces.com/problemset/problem/442/A"),
+      p(0, "cf-1995b1", "Bouquet (Easy Version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1995/B1"),
+      p(0, "cf-1995b2", "Bouquet (Hard Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1995/B2"),
+      p(0, "cf-1498b", "Box Fitting", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1498/B"),
+      p(0, "cf-1750e", "Bracket Cost", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1750/E"),
+      p(0, "cf-120h", "Brevity is Soul of Wit", "Medium", "codeforces", "https://codeforces.com/problemset/problem/120/H"),
+      p(0, "cf-2038l", "Bridge Renovation", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2038/L"),
+      p(0, "cf-2049e", "Broken Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2049/E"),
+      p(0, "cf-758e", "Broken Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/758/E"),
+      p(0, "cf-1891e", "Brukhovich and Exams", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1891/E"),
+      p(0, "cf-420c", "Bug in Code", "Medium", "codeforces", "https://codeforces.com/problemset/problem/420/C"),
+      p(0, "cf-1827e", "Bus Routes", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1827/E"),
+      p(0, "cf-2023c", "C+K+S", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2023/C"),
+      p(0, "cf-231e", "Cactus", "Hard", "codeforces", "https://codeforces.com/problemset/problem/231/E"),
+      p(0, "cf-571d", "Campus", "Hard", "codeforces", "https://codeforces.com/problemset/problem/571/D"),
+      p(0, "cf-757g", "Can Bash Save the Day?", "Hard", "codeforces", "https://codeforces.com/problemset/problem/757/G"),
+      p(0, "cf-1868b1", "Candy Party (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1868/B1"),
+      p(0, "cf-2089b1", "Canteen (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2089/B1"),
+      p(0, "cf-2089b2", "Canteen (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2089/B2"),
+      p(0, "cf-1388d", "Captain Flint and Treasure", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1388/D"),
+      p(0, "cf-1345b", "Card Constructions", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1345/B"),
+      p(0, "cf-818e", "Card Game Again", "Medium", "codeforces", "https://codeforces.com/problemset/problem/818/E"),
+      p(0, "cf-1328d", "Carousel", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1328/D"),
+      p(0, "cf-1973b", "Cat, Fox and the Lonely Array", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1973/B"),
+      p(0, "cf-1990e1", "Catch the Mole(Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1990/E1"),
+      p(0, "cf-1990e2", "Catch the Mole(Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1990/E2"),
+      p(0, "cf-51f", "Caterpillar", "Hard", "codeforces", "https://codeforces.com/problemset/problem/51/F"),
+      p(0, "cf-1918f", "Caterpillar on a Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1918/F"),
+      p(0, "cf-1625e1", "Cats on the Upgrade (easy version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1625/E1"),
+      p(0, "cf-1625e2", "Cats on the Upgrade (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1625/E2"),
+      p(0, "cf-2154d", "Catshock", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2154/D"),
+      p(0, "cf-1469d", "Ceil Divisions", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1469/D"),
+      p(0, "cf-708c", "Centroids", "Hard", "codeforces", "https://codeforces.com/problemset/problem/708/C"),
+      p(0, "cf-2164f1", "Chain Prefix Rank (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2164/F1"),
+      p(0, "cf-2164f2", "Chain Prefix Rank (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2164/F2"),
+      p(0, "cf-1511f", "Chainword", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1511/F"),
+      p(0, "cf-1975c", "Chamo and Mocha's Array", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1975/C"),
+      p(0, "cf-2111e", "Changing the String", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2111/E"),
+      p(0, "cf-1292d", "Chaotic V.", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1292/D"),
+      p(0, "cf-637b", "Chat Order", "Easy", "codeforces", "https://codeforces.com/problemset/problem/637/B"),
+      p(0, "cf-1487e", "Cheap Dinner", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1487/E"),
+      p(0, "cf-1453d", "Checkpoints", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1453/D"),
+      p(0, "cf-427c", "Checkposts", "Medium", "codeforces", "https://codeforces.com/problemset/problem/427/C"),
+      p(0, "cf-1437c", "Chef Monocarp", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1437/C"),
+      p(0, "cf-846e", "Chemistry in Berland", "Hard", "codeforces", "https://codeforces.com/problemset/problem/846/E"),
+      p(0, "cf-2184f", "Cherry Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2184/F"),
+      p(0, "cf-1519f", "Chests and Keys", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1519/F"),
+      p(0, "cf-1511g", "Chips on a Board", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1511/G"),
+      p(0, "cf-743d", "Chloe and pleasant prizes", "Medium", "codeforces", "https://codeforces.com/problemset/problem/743/D"),
+      p(0, "cf-490d", "Chocolate", "Medium", "codeforces", "https://codeforces.com/problemset/problem/490/D"),
+      p(0, "cf-2025f", "Choose Your Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2025/F"),
+      p(0, "cf-219d", "Choosing Capital for Treeland", "Medium", "codeforces", "https://codeforces.com/problemset/problem/219/D"),
+      p(0, "cf-1379c", "Choosing flowers", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1379/C"),
+      p(0, "cf-372d", "Choosing Subtree is Fun", "Hard", "codeforces", "https://codeforces.com/problemset/problem/372/D"),
+      p(0, "cf-1073f", "Choosing Two Paths", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1073/F"),
+      p(0, "cf-1706d1", "Chopping Carrots (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1706/D1"),
+      p(0, "cf-1706d2", "Chopping Carrots (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1706/D2"),
+      p(0, "cf-1617e", "Christmas Chocolates", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1617/E"),
+      p(0, "cf-1498f", "Christmas Game", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1498/F"),
+      p(0, "cf-2182f2", "Christmas Reindeer (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2182/F2"),
+      p(0, "cf-321b", "Ciel and Duel", "Medium", "codeforces", "https://codeforces.com/problemset/problem/321/B"),
+      p(0, "cf-1971f", "Circle Perimeter", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1971/F"),
+      p(0, "cf-1138b", "Circus", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1138/B"),
+      p(0, "cf-2228c1", "Cirno and Number (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2228/C1"),
+      p(0, "cf-2228c2", "Cirno and Number (Hard Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2228/C2"),
+      p(0, "cf-1799e", "City Union", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1799/E"),
+      p(0, "cf-1475d", "Cleaning the Phone", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1475/D"),
+      p(0, "cf-2097e", "Clearing the Snowdrift", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2097/E"),
+      p(0, "cf-527d", "Clique Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/527/D"),
+      p(0, "cf-650e", "Clockwork Bomb", "Hard", "codeforces", "https://codeforces.com/problemset/problem/650/E"),
+      p(0, "cf-1462e2", "Close Tuples (hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1462/E2"),
+      p(0, "cf-777d", "Cloud of Hashtags", "Medium", "codeforces", "https://codeforces.com/problemset/problem/777/D"),
+      p(0, "cf-1876g", "Clubstep", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1876/G"),
+      p(0, "cf-1554b", "Cobb", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1554/B"),
+      p(0, "cf-1902e", "Collapsing Strings", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1902/E"),
+      p(0, "cf-1904b", "Collecting Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1904/B"),
+      p(0, "cf-1714d", "Color with Occurrences", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1714/D"),
+      p(0, "cf-2004d", "Colored Portals", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2004/D"),
+      p(0, "cf-1796e", "Colored Subgraphs", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1796/E"),
+      p(0, "cf-1870c", "Colorful Table", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1870/C"),
+      p(0, "cf-1787g", "Colorful Tree Again", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1787/G"),
+      p(0, "cf-1697e", "Coloring", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1697/E"),
+      p(0, "cf-2219c", "Coloring a Red Black Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2219/C"),
+      p(0, "cf-902b", "Coloring a Tree", "Easy", "codeforces", "https://codeforces.com/problemset/problem/902/B"),
+      p(0, "cf-2112c", "Coloring Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2112/C"),
+      p(0, "cf-1684c", "Column Swapping", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1684/C"),
+      p(0, "cf-2114d", "Come a Little Closer", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2114/D"),
+      p(0, "cf-1777f", "Comfortably Numb", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1777/F"),
+      p(0, "cf-747e", "Comments", "Medium", "codeforces", "https://codeforces.com/problemset/problem/747/E"),
+      p(0, "cf-1553g", "Common Divisor Graph", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1553/G"),
+      p(0, "cf-182d", "Common Divisors", "Easy", "codeforces", "https://codeforces.com/problemset/problem/182/D"),
+      p(0, "cf-1062e", "Company", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1062/E"),
+      p(0, "cf-1182d", "Complete Mirror", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1182/D"),
+      p(0, "cf-1508c", "Complete the MST", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1508/C"),
+      p(0, "cf-1228d", "Complete Tripartite", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1228/D"),
+      p(0, "cf-2018e1", "Complex Segments (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2018/E1"),
+      p(0, "cf-2018e2", "Complex Segments (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2018/E2"),
+      p(0, "cf-1901e", "Compressed Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1901/E"),
+      p(0, "cf-1523c", "Compression and Expansion", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1523/C"),
+      p(0, "cf-1598a", "Computer Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1598/A"),
+      p(0, "cf-1313e", "Concatenation with intersection", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1313/E"),
+      p(0, "cf-2020d", "Connect the Dots", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2020/D"),
+      p(0, "cf-292d", "Connected Components", "Medium", "codeforces", "https://codeforces.com/problemset/problem/292/D"),
+      p(0, "cf-700b", "Connecting Universities", "Medium", "codeforces", "https://codeforces.com/problemset/problem/700/B"),
+      p(0, "cf-1098c", "Construct a tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1098/C"),
+      p(0, "cf-2245d1", "Construct an Array (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2245/D1"),
+      p(0, "cf-2040e", "Control of Randomness", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2040/E"),
+      p(0, "cf-1398f", "Controversial Rounds", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1398/F"),
+      p(0, "cf-1099f", "Cookies", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1099/F"),
+      p(0, "cf-2029d", "Cool Graph", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2029/D"),
+      p(0, "cf-1830a", "Copil Copac Draws Trees", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1830/A"),
+      p(0, "cf-909e", "Coprocessor", "Medium", "codeforces", "https://codeforces.com/problemset/problem/909/E"),
+      p(0, "cf-2164d", "Copy String", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2164/D"),
+      p(0, "cf-670e", "Correct Bracket Sequence Editor", "Medium", "codeforces", "https://codeforces.com/problemset/problem/670/E"),
+      p(0, "cf-1472e", "Correct Placement", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1472/E"),
+      p(0, "cf-533e", "Correcting Mistakes", "Medium", "codeforces", "https://codeforces.com/problemset/problem/533/E"),
+      p(0, "cf-2192d", "Cost of Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2192/D"),
+      p(0, "cf-1923e", "Count Paths", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1923/E"),
+      p(0, "cf-1355c", "Count Triangles", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1355/C"),
+      p(0, "cf-2063f1", "Counting Is Not Fun (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2063/F1"),
+      p(0, "cf-2063f2", "Counting Is Not Fun (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2063/F2"),
+      p(0, "cf-2074d", "Counting Points", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2074/D"),
+      p(0, "cf-372b", "Counting Rectangles is Fun", "Medium", "codeforces", "https://codeforces.com/problemset/problem/372/B"),
+      p(0, "cf-1307d", "Cow and Fields", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1307/D"),
+      p(0, "cf-1380c", "Create The Teams", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1380/C"),
+      p(0, "cf-1111c", "Creative Snap", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1111/C"),
+      p(0, "cf-2236g", "Criterion in Burlandia", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2236/G"),
+      p(0, "cf-417d", "Cunning Gena", "Medium", "codeforces", "https://codeforces.com/problemset/problem/417/D"),
+      p(0, "cf-949d", "Curfew", "Hard", "codeforces", "https://codeforces.com/problemset/problem/949/D"),
+      p(0, "cf-982c", "Cut 'em all!", "Medium", "codeforces", "https://codeforces.com/problemset/problem/982/C"),
+      p(0, "cf-1687d", "Cute number", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1687/D"),
+      p(0, "cf-193a", "Cutting Figure", "Medium", "codeforces", "https://codeforces.com/problemset/problem/193/A"),
+      p(0, "cf-1974f", "Cutting Game", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1974/F"),
+      p(0, "cf-769c", "Cycle In Maze", "Medium", "codeforces", "https://codeforces.com/problemset/problem/769/C"),
+      p(0, "cf-1867d", "Cyclic Operations", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1867/D"),
+      p(0, "cf-2107f1", "Cycling (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2107/F1"),
+      p(0, "cf-2107f2", "Cycling (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2107/F2"),
+      p(0, "cf-2208b", "Cyclists", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2208/B"),
+      p(0, "cf-2109d", "D/D/D", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2109/D"),
+      p(0, "cf-1184e3", "Daleks' Invasion (hard)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1184/E3"),
+      p(0, "cf-1883g2", "Dances (Hard Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1883/G2"),
+      p(0, "cf-105b", "Dark Assembly", "Medium", "codeforces", "https://codeforces.com/problemset/problem/105/B"),
+      p(0, "cf-754e", "Dasha and cyclic table", "Hard", "codeforces", "https://codeforces.com/problemset/problem/754/E"),
+      p(0, "cf-1800f", "Dasha and Nightmares", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1800/F"),
+      p(0, "cf-761d", "Dasha and Very Difficult Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/761/D"),
+      p(0, "cf-852i", "Dating", "Hard", "codeforces", "https://codeforces.com/problemset/problem/852/I"),
+      p(0, "cf-1369e", "DeadLee", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1369/E"),
+      p(0, "cf-1693d", "Decinc Dividing", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1693/D"),
+      p(0, "cf-1766e", "Decomposition", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1766/E"),
+      p(0, "cf-1056d", "Decorate Apple Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1056/D"),
+      p(0, "cf-1285e", "Delete a Segment", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1285/E"),
+      p(0, "cf-1494f", "Delete The Edges", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1494/F"),
+      p(0, "cf-1598c", "Delete Two Elements", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1598/C"),
+      p(0, "cf-724d", "Dense Subsequence", "Medium", "codeforces", "https://codeforces.com/problemset/problem/724/D"),
+      p(0, "cf-472d", "Design Tutorial: Inverse the Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/472/D"),
+      p(0, "cf-439c", "Devu and Partitioning of the Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/439/C"),
+      p(0, "cf-2002d1", "DFS Checker (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2002/D1"),
+      p(0, "cf-2002d2", "DFS Checker (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2002/D2"),
+      p(0, "cf-1707c", "DFS Trees", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1707/C"),
+      p(0, "cf-1499f", "Diameter Cuts", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1499/F"),
+      p(0, "cf-1707b", "Difference Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1707/B"),
+      p(0, "cf-2050d", "Digital string maximization", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2050/D"),
+      p(0, "cf-2021e1", "Digital Village (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2021/E1"),
+      p(0, "cf-2021e3", "Digital Village (Extreme Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2021/E3"),
+      p(0, "cf-2021e2", "Digital Village (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2021/E2"),
+      p(0, "cf-366d", "Dima and Trap Graph", "Hard", "codeforces", "https://codeforces.com/problemset/problem/366/D"),
+      p(0, "cf-711d", "Directed Roads", "Medium", "codeforces", "https://codeforces.com/problemset/problem/711/D"),
+      p(0, "cf-1389g", "Directing Edges", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1389/G"),
+      p(0, "cf-2086c", "Disappearing Permutation", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2086/C"),
+      p(0, "cf-1949i", "Disks", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1949/I"),
+      p(0, "cf-2246d", "diss_quack and Array Game", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2246/D"),
+      p(0, "cf-161d", "Distance in Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/161/D"),
+      p(0, "cf-1935e", "Distance Learning Courses in MAC", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1935/E"),
+      p(0, "cf-1749f", "Distance to the Path", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1749/F"),
+      p(0, "cf-1632e1", "Distance Tree (easy version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1632/E1"),
+      p(0, "cf-1632e2", "Distance Tree (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1632/E2"),
+      p(0, "cf-1467e", "Distinctive Roots in a Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1467/E"),
+      p(0, "cf-1461d", "Divide and Summarize", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1461/D"),
+      p(0, "cf-977d", "Divide by three, multiply by two", "Easy", "codeforces", "https://codeforces.com/problemset/problem/977/D"),
+      p(0, "cf-260e", "Dividing Kingdom", "Hard", "codeforces", "https://codeforces.com/problemset/problem/260/E"),
+      p(0, "cf-687d", "Dividing Kingdom II", "Hard", "codeforces", "https://codeforces.com/problemset/problem/687/D"),
+      p(0, "cf-2120c", "Divine Tree", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2120/C"),
+      p(0, "cf-2203d", "Divisibility Game", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2203/D"),
+      p(0, "cf-2111g", "Divisible Subarrays", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2111/G"),
+      p(0, "cf-1968g1", "Division + LCP (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1968/G1"),
+      p(0, "cf-1968g2", "Division + LCP (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1968/G2"),
+      p(0, "cf-2152d", "Division Versus Addition", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2152/D"),
+      p(0, "cf-2072e", "Do You Love Your Hero and His Two-Hit Multi-Target Attacks?", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2072/E"),
+      p(0, "cf-1494d", "Dogeforces", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1494/D"),
+      p(0, "cf-1671c", "Dolce Vita", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1671/C"),
+      p(0, "cf-1605c", "Dominant Character", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1605/C"),
+      p(0, "cf-1257c", "Dominated Subarray", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1257/C"),
+      p(0, "cf-1764f", "Doremy's Experimental Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1764/F"),
+      p(0, "cf-2196d", "Double Bracket Sequence", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2196/D"),
+      p(0, "cf-2129a", "Double Perspective", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2129/A"),
+      p(0, "cf-1703d", "Double Strings", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1703/D"),
+      p(0, "cf-1140g", "Double Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1140/G"),
+      p(0, "cf-1558e", "Down Below", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1558/E"),
+      p(0, "cf-2264d", "Dr. Agos's Dark Mode", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2264/D"),
+      p(0, "cf-1285d", "Dr. Evil Underscores", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1285/D"),
+      p(0, "cf-516d", "Drazil and Morning Exercise", "Hard", "codeforces", "https://codeforces.com/problemset/problem/516/D"),
+      p(0, "cf-161a", "Dress'em in Vests!", "Easy", "codeforces", "https://codeforces.com/problemset/problem/161/A"),
+      p(0, "cf-2164c", "Dungeon", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2164/C"),
+      p(0, "cf-436c", "Dungeons and Candies", "Medium", "codeforces", "https://codeforces.com/problemset/problem/436/C"),
+      p(0, "cf-445b", "DZY Loves Chemistry", "Easy", "codeforces", "https://codeforces.com/problemset/problem/445/B"),
+      p(0, "cf-163e", "e-Government", "Hard", "codeforces", "https://codeforces.com/problemset/problem/163/E"),
+      p(0, "cf-2053f", "Earnest Matrix Complement", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2053/F"),
+      p(0, "cf-2044f", "Easy Demon Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2044/F"),
+      p(0, "cf-2064d", "Eating", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2064/D"),
+      p(0, "cf-1669f", "Eating Candies", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1669/F"),
+      p(0, "cf-1263f", "Economic Difficulties", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1263/F"),
+      p(0, "cf-1763f", "Edge Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1763/F"),
+      p(0, "cf-1338b", "Edge Weight Assignment", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1338/B"),
+      p(0, "cf-1512f", "Education", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1512/F"),
+      p(0, "cf-1998e2", "Eliminating Balls With Merging (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1998/E2"),
+      p(0, "cf-61e", "Enemy is weak", "Medium", "codeforces", "https://codeforces.com/problemset/problem/61/E"),
+      p(0, "cf-1781c", "Equal Frequencies", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1781/C"),
+      p(0, "cf-2211c1", "Equal Multisets (Easy Version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2211/C1"),
+      p(0, "cf-1928b", "Equalize", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1928/B"),
+      p(0, "cf-1702f", "Equate Multisets", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1702/F"),
+      p(0, "cf-559b", "Equivalent Strings", "Medium", "codeforces", "https://codeforces.com/problemset/problem/559/B"),
+      p(0, "cf-1537e1", "Erase and Extend (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1537/E1"),
+      p(0, "cf-1537e2", "Erase and Extend (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1537/E2"),
+      p(0, "cf-1917b", "Erase First or Second Letter", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1917/B"),
+      p(0, "cf-1611e1", "Escape The Maze (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1611/E1"),
+      p(0, "cf-1611e2", "Escape The Maze (hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1611/E2"),
+      p(0, "cf-61d", "Eternal Victory", "Medium", "codeforces", "https://codeforces.com/problemset/problem/61/D"),
+      p(0, "cf-2086d", "Even String", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2086/D"),
+      p(0, "cf-1731c", "Even Subarrays", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1731/C"),
+      p(0, "cf-1644e", "Expand the Path", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1644/E"),
+      p(0, "cf-804d", "Expected diameter of a tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/804/D"),
+      p(0, "cf-6e", "Exposition", "Medium", "codeforces", "https://codeforces.com/problemset/problem/6/E"),
+      p(0, "cf-2184e", "Exquisite Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2184/E"),
+      p(0, "cf-1634e", "Fair Share", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1634/E"),
+      p(0, "cf-1693b", "Fake Plastic Trees", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1693/B"),
+      p(0, "cf-629e", "Famil Door and Roads", "Hard", "codeforces", "https://codeforces.com/problemset/problem/629/E"),
+      p(0, "cf-1860b", "Fancy Coins", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1860/B"),
+      p(0, "cf-1402a", "Fancy Fence", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1402/A"),
+      p(0, "cf-118c", "Fancy Number", "Medium", "codeforces", "https://codeforces.com/problemset/problem/118/C"),
+      p(0, "cf-1942h", "Farmer John's Favorite Intern", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1942/H"),
+      p(0, "cf-2148g", "Farmer John's Last Wish", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2148/G"),
+      p(0, "cf-467d", "Fedor and Essay", "Hard", "codeforces", "https://codeforces.com/problemset/problem/467/D"),
+      p(0, "cf-757c", "Felicity is Coming!", "Medium", "codeforces", "https://codeforces.com/problemset/problem/757/C"),
+      p(0, "cf-1967c", "Fenwick Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1967/C"),
+      p(0, "cf-2110d", "Fewer Batteries", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2110/D"),
+      p(0, "cf-2176d", "Fibonacci Paths", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2176/D"),
+      p(0, "cf-1719c", "Fighting Tournament", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1719/C"),
+      p(0, "cf-1517c", "Fillomino 2", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1517/C"),
+      p(0, "cf-1927d", "Find the Different Ones!", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1927/D"),
+      p(0, "cf-2056b", "Find the Permutation", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2056/B"),
+      p(0, "cf-2009f", "Firefly's Queries", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2009/F"),
+      p(0, "cf-1817b", "Fish Graph", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1817/B"),
+      p(0, "cf-698b", "Fix a Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/698/B"),
+      p(0, "cf-1792d", "Fixed Prefix Permutations", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1792/D"),
+      p(0, "cf-1979d", "Fixing a Binary String", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1979/D"),
+      p(0, "cf-1181c", "Flag", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1181/C"),
+      p(0, "cf-1503d", "Flip the Cards", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1503/D"),
+      p(0, "cf-1485c", "Floor and Mod", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1485/C"),
+      p(0, "cf-990f", "Flow Control", "Hard", "codeforces", "https://codeforces.com/problemset/problem/990/F"),
+      p(0, "cf-1367f2", "Flying Sort (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1367/F2"),
+      p(0, "cf-191c", "Fools and Roads", "Medium", "codeforces", "https://codeforces.com/problemset/problem/191/C"),
+      p(0, "cf-1217f", "Forced Online Queries Problem", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1217/F"),
+      p(0, "cf-1829f", "Forever Winter", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1829/F"),
+      p(0, "cf-2057f", "Formation", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2057/F"),
+      p(0, "cf-1455e", "Four Points", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1455/E"),
+      p(0, "cf-846c", "Four Segments", "Medium", "codeforces", "https://codeforces.com/problemset/problem/846/C"),
+      p(0, "cf-510d", "Fox And Jumping", "Medium", "codeforces", "https://codeforces.com/problemset/problem/510/D"),
+      p(0, "cf-388b", "Fox and Minimal path", "Medium", "codeforces", "https://codeforces.com/problemset/problem/388/B"),
+      p(0, "cf-1957f1", "Frequency Mismatch (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1957/F1"),
+      p(0, "cf-1957f2", "Frequency Mismatch (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1957/F2"),
+      p(0, "cf-1585e", "Frequency Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1585/E"),
+      p(0, "cf-1775d", "Friendly Spiders", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1775/D"),
+      p(0, "cf-1324c", "Frog Jumps", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1324/C"),
+      p(0, "cf-1601b", "Frog Traveler", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1601/B"),
+      p(0, "cf-1428f", "Fruit Sequences", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1428/F"),
+      p(0, "cf-1062d", "Fun with Integers", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1062/D"),
+      p(0, "cf-1994d", "Funny Game", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1994/D"),
+      p(0, "cf-2196e1", "Fuzzy Concatenation (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2196/E1"),
+      p(0, "cf-2196e2", "Fuzzy Concatenation (Hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2196/E2"),
+      p(0, "cf-2013f1", "Game in Tree (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2013/F1"),
+      p(0, "cf-1608c", "Game Master", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1608/C"),
+      p(0, "cf-1889d", "Game of Stacks", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1889/D"),
+      p(0, "cf-1787d", "Game on Axis", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1787/D"),
+      p(0, "cf-2230f", "Game on Growing Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2230/F"),
+      p(0, "cf-1623b", "Game on Ranges", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1623/B"),
+      p(0, "cf-1452g", "Game On Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1452/G"),
+      p(0, "cf-1970c3", "Game on Tree (Hard)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1970/C3"),
+      p(0, "cf-1970c2", "Game on Tree (Medium)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1970/C2"),
+      p(0, "cf-1913c", "Game with Multiset", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1913/C"),
+      p(0, "cf-2063d", "Game With Triangles", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2063/D"),
+      p(0, "cf-1383b", "GameGame", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1383/B"),
+      p(0, "cf-2121g", "Gangsta", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2121/G"),
+      p(0, "cf-1593e", "Gardener and Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1593/E"),
+      p(0, "cf-1822f", "Gardening Friends", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1822/F"),
+      p(0, "cf-463c", "Gargari and Bishops", "Medium", "codeforces", "https://codeforces.com/problemset/problem/463/C"),
+      p(0, "cf-463d", "Gargari and Permutations", "Medium", "codeforces", "https://codeforces.com/problemset/problem/463/D"),
+      p(0, "cf-1801e", "Gasoline prices", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1801/E"),
+      p(0, "cf-1955g", "GCD on a grid", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1955/G"),
+      p(0, "cf-2115b", "Gellyfish and Camellia Japonica", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2115/B"),
+      p(0, "cf-722d", "Generating Sets", "Medium", "codeforces", "https://codeforces.com/problemset/problem/722/D"),
+      p(0, "cf-2032d", "Genokraken", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2032/D"),
+      p(0, "cf-1902b", "Getting Points", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1902/B"),
+      p(0, "cf-1661b", "Getting Zero", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1661/B"),
+      p(0, "cf-2091g", "Gleb and Boating", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2091/G"),
+      p(0, "cf-2106f", "Goblin", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2106/F"),
+      p(0, "cf-1500a", "Going Home", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1500/A"),
+      p(0, "cf-1829d", "Gold Rush", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1829/D"),
+      p(0, "cf-1835f", "Good Graph", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1835/F"),
+      p(0, "cf-1736c1", "Good Subarrays (Easy Version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1736/C1"),
+      p(0, "cf-2241b", "Good times Good times", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2241/B"),
+      p(0, "cf-2072f", "Goodbye, Banker Life", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2072/F"),
+      p(0, "cf-2233d", "Goods on the Shelf", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2233/D"),
+      p(0, "cf-739e", "Gosha is hunting", "Hard", "codeforces", "https://codeforces.com/problemset/problem/739/E"),
+      p(0, "cf-1582c", "Grandma Capa Knits a Scarf", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1582/C"),
+      p(0, "cf-2069f", "Graph Inclusion", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2069/F"),
+      p(0, "cf-1200f", "Graph Traveler", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1200/F"),
+      p(0, "cf-1549b", "Gregor and the Pawn Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1549/B"),
+      p(0, "cf-1990d", "Grid Puzzle", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1990/D"),
+      p(0, "cf-529b", "Group Photo 2 (online mirror version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/529/B"),
+      p(0, "cf-2001c", "Guess The Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2001/C"),
+      p(0, "cf-2093f", "Hackers and Neural Networks", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2093/F"),
+      p(0, "cf-490c", "Hacking Cypher", "Medium", "codeforces", "https://codeforces.com/problemset/problem/490/C"),
+      p(0, "cf-1799f", "Halve or Subtract", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1799/F"),
+      p(0, "cf-514b", "Han Solo and Lazer Gun", "Easy", "codeforces", "https://codeforces.com/problemset/problem/514/B"),
+      p(0, "cf-2207f", "Hanabi", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2207/F"),
+      p(0, "cf-1740e", "Hanging Hearts", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1740/E"),
+      p(0, "cf-1916e", "Happy Life in University", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1916/E"),
+      p(0, "cf-593d", "Happy Tree Party", "Hard", "codeforces", "https://codeforces.com/problemset/problem/593/D"),
+      p(0, "cf-1983c", "Have Your Cake and Eat It Too", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1983/C"),
+      p(0, "cf-1909c", "Heavy Intervals", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1909/C"),
+      p(0, "cf-1592d", "Hemose in ICPC ?", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1592/D"),
+      p(0, "cf-1421d", "Hexagons", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1421/D"),
+      p(0, "cf-827b", "High Load", "Medium", "codeforces", "https://codeforces.com/problemset/problem/827/B"),
+      p(0, "cf-1315b", "Homecoming", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1315/B"),
+      p(0, "cf-1771d", "Hossam and (sub-)palindromic tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1771/D"),
+      p(0, "cf-1771f", "Hossam and Range Minimum Query", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1771/F"),
+      p(0, "cf-126a", "Hot Bath", "Medium", "codeforces", "https://codeforces.com/problemset/problem/126/A"),
+      p(0, "cf-2255d", "How Long Until Nothing Remains?", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2255/D"),
+      p(0, "cf-2184c", "Huge Pile", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2184/C"),
+      p(0, "cf-2253d", "Hypercarp and Interdimensional Jumps", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2253/D"),
+      p(0, "cf-2133e", "I Yearned For The Mines", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2133/E"),
+      p(0, "cf-2121h", "Ice Baby", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2121/H"),
+      p(0, "cf-217a", "Ice Skating", "Easy", "codeforces", "https://codeforces.com/problemset/problem/217/A"),
+      p(0, "cf-2195g", "Idiot First Search and Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2195/G"),
+      p(0, "cf-1728g", "Illumination", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1728/G"),
+      p(0, "cf-650b", "Image Preview", "Medium", "codeforces", "https://codeforces.com/problemset/problem/650/B"),
+      p(0, "cf-817d", "Imbalanced Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/817/D"),
+      p(0, "cf-1852b", "Imbalanced Arrays", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1852/B"),
+      p(0, "cf-1763b", "Incinerate", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1763/B"),
+      p(0, "cf-1569d", "Inconvenient Pairs", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1569/D"),
+      p(0, "cf-1644c", "Increase Subarray Sums", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1644/C"),
+      p(0, "cf-1922e", "Increasing Subsequences", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1922/E"),
+      p(0, "cf-2150a", "Incremental Path", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2150/A"),
+      p(0, "cf-2259g", "Index Removal", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2259/G"),
+      p(0, "cf-1207g", "Indie Album", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1207/G"),
+      p(0, "cf-1895e", "Infinite Card Game", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1895/E"),
+      p(0, "cf-2071d1", "Infinite Sequence (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2071/D1"),
+      p(0, "cf-2071d2", "Infinite Sequence (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2071/D2"),
+      p(0, "cf-1635d", "Infinite Set", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1635/D"),
+      p(0, "cf-1476b", "Inflation", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1476/B"),
+      p(0, "cf-374c", "Inna and Dima", "Medium", "codeforces", "https://codeforces.com/problemset/problem/374/C"),
+      p(0, "cf-780d", "Innokenty and a Football League", "Medium", "codeforces", "https://codeforces.com/problemset/problem/780/D"),
+      p(0, "cf-1548b", "Integers Have Friends", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1548/B"),
+      p(0, "cf-1648b", "Integral Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1648/B"),
+      p(0, "cf-2127g2", "Inter Active (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2127/G2"),
+      p(0, "cf-1879e", "Interactive Game with Coloring", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1879/E"),
+      p(0, "cf-2196c1", "Interactive Graph (Simple Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2196/C1"),
+      p(0, "cf-482b", "Interesting Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/482/B"),
+      p(0, "cf-1720b", "Interesting Sum", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1720/B"),
+      p(0, "cf-1044b", "Intersecting Subtrees", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1044/B"),
+      p(0, "cf-2159d1", "Inverse Minimum Partition (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2159/D1"),
+      p(0, "cf-1638c", "Inversion Graph", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1638/C"),
+      p(0, "cf-2143d1", "Inversion Graph Coloring (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2143/D1"),
+      p(0, "cf-936e", "Iqea", "Hard", "codeforces", "https://codeforces.com/problemset/problem/936/E"),
+      p(0, "cf-1833f", "Ira and Flamenco", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1833/F"),
+      p(0, "cf-2006a", "Iris and Game on the Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2006/A"),
+      p(0, "cf-2006b", "Iris and the Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2006/B"),
+      p(0, "cf-2006e", "Iris's Full Binary Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2006/E"),
+      p(0, "cf-1290b", "Irreducible Anagrams", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1290/B"),
+      p(0, "cf-2157g", "Isaac's Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2157/G"),
+      p(0, "cf-2173f", "Isla's Memory Thresholds", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2173/F"),
+      p(0, "cf-2227e", "It All Went Sideways", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2227/E"),
+      p(0, "cf-2227f", "It Just Keeps Going Sideways", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2227/F"),
+      p(0, "cf-1878e", "Iva & Pav", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1878/E"),
+      p(0, "cf-1726c", "Jatayu's Balanced Bracket Sequence", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1726/C"),
+      p(0, "cf-2187c", "Jerry and Tom", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2187/C"),
+      p(0, "cf-626d", "Jerry's Protest", "Medium", "codeforces", "https://codeforces.com/problemset/problem/626/D"),
+      p(0, "cf-1361c", "Johnny and Megan's Necklace", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1361/C"),
+      p(0, "cf-768c", "Jon Snow and his Favourite Number", "Medium", "codeforces", "https://codeforces.com/problemset/problem/768/C"),
+      p(0, "cf-1780e", "Josuke and Complete Graph", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1780/E"),
+      p(0, "cf-1320a", "Journey Planning", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1320/A"),
+      p(0, "cf-2155f", "Juan's Colorful Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2155/F"),
+      p(0, "cf-1550f", "Jumping Around", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1550/F"),
+      p(0, "cf-2183f", "Jumping Man", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2183/F"),
+      p(0, "cf-1588f", "Jumping Through the Array", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1588/F"),
+      p(0, "cf-1332c", "K-Complete Word", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1332/C"),
+      p(0, "cf-1328b", "K-th Beautiful String", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1328/B"),
+      p(0, "cf-685b", "Kay and Snowflake", "Medium", "codeforces", "https://codeforces.com/problemset/problem/685/B"),
+      p(0, "cf-1866k", "Keen Tree Calculation", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1866/K"),
+      p(0, "cf-2048c", "Kevin and Binary Strings", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2048/C"),
+      p(0, "cf-2048d", "Kevin and Competition Memories", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2048/D"),
+      p(0, "cf-2048f", "Kevin and Math Class", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2048/F"),
+      p(0, "cf-2268c", "KiaKio and Energy Intervals", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2268/C"),
+      p(0, "cf-242c", "King's Path", "Medium", "codeforces", "https://codeforces.com/problemset/problem/242/C"),
+      p(0, "cf-1510k", "King's Task", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1510/K"),
+      p(0, "cf-613d", "Kingdom and its Cities", "Hard", "codeforces", "https://codeforces.com/problemset/problem/613/D"),
+      p(0, "cf-2114e", "Kirei Attacks the Estate", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2114/E"),
+      p(0, "cf-1209f", "Koala and Notebook", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1209/F"),
+      p(0, "cf-1582f2", "Korney Korneevich and XOR (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1582/F2"),
+      p(0, "cf-2033d", "Kousuke's Assignment", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2033/D"),
+      p(0, "cf-1770e", "Koxia and Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1770/E"),
+      p(0, "cf-1833g", "Ksyusha and Chinchilla", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1833/G"),
+      p(0, "cf-979d", "Kuro and GCD and XOR and SUM", "Hard", "codeforces", "https://codeforces.com/problemset/problem/979/D"),
+      p(0, "cf-1305d", "Kuroni and the Celebration", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1305/D"),
+      p(0, "cf-553b", "Kyoya and Permutation", "Medium", "codeforces", "https://codeforces.com/problemset/problem/553/B"),
+      p(0, "cf-2094h", "La Vaca Saturno Saturnita", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2094/H"),
+      p(0, "cf-1794e", "Labeling the Tree with Distances", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1794/E"),
+      p(0, "cf-1978f", "Large Graph", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1978/F"),
+      p(0, "cf-1045a", "Last chance", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1045/A"),
+      p(0, "cf-1042f", "Leaf Sets", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1042/F"),
+      p(0, "cf-1942d", "Learning to Paint", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1942/D"),
+      p(0, "cf-995c", "Leaving the Bar", "Hard", "codeforces", "https://codeforces.com/problemset/problem/995/C"),
+      p(0, "cf-1277d", "Let's Play the Words?", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1277/D"),
+      p(0, "cf-1728d", "Letter Picking", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1728/D"),
+      p(0, "cf-1689a", "Lex String", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1689/A"),
+      p(0, "cf-1930c", "Lexicographically Largest", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1930/C"),
+      p(0, "cf-1797e", "Li Hua and Array", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1797/E"),
+      p(0, "cf-1797f", "Li Hua and Path", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1797/F"),
+      p(0, "cf-1797d", "Li Hua and Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1797/D"),
+      p(0, "cf-1914g2", "Light Bulbs (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1914/G2"),
+      p(0, "cf-1659c", "Line Empire", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1659/C"),
+      p(0, "cf-1336a", "Linova and Kingdom", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1336/A"),
+      p(0, "cf-1851f", "Lisa and the Martians", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1851/F"),
+      p(0, "cf-258e", "Little Elephant and Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/258/E"),
+      p(0, "cf-276d", "Little Girl and Maximum XOR", "Medium", "codeforces", "https://codeforces.com/problemset/problem/276/D"),
+      p(0, "cf-202a", "LLPS", "Easy", "codeforces", "https://codeforces.com/problemset/problem/202/A"),
+      p(0, "cf-600e", "Lomsat gelral", "Hard", "codeforces", "https://codeforces.com/problemset/problem/600/E"),
+      p(0, "cf-1928d", "Lonely Mountain Dungeons", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1928/D"),
+      p(0, "cf-1955e", "Long Inversions", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1955/E"),
+      p(0, "cf-2145f", "Long Journey", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2145/F"),
+      p(0, "cf-1967d", "Long Way to be Non-decreasing", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1967/D"),
+      p(0, "cf-2001d", "Longest Max Min Subsequence", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2001/D"),
+      p(0, "cf-5c", "Longest Regular Bracket Sequence", "Medium", "codeforces", "https://codeforces.com/problemset/problem/5/C"),
+      p(0, "cf-1676f", "Longest Strike", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1676/F"),
+      p(0, "cf-696a", "Lorenzo Von Matterhorn", "Medium", "codeforces", "https://codeforces.com/problemset/problem/696/A"),
+      p(0, "cf-1167b", "Lost Numbers", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1167/B"),
+      p(0, "cf-1835b", "Lottery", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1835/B"),
+      p(0, "cf-939d", "Love Rescue", "Medium", "codeforces", "https://codeforces.com/problemset/problem/939/D"),
+      p(0, "cf-1932c", "LR-remainders", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1932/C"),
+      p(0, "cf-1768d", "Lucky Permutation", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1768/D"),
+      p(0, "cf-109b", "Lucky Probability", "Medium", "codeforces", "https://codeforces.com/problemset/problem/109/B"),
+      p(0, "cf-1106d", "Lunar New Year and a Wander", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1106/D"),
+      p(0, "cf-1824b1", "LuoTianyi and the Floating Islands (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1824/B1"),
+      p(0, "cf-1824c", "LuoTianyi and XOR-Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1824/C"),
+      p(0, "cf-1142b", "Lynyrd Skynyrd", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1142/B"),
+      p(0, "cf-1873h", "Mad City", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1873/H"),
+      p(0, "cf-917b", "MADMAX", "Medium", "codeforces", "https://codeforces.com/problemset/problem/917/B"),
+      p(0, "cf-1647b", "Madoka and the Elegant Gift", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1647/B"),
+      p(0, "cf-632f", "Magic Matrix", "Hard", "codeforces", "https://codeforces.com/problemset/problem/632/F"),
+      p(0, "cf-1822g1", "Magic Triples (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1822/G1"),
+      p(0, "cf-1862f", "Magic Will Save the World", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1862/F"),
+      p(0, "cf-1704d", "Magical Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1704/D"),
+      p(0, "cf-1163e", "Magical Permutation", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1163/E"),
+      p(0, "cf-766c", "Mahmoud and a Message", "Medium", "codeforces", "https://codeforces.com/problemset/problem/766/C"),
+      p(0, "cf-766e", "Mahmoud and a xor trip", "Hard", "codeforces", "https://codeforces.com/problemset/problem/766/E"),
+      p(0, "cf-862b", "Mahmoud and Ehab and the bipartiteness", "Easy", "codeforces", "https://codeforces.com/problemset/problem/862/B"),
+      p(0, "cf-959e", "Mahmoud and Ehab and the xor-MST", "Medium", "codeforces", "https://codeforces.com/problemset/problem/959/E"),
+      p(0, "cf-29c", "Mail Stamps", "Medium", "codeforces", "https://codeforces.com/problemset/problem/29/C"),
+      p(0, "cf-2004f", "Make a Palindrome", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2004/F"),
+      p(0, "cf-1761e", "Make It Connected", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1761/E"),
+      p(0, "cf-1593b", "Make it Divisible by 25", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1593/B"),
+      p(0, "cf-1594c", "Make Them Equal", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1594/C"),
+      p(0, "cf-2138c1", "Maple and Tree Beauty (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2138/C1"),
+      p(0, "cf-1705e", "Mark and Professor Koro", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1705/E"),
+      p(0, "cf-2068f", "Mascot Naming", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2068/F"),
+      p(0, "cf-1741d", "Masha and a Beautiful Tree", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1741/D"),
+      p(0, "cf-2244e", "Masha and the Garland", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2244/E"),
+      p(0, "cf-414d", "Mashmokh and Water Tanks", "Hard", "codeforces", "https://codeforces.com/problemset/problem/414/D"),
+      p(0, "cf-1721f", "Matching Reduction", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1721/F"),
+      p(0, "cf-2081a", "Math Division", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2081/A"),
+      p(0, "cf-1986d", "Mathematical Problem", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1986/D"),
+      p(0, "cf-1864d", "Matrix Cascade", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1864/D"),
+      p(0, "cf-1986b", "Matrix Stabilization", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1986/B"),
+      p(0, "cf-2043e", "Matrix Transformation", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2043/E"),
+      p(0, "cf-1691d", "Max GEQ Sum", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1691/D"),
+      p(0, "cf-1849e", "Max to the Right of Min", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1849/E"),
+      p(0, "cf-2143c", "Max Tree", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2143/C"),
+      p(0, "cf-1985h1", "Maximize the Largest Component (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1985/H1"),
+      p(0, "cf-1997d", "Maximize the Root", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1997/D"),
+      p(0, "cf-1778f", "Maximizing Root", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1778/F"),
+      p(0, "cf-1721d", "Maximum AND", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1721/D"),
+      p(0, "cf-1903d1", "Maximum And Queries (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1903/D1"),
+      p(0, "cf-1401d", "Maximum Distributed Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1401/D"),
+      p(0, "cf-2050f", "Maximum modulo equality", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2050/F"),
+      p(0, "cf-2170a", "Maximum Neighborhood", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2170/A"),
+      p(0, "cf-2147e", "Maximum OR Popcount", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2147/E"),
+      p(0, "cf-1406b", "Maximum Product", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1406/B"),
+      p(0, "cf-1324f", "Maximum White Subtree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1324/F"),
+      p(0, "cf-1492c", "Maximum width", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1492/C"),
+      p(0, "cf-1682f", "MCMF?", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1682/F"),
+      p(0, "cf-2044g1", "Medium Demon Problem (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2044/G1"),
+      p(0, "cf-2044g2", "Medium Demon Problem (hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2044/G2"),
+      p(0, "cf-1884c", "Medium Design", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1884/C"),
+      p(0, "cf-309c", "Memory for Arrays", "Medium", "codeforces", "https://codeforces.com/problemset/problem/309/C"),
+      p(0, "cf-2010c2", "Message Transmission Error (hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2010/C2"),
+      p(0, "cf-1935c", "Messenger in MAC", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1935/C"),
+      p(0, "cf-1735d", "Meta-set", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1735/D"),
+      p(0, "cf-1619e", "MEX and Increments", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1619/E"),
+      p(0, "cf-2123e", "MEX Count", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2123/E"),
+      p(0, "cf-1497a", "Meximization", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1497/A"),
+      p(0, "cf-1628a", "Meximum Array", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1628/A"),
+      p(0, "cf-1927f", "Microcycle", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1927/F"),
+      p(0, "cf-1623e", "Middle Duplication", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1623/E"),
+      p(0, "cf-1554c", "Mikasa", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1554/C"),
+      p(0, "cf-547b", "Mike and Feet", "Medium", "codeforces", "https://codeforces.com/problemset/problem/547/B"),
+      p(0, "cf-548b", "Mike and Fun", "Easy", "codeforces", "https://codeforces.com/problemset/problem/548/B"),
+      p(0, "cf-1511d", "Min Cost String", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1511/D"),
+      p(0, "cf-1792c", "Min Max Sort", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1792/C"),
+      p(0, "cf-1970g1", "Min-Fund Prison (Easy)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1970/G1"),
+      p(0, "cf-1970g3", "Min-Fund Prison (Hard)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1970/G3"),
+      p(0, "cf-825e", "Minimal Labels", "Hard", "codeforces", "https://codeforces.com/problemset/problem/825/E"),
+      p(0, "cf-1175e", "Minimal Segment Cover", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1175/E"),
+      p(0, "cf-797c", "Minimal string", "Medium", "codeforces", "https://codeforces.com/problemset/problem/797/C"),
+      p(0, "cf-1654f", "Minimal String Xoration", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1654/F"),
+      p(0, "cf-1665e", "MinimizOR", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1665/E"),
+      p(0, "cf-1887c", "Minimum Array", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1887/C"),
+      p(0, "cf-1881f", "Minimum Maximum Distance", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1881/F"),
+      p(0, "cf-2211e", "Minimum Path Cover", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2211/E"),
+      p(0, "cf-1487c", "Minimum Ties", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1487/C"),
+      p(0, "cf-1624g", "MinOr Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1624/G"),
+      p(0, "cf-2045m", "Mirror Maze", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2045/M"),
+      p(0, "cf-501b", "Misha and Changing Handles", "Easy", "codeforces", "https://codeforces.com/problemset/problem/501/B"),
+      p(0, "cf-504e", "Misha and LCP on Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/504/E"),
+      p(0, "cf-832d", "Misha, Grisha and Underground", "Medium", "codeforces", "https://codeforces.com/problemset/problem/832/D"),
+      p(0, "cf-2092d", "Mishkin Energizer", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2092/D"),
+      p(0, "cf-144d", "Missile Silos", "Medium", "codeforces", "https://codeforces.com/problemset/problem/144/D"),
+      p(0, "cf-1081e", "Missing Numbers", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1081/E"),
+      p(0, "cf-1559d1", "Mocha and Diana (Easy Version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1559/D1"),
+      p(0, "cf-1559d2", "Mocha and Diana (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1559/D2"),
+      p(0, "cf-1928e", "Modular Sequence", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1928/E"),
+      p(0, "cf-2104g", "Modulo 3", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2104/G"),
+      p(0, "cf-577b", "Modulo Sum", "Medium", "codeforces", "https://codeforces.com/problemset/problem/577/B"),
+      p(0, "cf-776c", "Molly's Chemicals", "Medium", "codeforces", "https://codeforces.com/problemset/problem/776/C"),
+      p(0, "cf-2228f", "Momoyo and the Network", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2228/F"),
+      p(0, "cf-1873f", "Money Trees", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1873/F"),
+      p(0, "cf-2035e", "Monster", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2035/E"),
+      p(0, "cf-1626c", "Monsters And Spells", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1626/C"),
+      p(0, "cf-2200f", "Mooclear Reactor 2", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2200/F"),
+      p(0, "cf-603b", "Moodular Arithmetic", "Medium", "codeforces", "https://codeforces.com/problemset/problem/603/B"),
+      p(0, "cf-1129c", "Morse Code", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1129/C"),
+      p(0, "cf-1793d", "Moscow Gorillas", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1793/D"),
+      p(0, "cf-1676c", "Most Similar Words", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1676/C"),
+      p(0, "cf-1485e", "Move and Swap", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1485/E"),
+      p(0, "cf-2104b", "Move to the End", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2104/B"),
+      p(0, "cf-1311f", "Moving Points", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1311/F"),
+      p(0, "cf-505c", "Mr. Kitayuta, the Treasure Hunter", "Medium", "codeforces", "https://codeforces.com/problemset/problem/505/C"),
+      p(0, "cf-505b", "Mr. Kitayuta's Colorful Graph", "Easy", "codeforces", "https://codeforces.com/problemset/problem/505/B"),
+      p(0, "cf-2081d", "MST in Modulo Graph", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2081/D"),
+      p(0, "cf-1948g", "MST with Matching", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1948/G"),
+      p(0, "cf-471c", "MUH and House of Cards", "Medium", "codeforces", "https://codeforces.com/problemset/problem/471/C"),
+      p(0, "cf-1342d", "Multiple Testcases", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1342/D"),
+      p(0, "cf-1709f", "Multiset of Strings", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1709/F"),
+      p(0, "cf-1801c", "Music Festival", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1801/C"),
+      p(0, "cf-822d", "My pretty girl Noora", "Medium", "codeforces", "https://codeforces.com/problemset/problem/822/D"),
+      p(0, "cf-2053g", "Naive String Splits", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2053/G"),
+      p(0, "cf-794c", "Naming Company", "Medium", "codeforces", "https://codeforces.com/problemset/problem/794/C"),
+      p(0, "cf-1661e", "Narrow Components", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1661/E"),
+      p(0, "cf-1521d", "Nastia Plays with a Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1521/D"),
+      p(0, "cf-1172b", "Nauuo and Circle", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1172/B"),
+      p(0, "cf-1560f1", "Nearest Beautiful Number (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1560/F1"),
+      p(0, "cf-1651d", "Nearest Excluded Points", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1651/D"),
+      p(0, "cf-1367e", "Necklace Assembly", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1367/E"),
+      p(0, "cf-1543c", "Need for Pink Slips", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1543/C"),
+      p(0, "cf-1152b", "Neko Performs Cat Furrier Transform", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1152/B"),
+      p(0, "cf-1956a", "Nene's Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1956/A"),
+      p(0, "cf-2108c", "Neo's Escape", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2108/C"),
+      p(0, "cf-1338d", "Nested Rubber Bands", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1338/D"),
+      p(0, "cf-2025c", "New Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2025/C"),
+      p(0, "cf-2029c", "New Rating", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2029/C"),
+      p(0, "cf-659e", "New Reform", "Medium", "codeforces", "https://codeforces.com/problemset/problem/659/E"),
+      p(0, "cf-1359b", "New Theatre Square", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1359/B"),
+      p(0, "cf-1284b", "New Year and Ascent Sequence", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1284/B"),
+      p(0, "cf-750d", "New Year and Fireworks", "Medium", "codeforces", "https://codeforces.com/problemset/problem/750/D"),
+      p(0, "cf-1284f", "New Year and Social Network", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1284/F"),
+      p(0, "cf-1091e", "New Year and the Acquaintance Estimation", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1091/E"),
+      p(0, "cf-500b", "New Year Permutation", "Medium", "codeforces", "https://codeforces.com/problemset/problem/500/B"),
+      p(0, "cf-500d", "New Year Santa Network", "Medium", "codeforces", "https://codeforces.com/problemset/problem/500/D"),
+      p(0, "cf-2182e", "New Year's Gifts", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2182/E"),
+      p(0, "cf-2254g", "Nightcrawler", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2254/G"),
+      p(0, "cf-842e", "Nikita and game", "Hard", "codeforces", "https://codeforces.com/problemset/problem/842/E"),
+      p(0, "cf-1977c", "Nikita and LCM", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1977/C"),
+      p(0, "cf-2043f", "Nim", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2043/F"),
+      p(0, "cf-1951e", "No Palindromes", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1951/E"),
+      p(0, "cf-1946f", "Nobody is needed", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1946/F"),
+      p(0, "cf-847i", "Noise Level", "Medium", "codeforces", "https://codeforces.com/problemset/problem/847/I"),
+      p(0, "cf-2040d", "Non Prime Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2040/D"),
+      p(0, "cf-1986f", "Non-academic Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1986/F"),
+      p(0, "cf-1627d", "Not Adding", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1627/D"),
+      p(0, "cf-1627c", "Not Assigning", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1627/C"),
+      p(0, "cf-1992e", "Novice's Mistake", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1992/E"),
+      p(0, "cf-1691e", "Number of Groups", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1691/E"),
+      p(0, "cf-1538c", "Number of Pairs", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1538/C"),
+      p(0, "cf-466c", "Number of Ways", "Medium", "codeforces", "https://codeforces.com/problemset/problem/466/C"),
+      p(0, "cf-2104f", "Numbers and Strings", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2104/F"),
+      p(0, "cf-1286b", "Numbers on Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1286/B"),
+      p(0, "cf-1216e1", "Numerical Sequence (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1216/E1"),
+      p(0, "cf-1479d", "Odd Mineral Resource", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1479/D"),
+      p(0, "cf-2153f", "Odd Queries on Odd Array", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2153/F"),
+      p(0, "cf-1519e", "Off by One", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1519/E"),
+      p(0, "cf-830a", "Office Keys", "Medium", "codeforces", "https://codeforces.com/problemset/problem/830/A"),
+      p(0, "cf-554b", "Ohana Cleans Up", "Easy", "codeforces", "https://codeforces.com/problemset/problem/554/B"),
+      p(0, "cf-37c", "Old Berland Language", "Medium", "codeforces", "https://codeforces.com/problemset/problem/37/C"),
+      p(0, "cf-1490g", "Old Floppy Drive", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1490/G"),
+      p(0, "cf-222d", "Olympiad", "Medium", "codeforces", "https://codeforces.com/problemset/problem/222/D"),
+      p(0, "cf-1746g", "Olympiad Training", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1746/G"),
+      p(0, "cf-526b", "Om Nom and Dark Park", "Easy", "codeforces", "https://codeforces.com/problemset/problem/526/B"),
+      p(0, "cf-2117g", "Omg Graph", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2117/G"),
+      p(0, "cf-1843f2", "Omsk Metro (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1843/F2"),
+      p(0, "cf-1843f1", "Omsk Metro (simple version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1843/F1"),
+      p(0, "cf-440c", "One-Based Arithmetic", "Medium", "codeforces", "https://codeforces.com/problemset/problem/440/C"),
+      p(0, "cf-567d", "One-Dimensional Battle Ships", "Medium", "codeforces", "https://codeforces.com/problemset/problem/567/D"),
+      p(0, "cf-1567f", "One-Four Overload", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1567/F"),
+      p(0, "cf-1896d", "Ones and Twos", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1896/D"),
+      p(0, "cf-486b", "OR in Matrix", "Easy", "codeforces", "https://codeforces.com/problemset/problem/486/B"),
+      p(0, "cf-2030f", "Orangutan Approved Subarrays", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2030/F"),
+      p(0, "cf-2053b", "Outstanding Impressionist", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2053/B"),
+      p(0, "cf-1244d", "Paint the Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1244/D"),
+      p(0, "cf-448c", "Painting Fence", "Medium", "codeforces", "https://codeforces.com/problemset/problem/448/C"),
+      p(0, "cf-1324d", "Pair of Topics", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1324/D"),
+      p(0, "cf-81e", "Pairs", "Hard", "codeforces", "https://codeforces.com/problemset/problem/81/E"),
+      p(0, "cf-134b", "Pairs of Numbers", "Medium", "codeforces", "https://codeforces.com/problemset/problem/134/B"),
+      p(0, "cf-1391e", "Pairs of Pairs", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1391/E"),
+      p(0, "cf-1486f", "Pairs of Paths", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1486/F"),
+      p(0, "cf-1827c", "Palindrome Partition", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1827/C"),
+      p(0, "cf-2069d", "Palindrome Shuffle", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2069/D"),
+      p(0, "cf-1624d", "Palindromes Coloring", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1624/D"),
+      p(0, "cf-2227d", "Palindromex", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2227/D"),
+      p(0, "cf-835d", "Palindromic characteristics", "Medium", "codeforces", "https://codeforces.com/problemset/problem/835/D"),
+      p(0, "cf-883h", "Palindromic Cut", "Medium", "codeforces", "https://codeforces.com/problemset/problem/883/H"),
+      p(0, "cf-1528a", "Parsa's Humongous Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1528/A"),
+      p(0, "cf-115a", "Party", "Easy", "codeforces", "https://codeforces.com/problemset/problem/115/A"),
+      p(0, "cf-459d", "Pashmak and Parmida's problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/459/D"),
+      p(0, "cf-1702g1", "Passable Paths (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1702/G1"),
+      p(0, "cf-603e", "Pastoral Oddities", "Hard", "codeforces", "https://codeforces.com/problemset/problem/603/E"),
+      p(0, "cf-1714g", "Path Prefixes", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1714/G"),
+      p(0, "cf-1213g", "Path Queries", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1213/G"),
+      p(0, "cf-1746d", "Paths on the Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1746/D"),
+      p(0, "cf-1476e", "Pattern Matching", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1476/E"),
+      p(0, "cf-1119e", "Pavel and Triangles", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1119/E"),
+      p(0, "cf-1491c", "Pekora and Trampoline", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1491/C"),
+      p(0, "cf-1553c", "Penalty", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1553/C"),
+      p(0, "cf-2031e", "Penchick and Chloe's Trees", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2031/E"),
+      p(0, "cf-2031d", "Penchick and Desert Rabbit", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2031/D"),
+      p(0, "cf-2109f", "Penguin Steps", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2109/F"),
+      p(0, "cf-923c", "Perfect Security", "Medium", "codeforces", "https://codeforces.com/problemset/problem/923/C"),
+      p(0, "cf-1413c", "Perform Easily", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1413/C"),
+      p(0, "cf-1998c", "Perform Operations to Maximize Score", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1998/C"),
+      p(0, "cf-1738d", "Permutation Addicts", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1738/D"),
+      p(0, "cf-1967a", "Permutation Counting", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1967/A"),
+      p(0, "cf-1718d", "Permutation for Burenka", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1718/D"),
+      p(0, "cf-1968d", "Permutation Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1968/D"),
+      p(0, "cf-1696d", "Permutation Graph", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1696/D"),
+      p(0, "cf-1980e", "Permutation of Rows and Columns", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1980/E"),
+      p(0, "cf-1701d", "Permutation Restoration", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1701/D"),
+      p(0, "cf-1490d", "Permutation Transformation", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1490/D"),
+      p(0, "cf-1698e", "PermutationForces II", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1698/E"),
+      p(0, "cf-1856e1", "PermuTree (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1856/E1"),
+      p(0, "cf-1856e2", "PermuTree (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1856/E2"),
+      p(0, "cf-830e", "Perpetual Motion Machine", "Hard", "codeforces", "https://codeforces.com/problemset/problem/830/E"),
+      p(0, "cf-778c", "Peterson Polyglot", "Hard", "codeforces", "https://codeforces.com/problemset/problem/778/C"),
+      p(0, "cf-1042d", "Petya and Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1042/D"),
+      p(0, "cf-886c", "Petya and Catacombs", "Easy", "codeforces", "https://codeforces.com/problemset/problem/886/C"),
+      p(0, "cf-111b", "Petya and Divisors", "Medium", "codeforces", "https://codeforces.com/problemset/problem/111/B"),
+      p(0, "cf-1735c", "Phase Shift", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1735/C"),
+      p(0, "cf-1515f", "Phoenix and Earthquake", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1515/F"),
+      p(0, "cf-1348f", "Phoenix and Memory", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1348/F"),
+      p(0, "cf-1348d", "Phoenix and Science", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1348/D"),
+      p(0, "cf-1463e", "Plan of Lectures", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1463/E"),
+      p(0, "cf-1535d", "Playoff Tournament", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1535/D"),
+      p(0, "cf-1182b", "Plus from Picture", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1182/B"),
+      p(0, "cf-2258f", "Plus Minus Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2258/F"),
+      p(0, "cf-755c", "PolandBall and Forest", "Easy", "codeforces", "https://codeforces.com/problemset/problem/755/C"),
+      p(0, "cf-755b", "PolandBall and Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/755/B"),
+      p(0, "cf-1560e", "Polycarp and String Transformation", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1560/E"),
+      p(0, "cf-1990f", "Polygonal Segments", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1990/F"),
+      p(0, "cf-1580a", "Portal", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1580/A"),
+      p(0, "cf-1120d", "Power Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1120/D"),
+      p(0, "cf-2137f", "Prefix Maximum Invariance", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2137/F"),
+      p(0, "cf-1326d2", "Prefix-Suffix Palindrome (Hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1326/D2"),
+      p(0, "cf-627d", "Preorder Test", "Hard", "codeforces", "https://codeforces.com/problemset/problem/627/D"),
+      p(0, "cf-377b", "Preparing for the Contest", "Medium", "codeforces", "https://codeforces.com/problemset/problem/377/B"),
+      p(0, "cf-912e", "Prime Gift", "Hard", "codeforces", "https://codeforces.com/problemset/problem/912/E"),
+      p(0, "cf-1991d", "Prime XOR Coloring", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1991/D"),
+      p(0, "cf-986e", "Prince's Problem", "Hard", "codeforces", "https://codeforces.com/problemset/problem/986/E"),
+      p(0, "cf-1327b", "Princesses and Princes", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1327/B"),
+      p(0, "cf-1141g", "Privatization of Roads in Treeland", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1141/G"),
+      p(0, "cf-2043d", "Problem about GCD", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2043/D"),
+      p(0, "cf-1743d", "Problem with Random Tests", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1743/D"),
+      p(0, "cf-1847d", "Professor Higashikata", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1847/D"),
+      p(0, "cf-1914f", "Programming Competition", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1914/F"),
+      p(0, "cf-200d", "Programming Language", "Medium", "codeforces", "https://codeforces.com/problemset/problem/200/D"),
+      p(0, "cf-1660f1", "Promising String (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1660/F1"),
+      p(0, "cf-948a", "Protect Sheep", "Easy", "codeforces", "https://codeforces.com/problemset/problem/948/A"),
+      p(0, "cf-343e", "Pumping Stations", "Hard", "codeforces", "https://codeforces.com/problemset/problem/343/E"),
+      p(0, "cf-1615e", "Purple Crayon", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1615/E"),
+      p(0, "cf-1530c", "Pursuit", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1530/C"),
+      p(0, "cf-696b", "Puzzles", "Medium", "codeforces", "https://codeforces.com/problemset/problem/696/B"),
+      p(0, "cf-1706e", "Qpwoeirut and Vertices", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1706/E"),
+      p(0, "cf-2101b", "Quartet Swapping", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2101/B"),
+      p(0, "cf-1143c", "Queen", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1143/C"),
+      p(0, "cf-600b", "Queries about less or equal elements", "Easy", "codeforces", "https://codeforces.com/problemset/problem/600/B"),
+      p(0, "cf-245h", "Queries for Number of Palindromes", "Medium", "codeforces", "https://codeforces.com/problemset/problem/245/H"),
+      p(0, "cf-1861c", "Queries for the Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1861/C"),
+      p(0, "cf-1777c", "Quiz Master", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1777/C"),
+      p(0, "cf-2171d", "Rae Taylor and Trees (easy version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2171/D"),
+      p(0, "cf-2171f", "Rae Taylor and Trees (hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2171/F"),
+      p(0, "cf-1580e", "Railway Construction", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1580/E"),
+      p(0, "cf-1419f", "Rain of Fire", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1419/F"),
+      p(0, "cf-846f", "Random Query", "Medium", "codeforces", "https://codeforces.com/problemset/problem/846/F"),
+      p(0, "cf-1758d", "Range = √Sum", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1758/D"),
+      p(0, "cf-1630b", "Range and Partition", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1630/B"),
+      p(0, "cf-1988e", "Range Minimum Sum", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1988/E"),
+      p(0, "cf-1841c", "Ranom Numbers", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1841/C"),
+      p(0, "cf-786d", "Rap God", "Hard", "codeforces", "https://codeforces.com/problemset/problem/786/D"),
+      p(0, "cf-1450d", "Rating Compression", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1450/D"),
+      p(0, "cf-1845d", "Rating System", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1845/D"),
+      p(0, "cf-724c", "Ray Tracing", "Medium", "codeforces", "https://codeforces.com/problemset/problem/724/C"),
+      p(0, "cf-1598f", "RBS", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1598/F"),
+      p(0, "cf-1359f", "RC Kaboom Show", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1359/F"),
+      p(0, "cf-2112d", "Reachability and Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2112/D"),
+      p(0, "cf-2042d", "Recommendations", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2042/D"),
+      p(0, "cf-1176d", "Recover it!", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1176/D"),
+      p(0, "cf-1781e", "Rectangle Shrinking", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1781/E"),
+      p(0, "cf-932b", "Recursive Queries", "Easy", "codeforces", "https://codeforces.com/problemset/problem/932/B"),
+      p(0, "cf-2118d1", "Red Light, Green Light (Easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2118/D1"),
+      p(0, "cf-2118d2", "Red Light, Green Light (Hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2118/D2"),
+      p(0, "cf-2053d", "Refined Product Optimality", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2053/D"),
+      p(0, "cf-4c", "Registration System", "Easy", "codeforces", "https://codeforces.com/problemset/problem/4/C"),
+      p(0, "cf-1615h", "Reindeer Games", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1615/H"),
+      p(0, "cf-2176e", "Remove at the lowest cost", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2176/E"),
+      p(0, "cf-1976f", "Remove Bridges", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1976/F"),
+      p(0, "cf-2063c", "Remove Exactly Two", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2063/C"),
+      p(0, "cf-900c", "Remove Extra One", "Medium", "codeforces", "https://codeforces.com/problemset/problem/900/C"),
+      p(0, "cf-2193h", "Remove the Grail Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2193/H"),
+      p(0, "cf-1800d", "Remove Two Letters", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1800/D"),
+      p(0, "cf-1007a", "Reorder the Array", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1007/A"),
+      p(0, "cf-2047b", "Replace Character", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2047/B"),
+      p(0, "cf-522a", "Reposts", "Easy", "codeforces", "https://codeforces.com/problemset/problem/522/A"),
+      p(0, "cf-1681d", "Required Length", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1681/D"),
+      p(0, "cf-1650e", "Rescheduling the Exam", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1650/E"),
+      p(0, "cf-1739d", "Reset K Edges", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1739/D"),
+      p(0, "cf-2053e", "Resourceful Caterpillar Sequence", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2053/E"),
+      p(0, "cf-404c", "Restore Graph", "Medium", "codeforces", "https://codeforces.com/problemset/problem/404/C"),
+      p(0, "cf-1759g", "Restore the Permutation", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1759/G"),
+      p(0, "cf-1659d", "Reverse Sort Sum", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1659/D"),
+      p(0, "cf-2252c", "Risky Tower", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2252/C"),
+      p(0, "cf-1700d", "River Locks", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1700/D"),
+      p(0, "cf-638c", "Road Improvement", "Medium", "codeforces", "https://codeforces.com/problemset/problem/638/C"),
+      p(0, "cf-2229g", "Roadworks", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2229/G"),
+      p(0, "cf-2014d", "Robert Hood and Mrs Hood", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2014/D"),
+      p(0, "cf-2014h", "Robin Hood Archery", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2014/H"),
+      p(0, "cf-1426e", "Rock, Paper, Scissors", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1426/E"),
+      p(0, "cf-1858e1", "Rollbacks (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1858/E1"),
+      p(0, "cf-2127d", "Root was Built by Love, Broken by Destiny", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2127/D"),
+      p(0, "cf-848b", "Rooter's Song", "Medium", "codeforces", "https://codeforces.com/problemset/problem/848/B"),
+      p(0, "cf-1709d", "Rorororobot", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1709/D"),
+      p(0, "cf-1594e2", "Rubik's Cube Coloring (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1594/E2"),
+      p(0, "cf-1846g", "Rudolf and CodeVid-23", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1846/G"),
+      p(0, "cf-1941f", "Rudolf and Imbalance", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1941/F"),
+      p(0, "cf-1846e2", "Rudolf and Snowflakes (hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1846/E2"),
+      p(0, "cf-1941d", "Rudolf and the Ball Game", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1941/D"),
+      p(0, "cf-893c", "Rumor", "Easy", "codeforces", "https://codeforces.com/problemset/problem/893/C"),
+      p(0, "cf-1419d2", "Sage's Birthday (hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1419/D2"),
+      p(0, "cf-2033e", "Sakurako, Kosuke, and the Permutation", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2033/E"),
+      p(0, "cf-2008g", "Sakurako's Task", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2008/G"),
+      p(0, "cf-1520d", "Same Differences", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1520/D"),
+      p(0, "cf-1687c", "Sanae and Giant Robot", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1687/C"),
+      p(0, "cf-1109b", "Sasha and One More Name", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1109/B"),
+      p(0, "cf-1929c", "Sasha and the Casino", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1929/C"),
+      p(0, "cf-1929e", "Sasha and the Happy Tree Cutting", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1929/E"),
+      p(0, "cf-1929f", "Sasha and the Wedding Binary Search Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1929/F"),
+      p(0, "cf-1701c", "Schedule Management", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1701/C"),
+      p(0, "cf-1777d", "Score of a Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1777/D"),
+      p(0, "cf-1794c", "Scoring Subsequences", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1794/C"),
+      p(0, "cf-2232c1", "Seating Arrangement (Easy Version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2232/C1"),
+      p(0, "cf-1774g", "Segment Covering", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1774/G"),
+      p(0, "cf-1872f", "Selling a Menagerie", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1872/F"),
+      p(0, "cf-1254b1", "Send Boxes to Alice (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1254/B1"),
+      p(0, "cf-802j1", "Send the Fool Further! (easy)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/802/J1"),
+      p(0, "cf-1789f", "Serval and Brain Power", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1789/F"),
+      p(0, "cf-1153d", "Serval and Rooted Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1153/D"),
+      p(0, "cf-1027f", "Session in BSU", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1027/F"),
+      p(0, "cf-1975f", "Set", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1975/F"),
+      p(0, "cf-1761c", "Set Construction", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1761/C"),
+      p(0, "cf-1904d2", "Set To Max (Hard Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1904/D2"),
+      p(0, "cf-982d", "Shark", "Medium", "codeforces", "https://codeforces.com/problemset/problem/982/D"),
+      p(0, "cf-1732c1", "Sheikh (Easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1732/C1"),
+      p(0, "cf-776f", "Sherlock's bet to Moriarty", "Hard", "codeforces", "https://codeforces.com/problemset/problem/776/F"),
+      p(0, "cf-1245d", "Shichikuji and Power Grid", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1245/D"),
+      p(0, "cf-1690f", "Shifting String", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1690/F"),
+      p(0, "cf-2118f", "Shifts and Swaps", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2118/F"),
+      p(0, "cf-2039c2", "Shohag Loves XOR (Hard Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2039/C2"),
+      p(0, "cf-1969d", "Shop Game", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1969/D"),
+      p(0, "cf-2182g", "Short Garland", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2182/G"),
+      p(0, "cf-1512g", "Short Task", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1512/G"),
+      p(0, "cf-2093g", "Shorten the Array", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2093/G"),
+      p(0, "cf-1205b", "Shortest Cycle", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1205/B"),
+      p(0, "cf-1923f", "Shrink-Reverse", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1923/F"),
+      p(0, "cf-1950g", "Shuffling Songs", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1950/G"),
+      p(0, "cf-2260d", "Signs of Prefix Sums", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2260/D"),
+      p(0, "cf-2205d", "Simons and Beating Peaks", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2205/D"),
+      p(0, "cf-344b", "Simple Molecules", "Easy", "codeforces", "https://codeforces.com/problemset/problem/344/B"),
+      p(0, "cf-965d", "Single-use Stones", "Medium", "codeforces", "https://codeforces.com/problemset/problem/965/D"),
+      p(0, "cf-2065a", "Skibidus and Amog'u", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2065/A"),
+      p(0, "cf-2065f", "Skibidus and Slay", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2065/F"),
+      p(0, "cf-613b", "Skills", "Medium", "codeforces", "https://codeforces.com/problemset/problem/613/B"),
+      p(0, "cf-1760g", "SlavicG's Favorite Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1760/G"),
+      p(0, "cf-2134d", "Sliding Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2134/D"),
+      p(0, "cf-1734d", "Slime Escape", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1734/D"),
+      p(0, "cf-1923d", "Slimes", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1923/D"),
+      p(0, "cf-891d", "Sloth", "Hard", "codeforces", "https://codeforces.com/problemset/problem/891/D"),
+      p(0, "cf-1989d", "Smithing Skill", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1989/D"),
+      p(0, "cf-1920f1", "Smooth Sailing (Easy Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1920/F1"),
+      p(0, "cf-1920f2", "Smooth Sailing (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1920/F2"),
+      p(0, "cf-1654g", "Snowy Mountain", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1654/G"),
+      p(0, "cf-546b", "Soldier and Badges", "Easy", "codeforces", "https://codeforces.com/problemset/problem/546/B"),
+      p(0, "cf-1004e", "Sonya and Ice Cream", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1004/E"),
+      p(0, "cf-843a", "Sorting by Subsequences", "Easy", "codeforces", "https://codeforces.com/problemset/problem/843/A"),
+      p(0, "cf-1633e", "Spanning Tree Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1633/E"),
+      p(0, "cf-1133f2", "Spanning Tree with One Fixed Degree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1133/F2"),
+      p(0, "cf-2252f", "Spectral Components", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2252/F"),
+      p(0, "cf-2018b", "Speedbreaker", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2018/B"),
+      p(0, "cf-1863e", "Speedrun", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1863/E"),
+      p(0, "cf-1887d", "Split", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1887/D"),
+      p(0, "cf-1059e", "Split the Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1059/E"),
+      p(0, "cf-1976e", "Splittable Permutations", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1976/E"),
+      p(0, "cf-2108e", "Spruce Dispute", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2108/E"),
+      p(0, "cf-633c", "Spy Syndrome 2", "Medium", "codeforces", "https://codeforces.com/problemset/problem/633/C"),
+      p(0, "cf-1360f", "Spy-string", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1360/F"),
+      p(0, "cf-2257c", "Spying on the Beaver", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2257/C"),
+      p(0, "cf-57a", "Square Earth?", "Easy", "codeforces", "https://codeforces.com/problemset/problem/57/A"),
+      p(0, "cf-1497e1", "Square-Free Division (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1497/E1"),
+      p(0, "cf-1495f", "Squares", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1495/F"),
+      p(0, "cf-1995c", "Squaring", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1995/C"),
+      p(0, "cf-1610h", "Squid Game", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1610/H"),
+      p(0, "cf-1419b", "Stairs", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1419/B"),
+      p(0, "cf-1870h", "Standard Graph Problem", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1870/H"),
+      p(0, "cf-1402c", "Star Trek", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1402/C"),
+      p(0, "cf-633e", "Startup Funding", "Hard", "codeforces", "https://codeforces.com/problemset/problem/633/E"),
+      p(0, "cf-2222g", "Statistics on Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2222/G"),
+      p(0, "cf-2129b", "Stay or Mirror", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2129/B"),
+      p(0, "cf-2244c", "Stepan and Permutation", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2244/C"),
+      p(0, "cf-1396b", "Stoned Game", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1396/B"),
+      p(0, "cf-2059e2", "Stop Gaming (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2059/E2"),
+      p(0, "cf-1470a", "Strange Birthday Party", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1470/A"),
+      p(0, "cf-1470b", "Strange Definition", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1470/B"),
+      p(0, "cf-2156b", "Strange Machine", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2156/B"),
+      p(0, "cf-1470e", "Strange Permutation", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1470/E"),
+      p(0, "cf-1296e1", "String Coloring (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1296/E1"),
+      p(0, "cf-2225f", "String Cutting", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2225/F"),
+      p(0, "cf-1430d", "String Deletion", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1430/D"),
+      p(0, "cf-1535f", "String Distance", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1535/F"),
+      p(0, "cf-1451c", "String Equality", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1451/C"),
+      p(0, "cf-159c", "String Manipulation 1.0", "Easy", "codeforces", "https://codeforces.com/problemset/problem/159/C"),
+      p(0, "cf-1316b", "String Modification", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1316/B"),
+      p(0, "cf-827a", "String Reconstruction", "Medium", "codeforces", "https://codeforces.com/problemset/problem/827/A"),
+      p(0, "cf-1430e", "String Reversal", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1430/E"),
+      p(0, "cf-710f", "String Set Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/710/F"),
+      p(0, "cf-1383a", "String Transformation 1", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1383/A"),
+      p(0, "cf-1550e", "Stringforces", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1550/E"),
+      p(0, "cf-1845c", "Strong Password", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1845/C"),
+      p(0, "cf-475b", "Strongly Connected City", "Easy", "codeforces", "https://codeforces.com/problemset/problem/475/B"),
+      p(0, "cf-129b", "Students and Shoelaces", "Easy", "codeforces", "https://codeforces.com/problemset/problem/129/B"),
+      p(0, "cf-2190b1", "Sub-RBS (Easy Version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2190/B1"),
+      p(0, "cf-2190b2", "Sub-RBS (Hard Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2190/B2"),
+      p(0, "cf-2148a", "Sublime Sequence", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2148/A"),
+      p(0, "cf-2128e1", "Submedians (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2128/E1"),
+      p(0, "cf-2128e2", "Submedians (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2128/E2"),
+      p(0, "cf-729e", "Subordinates", "Medium", "codeforces", "https://codeforces.com/problemset/problem/729/E"),
+      p(0, "cf-1580d", "Subsequence", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1580/D"),
+      p(0, "cf-1807g1", "Subsequence Addition (Easy Version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1807/G1"),
+      p(0, "cf-914f", "Substrings in a String", "Hard", "codeforces", "https://codeforces.com/problemset/problem/914/F"),
+      p(0, "cf-1651e", "Sum of Matchings", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1651/E"),
+      p(0, "cf-1921f", "Sum of Progression", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1921/F"),
+      p(0, "cf-1691c", "Sum of Substrings", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1691/C"),
+      p(0, "cf-1930d1", "Sum over all Substrings (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1930/D1"),
+      p(0, "cf-538h", "Summer Dichotomy", "Hard", "codeforces", "https://codeforces.com/problemset/problem/538/H"),
+      p(0, "cf-2026d", "Sums of Segments", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2026/D"),
+      p(0, "cf-2043c", "Sums on Segments", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2043/C"),
+      p(0, "cf-1834d", "Survey in Class", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1834/D"),
+      p(0, "cf-1891d", "Suspicious logarithms", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1891/D"),
+      p(0, "cf-920c", "Swap Adjacent Elements", "Easy", "codeforces", "https://codeforces.com/problemset/problem/920/C"),
+      p(0, "cf-1716e", "Swap and Maximum Block", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1716/E"),
+      p(0, "cf-1983d", "Swap Dilemma", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1983/D"),
+      p(0, "cf-727d", "T-shirts Distribution", "Medium", "codeforces", "https://codeforces.com/problemset/problem/727/D"),
+      p(0, "cf-2173d", "Taiga's Carry Chains", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2173/D"),
+      p(0, "cf-535d", "Tavas and Malekas", "Medium", "codeforces", "https://codeforces.com/problemset/problem/535/D"),
+      p(0, "cf-1369d", "TediousLee", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1369/D"),
+      p(0, "cf-1859f", "Teleportation in Byteland", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1859/F"),
+      p(0, "cf-1842f", "Tenzing and Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1842/F"),
+      p(0, "cf-253c", "Text Editor", "Medium", "codeforces", "https://codeforces.com/problemset/problem/253/C"),
+      p(0, "cf-1358d", "The Best Vacation", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1358/D"),
+      p(0, "cf-1847f", "The Boss's Identity", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1847/F"),
+      p(0, "cf-1819b", "The Butcher", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1819/B"),
+      p(0, "cf-1282e", "The Cake Is a Lie", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1282/E"),
+      p(0, "cf-2027d1", "The Endspeaker (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2027/D1"),
+      p(0, "cf-1083a", "The Fair Nut and the Best Path", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1083/A"),
+      p(0, "cf-2062e2", "The Game (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2062/E2"),
+      p(0, "cf-1829e", "The Lakes", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1829/E"),
+      p(0, "cf-1381d", "The Majestic Brown Tree Snake", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1381/D"),
+      p(0, "cf-1955h", "The Most Reckless Defense", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1955/H"),
+      p(0, "cf-1594d", "The Number of Imposters", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1594/D"),
+      p(0, "cf-1175f", "The Number of Subpermutations", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1175/F"),
+      p(0, "cf-1403a", "The Potion of Great Power", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1403/A"),
+      p(0, "cf-228e", "The Road to Berland is Paved With Good Intentions", "Medium", "codeforces", "https://codeforces.com/problemset/problem/228/E"),
+      p(0, "cf-1574d", "The Strongest Build", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1574/D"),
+      p(0, "cf-1850h", "The Third Letter", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1850/H"),
+      p(0, "cf-2055c", "The Trail", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2055/C"),
+      p(0, "cf-910a", "The Way to Home", "Easy", "codeforces", "https://codeforces.com/problemset/problem/910/A"),
+      p(0, "cf-1017d", "The Wu", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1017/D"),
+      p(0, "cf-1805e", "There Should Be a Lot of Maximums", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1805/E"),
+      p(0, "cf-1914d", "Three Activities", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1914/D"),
+      p(0, "cf-1335e1", "Three Blocks Palindrome (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1335/E1"),
+      p(0, "cf-1335e2", "Three Blocks Palindrome (hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1335/E2"),
+      p(0, "cf-1780f", "Three Chairs", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1780/F"),
+      p(0, "cf-581d", "Three Logos", "Medium", "codeforces", "https://codeforces.com/problemset/problem/581/D"),
+      p(0, "cf-1006c", "Three Parts of the Array", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1006/C"),
+      p(0, "cf-3c", "Tic-tac-toe", "Medium", "codeforces", "https://codeforces.com/problemset/problem/3/C"),
+      p(0, "cf-763d", "Timofey and a flat tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/763/D"),
+      p(0, "cf-763a", "Timofey and a tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/763/A"),
+      p(0, "cf-1790f", "Timofey and Black-White Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1790/F"),
+      p(0, "cf-1856c", "To Become Max", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1856/C"),
+      p(0, "cf-1677c", "Tokitsukaze and Two Colorful Tapes", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1677/C"),
+      p(0, "cf-913d", "Too Easy Problems", "Medium", "codeforces", "https://codeforces.com/problemset/problem/913/D"),
+      p(0, "cf-1895c", "Torn Lucky Ticket", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1895/C"),
+      p(0, "cf-1679d", "Toss a Coin to Your Graph...", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1679/D"),
+      p(0, "cf-538c", "Tourist's Notes", "Medium", "codeforces", "https://codeforces.com/problemset/problem/538/C"),
+      p(0, "cf-487e", "Tourists", "Hard", "codeforces", "https://codeforces.com/problemset/problem/487/E"),
+      p(0, "cf-27b", "Tournament", "Easy", "codeforces", "https://codeforces.com/problemset/problem/27/B"),
+      p(0, "cf-479b", "Towers", "Easy", "codeforces", "https://codeforces.com/problemset/problem/479/B"),
+      p(0, "cf-1843e", "Tracking Segments", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1843/E"),
+      p(0, "cf-2122d", "Traffic Lights", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2122/D"),
+      p(0, "cf-2071c", "Trapmigiano Reggiano", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2071/C"),
+      p(0, "cf-2034c", "Trapped in the Witch's Labyrinth", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2034/C"),
+      p(0, "cf-1214d", "Treasure Island", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1214/D"),
+      p(0, "cf-1111e", "Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1111/E"),
+      p(0, "cf-375d", "Tree and Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/375/D"),
+      p(0, "cf-1540b", "Tree Array", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1540/B"),
+      p(0, "cf-1508e", "Tree Calendar", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1508/E"),
+      p(0, "cf-675d", "Tree Construction", "Medium", "codeforces", "https://codeforces.com/problemset/problem/675/D"),
+      p(0, "cf-1118f1", "Tree Cutting (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1118/F1"),
+      p(0, "cf-2050g", "Tree Destruction", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2050/G"),
+      p(0, "cf-1375g", "Tree Modification", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1375/G"),
+      p(0, "cf-2035f", "Tree Operations", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2035/F"),
+      p(0, "cf-117e", "Tree or not Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/117/E"),
+      p(0, "cf-2208d1", "Tree Orientation (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2208/D1"),
+      p(0, "cf-2018c", "Tree Pruning", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2018/C"),
+      p(0, "cf-1328e", "Tree Queries", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1328/E"),
+      p(0, "cf-1695d2", "Tree Queries (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1695/D2"),
+      p(0, "cf-1696f", "Tree Recovery", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1696/F"),
+      p(0, "cf-1404b", "Tree Tag", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1404/B"),
+      p(0, "cf-1844g", "Tree Weights", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1844/G"),
+      p(0, "cf-1092f", "Tree with Maximum Cost", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1092/F"),
+      p(0, "cf-1882d", "Tree XOR", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1882/D"),
+      p(0, "cf-1320e", "Treeland and Viruses", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1320/E"),
+      p(0, "cf-1902f", "Trees and XOR Queries Again", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1902/F"),
+      p(0, "cf-1528c", "Trees of Tranquillity", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1528/C"),
+      p(0, "cf-1712f", "Triameter", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1712/F"),
+      p(0, "cf-2063e", "Triangle Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2063/E"),
+      p(0, "cf-30e", "Tricky and Clever Password", "Hard", "codeforces", "https://codeforces.com/problemset/problem/30/E"),
+      p(0, "cf-1981c", "Turtle and an Incomplete Sequence", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1981/C"),
+      p(0, "cf-2003e2", "Turtle and Inversions (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2003/E2"),
+      p(0, "cf-2003f", "Turtle and Three Sequences", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2003/F"),
+      p(0, "cf-1641d", "Two Arrays", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1641/D"),
+      p(0, "cf-520b", "Two Buttons", "Easy", "codeforces", "https://codeforces.com/problemset/problem/520/B"),
+      p(0, "cf-1827d", "Two Centroids", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1827/D"),
+      p(0, "cf-1895g", "Two Characters, Two Colors", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1895/G"),
+      p(0, "cf-1774e", "Two Chess Pieces", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1774/E"),
+      p(0, "cf-1276b", "Two Fairs", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1276/B"),
+      p(0, "cf-14d", "Two Paths", "Medium", "codeforces", "https://codeforces.com/problemset/problem/14/D"),
+      p(0, "cf-1409e", "Two Platforms", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1409/E"),
+      p(0, "cf-1488c", "Two Policemen", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1488/C"),
+      p(0, "cf-2025a", "Two Screens", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2025/A"),
+      p(0, "cf-223b", "Two Strings", "Medium", "codeforces", "https://codeforces.com/problemset/problem/223/B"),
+      p(0, "cf-550a", "Two Substrings", "Medium", "codeforces", "https://codeforces.com/problemset/problem/550/A"),
+      p(0, "cf-1156b", "Ugly Pairs", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1156/B"),
+      p(0, "cf-489d", "Unbearable Controversy of Being", "Medium", "codeforces", "https://codeforces.com/problemset/problem/489/D"),
+      p(0, "cf-1388c", "Uncle Bogdan and Country Happiness", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1388/C"),
+      p(0, "cf-1955f", "Unfair Game", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1955/F"),
+      p(0, "cf-1800e1", "Unforgivable Curse (easy version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1800/E1"),
+      p(0, "cf-1800e2", "Unforgivable Curse (hard version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1800/E2"),
+      p(0, "cf-2056d", "Unique Median", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2056/D"),
+      p(0, "cf-1681f", "Unique Occurrences", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1681/F"),
+      p(0, "cf-2219b1", "Unique Values (Easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2219/B1"),
+      p(0, "cf-2131f", "Unjust Binary Life", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2131/F"),
+      p(0, "cf-1808c", "Unlucky Numbers", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1808/C"),
+      p(0, "cf-1682e", "Unordered Swaps", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1682/E"),
+      p(0, "cf-2104e", "Unpleasant Strings", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2104/E"),
+      p(0, "cf-2242c", "Unstable Elements", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2242/C"),
+      p(0, "cf-1535c", "Unstable String", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1535/C"),
+      p(0, "cf-1899g", "Unusual Entertainment", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1899/G"),
+      p(0, "cf-1475f", "Unusual Matrix", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1475/F"),
+      p(0, "cf-1558b", "Up the Strip", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1558/B"),
+      p(0, "cf-1561d1", "Up the Strip (simplified version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1561/D1"),
+      p(0, "cf-843c", "Upgrading Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/843/C"),
+      p(0, "cf-1731d", "Valiant's New Map", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1731/D"),
+      p(0, "cf-1992f", "Valuable Cards", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1992/F"),
+      p(0, "cf-1423b", "Valuable Paper", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1423/B"),
+      p(0, "cf-1847c", "Vampiric Powers, anyone?", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1847/C"),
+      p(0, "cf-552c", "Vanya and Scales", "Medium", "codeforces", "https://codeforces.com/problemset/problem/552/C"),
+      p(0, "cf-552d", "Vanya and Triangles", "Medium", "codeforces", "https://codeforces.com/problemset/problem/552/D"),
+      p(0, "cf-706d", "Vasiliy's Multiset", "Medium", "codeforces", "https://codeforces.com/problemset/problem/706/D"),
+      p(0, "cf-336c", "Vasily the Bear and Sequence", "Medium", "codeforces", "https://codeforces.com/problemset/problem/336/C"),
+      p(0, "cf-1076e", "Vasya and a Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1076/E"),
+      p(0, "cf-493c", "Vasya and Basketball", "Medium", "codeforces", "https://codeforces.com/problemset/problem/493/C"),
+      p(0, "cf-1051e", "Vasya and Big Integers", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1051/E"),
+      p(0, "cf-1016d", "Vasya And The Matrix", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1016/D"),
+      p(0, "cf-1793e", "Velepin and Marketing", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1793/E"),
+      p(0, "cf-2042e", "Vertex Pairs", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2042/E"),
+      p(0, "cf-1675d", "Vertical Paths", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1675/D"),
+      p(0, "cf-1670d", "Very Suspicious", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1670/D"),
+      p(0, "cf-371d", "Vessels", "Medium", "codeforces", "https://codeforces.com/problemset/problem/371/D"),
+      p(0, "cf-2234c", "Vessels, Heights and Two Versions (Easy Version)", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2234/C"),
+      p(0, "cf-731f", "Video Cards", "Medium", "codeforces", "https://codeforces.com/problemset/problem/731/F"),
+      p(0, "cf-1848b", "Vika and the Bridge", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1848/B"),
+      p(0, "cf-2238c", "Village Guilds", "Easy", "codeforces", "https://codeforces.com/problemset/problem/2238/C"),
+      p(0, "cf-525a", "Vitaliy and Pie", "Easy", "codeforces", "https://codeforces.com/problemset/problem/525/A"),
+      p(0, "cf-1851g", "Vlad and the Mountains", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1851/G"),
+      p(0, "cf-1926g", "Vlad and Trouble at MIT", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1926/G"),
+      p(0, "cf-1675f", "Vlad and Unfinished Business", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1675/F"),
+      p(0, "cf-2119f", "Volcanic Eruptions", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2119/F"),
+      p(0, "cf-1826e", "Walk the Runway", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1826/E"),
+      p(0, "cf-1548a", "Web of Lies", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1548/A"),
+      p(0, "cf-1650c", "Weight of the System of Nested Segments", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1650/C"),
+      p(0, "cf-1399e2", "Weights Division (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1399/E2"),
+      p(0, "cf-1198b", "Welfare State", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1198/B"),
+      p(0, "cf-1670c", "Where is the Pizza?", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1670/C"),
+      p(0, "cf-1200d", "White Lines", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1200/D"),
+      p(0, "cf-1676g", "White-Black Balanced Subtrees", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1676/G"),
+      p(0, "cf-2117f", "Wildflower", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2117/F"),
+      p(0, "cf-167d", "Wizards and Roads", "Hard", "codeforces", "https://codeforces.com/problemset/problem/167/D"),
+      p(0, "cf-1657f", "Words on Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1657/F"),
+      p(0, "cf-290c", "WTF?", "Medium", "codeforces", "https://codeforces.com/problemset/problem/290/C"),
+      p(0, "cf-1878g", "wxhtzdy ORO Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1878/G"),
+      p(0, "cf-339c", "Xenia and Weights", "Medium", "codeforces", "https://codeforces.com/problemset/problem/339/C"),
+      p(0, "cf-895b", "XK Segments", "Medium", "codeforces", "https://codeforces.com/problemset/problem/895/B"),
+      p(0, "cf-1895d", "XOR Construction", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1895/D"),
+      p(0, "cf-1416c", "XOR Inverse", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1416/C"),
+      p(0, "cf-1849f", "XOR Partition", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1849/F"),
+      p(0, "cf-2267f1", "XOR Transformations (Easy Version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2267/F1"),
+      p(0, "cf-2267f2", "XOR Transformations (Hard Version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2267/F2"),
+      p(0, "cf-1720d1", "Xor-Subsequence (easy version)", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1720/D1"),
+      p(0, "cf-1720d2", "Xor-Subsequence (hard version)", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1720/D2"),
+      p(0, "cf-429a", "Xor-tree", "Easy", "codeforces", "https://codeforces.com/problemset/problem/429/A"),
+      p(0, "cf-1788f", "XOR, Tree, and Queries", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1788/F"),
+      p(0, "cf-2121f", "Yamakasi", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2121/F"),
+      p(0, "cf-1899d", "Yarik and Musical Notes", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1899/D"),
+      p(0, "cf-633g", "Yash And Trees", "Hard", "codeforces", "https://codeforces.com/problemset/problem/633/G"),
+      p(0, "cf-1980g", "Yasya and the Mysterious Tree", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1980/G"),
+      p(0, "cf-1748e", "Yet Another Array Counting Problem", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1748/E"),
+      p(0, "cf-1511c", "Yet Another Card Deck", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1511/C"),
+      p(0, "cf-1430g", "Yet Another DAG Problem", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1430/G"),
+      p(0, "cf-2146e", "Yet Another MEX Problem", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2146/E"),
+      p(0, "cf-1901d", "Yet Another Monster Fight", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1901/D"),
+      p(0, "cf-1257d", "Yet Another Monster Killing Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1257/D"),
+      p(0, "cf-1747d", "Yet Another Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1747/D"),
+      p(0, "cf-1703f", "Yet Another Problem About Pairs Satisfying an Inequality", "Easy", "codeforces", "https://codeforces.com/problemset/problem/1703/F"),
+      p(0, "cf-2035d", "Yet Another Real Number Problem", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2035/D"),
+      p(0, "cf-1438e", "Yurii Can Do Everything", "Hard", "codeforces", "https://codeforces.com/problemset/problem/1438/E"),
+      p(0, "cf-2086e", "Zebra-like Numbers", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2086/E"),
+      p(0, "cf-1695c", "Zero Path", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1695/C"),
+      p(0, "cf-274b", "Zero Tree", "Medium", "codeforces", "https://codeforces.com/problemset/problem/274/B"),
+      p(0, "cf-551b", "ZgukistringZ", "Medium", "codeforces", "https://codeforces.com/problemset/problem/551/B"),
+      p(0, "cf-2223b", "Zhily and Barknights", "Medium", "codeforces", "https://codeforces.com/problemset/problem/2223/B"),
+      p(0, "cf-2189f", "Zhora the Vacuum Cleaner", "Hard", "codeforces", "https://codeforces.com/problemset/problem/2189/F"),
+      p(0, "cf-1400d", "Zigzags", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1400/D"),
+      p(0, "cf-1491d", "Zookeeper and The Infinite Zoo", "Medium", "codeforces", "https://codeforces.com/problemset/problem/1491/D"),
     ];
   };
 
@@ -2509,15 +3765,32 @@
     const list = [];
     (Array.isArray(raw) ? raw : []).forEach((item) => {
       if (!item || typeof item !== "object") return;
-      const num = Number(item.num);
       const url = typeof item.url === "string" ? item.url.trim() : "";
-      if (!Number.isFinite(num) || !url || seen.has(url)) return;
+      if (!url || seen.has(url)) return;
       seen.add(url);
+      /* A problem from another platform has no LeetCode number. Number(null)
+         and Number(undefined) are both 0, which would make every one of them
+         look like "problem 0", so the absence of a number is kept as null and
+         the row shows its platform's own id instead. */
+      const rawNum = item.num;
+      const num = rawNum === null || rawNum === undefined || rawNum === "" ? null : Number(rawNum);
+      if (num !== null && !Number.isFinite(num)) return;
+      const platform = typeof item.platform === "string" && item.platform ? item.platform : "leetcode";
+      const slug = String(item.slug || "").trim();
       list.push({
-        id: String(item.id || `p-${num}-${url.slice(-12)}`),
+        id: String(item.id || `p-${slug || url.slice(-12)}`),
+        /* slug is the key the API, revision, notes and solutions all use to
+           address a problem, so it is carried through rather than re-derived
+           from the URL. */
+        slug,
         num,
-        name: String(item.name || `Problem ${num}`).trim() || `Problem ${num}`,
+        platform,
+        name: String(item.name || (num === null ? slug : `Problem ${num}`)).trim() || slug,
         url,
+        rating: Number.isFinite(Number(item.rating)) && item.rating !== null && item.rating !== undefined
+          ? Number(item.rating)
+          : null,
+        topics: Array.isArray(item.topics) ? item.topics.filter((t) => typeof t === "string" && t) : [],
         difficulty: ["Easy", "Medium", "Hard"].includes(item.difficulty) ? item.difficulty : "Medium",
         solved: Boolean(item.solved),
         added: Boolean(item.added),
@@ -3201,7 +4474,17 @@ const ensureRevisionStateForCatalog = () => {
 
       const numEl = document.createElement("span");
       numEl.className = "lc-problem-num";
-      numEl.textContent = String(problem.num || "—");
+      /* A LeetCode problem shows its LeetCode number. A problem from another
+         platform has no such number, so it shows that platform's own id -
+         "1984D" from the slug "cf-1984d" - rather than a dash, because a dash
+         tells the reader nothing they can act on. */
+      if (problem.num !== null && problem.num !== undefined && problem.num !== 0) {
+        numEl.textContent = String(problem.num);
+      } else {
+        const match = /^cf-(\d+)([a-z]\d*)$/.exec(problem.slug || "");
+        numEl.textContent = match ? `${match[1]}${match[2].toUpperCase()}` : "—";
+        numEl.dataset.platform = problem.platform || "leetcode";
+      }
 
       const main = document.createElement("div");
       main.className = "lc-problem-main";
@@ -7990,6 +9273,1058 @@ const refreshStudyForActiveProblem = () => {
     return history;
   };
 
+  /* --------------------- algorithm visualizer page --------------------- */
+  /* Registered from visualizer.js, which holds the engines and is tested by
+     scripts/test-visualizer.js. This half is only the player: it turns the
+     engine's frame list into something you can step through. */
+
+  /* ====================== algorithm visualizer UI =========================
+     The player for visualizer.js.
+
+     Everything on screen is derived from one value: `viz.index`, an index into
+     the frame list the engine produced. Playing is just incrementing it, stepping
+     is setting it, and the scrubber is an <input type="range"> bound to it. There
+     is no separate "animating" code path that could disagree with what stepping
+     shows, which is what keeps the narration and the drawing honest.
+
+     What this file deliberately does not do: guess. If an algorithm produces no
+     frames, the stage says so. If an input is invalid, the field says what is
+     wrong rather than silently falling back to the default. */
+
+  const VIZ_KEY = "quantaVisualizerV1";
+
+  const vizState = {
+    group: "sort",
+    algorithm: "bubble",
+    frames: [],
+    index: 0,
+    playing: false,
+    timer: null,
+    speed: 450,
+    inputs: {},
+    error: ""
+  };
+
+  /* Short source listings. These are shown as reference next to the animation;
+     they are the same algorithm as the engine, kept deliberately small, and the
+     engine is the authority on behaviour (it is what the tests check). */
+  const VIZ_CODE = {
+    bubble: `for i in 0..n-1:
+    swapped = false
+    for j in 0..n-1-i-1:
+      if a[j] > a[j+1]:
+        swap(a[j], a[j+1])
+        swapped = true
+    if not swapped:
+      break            # already sorted`,
+    selection: `for i in 0..n-1:
+    smallest = i
+    for j in i+1..n-1:
+      if a[j] < a[smallest]:
+        smallest = j
+    swap(a[i], a[smallest])`,
+    insertion: `for i in 1..n-1:
+    key = a[i]
+    j = i - 1
+    while j >= 0 and a[j] > key:
+      a[j+1] = a[j]     # shift right
+      j -= 1
+    a[j+1] = key`,
+    merge: `sort(lo, hi):
+    if hi - lo <= 1: return
+    mid = (lo + hi) / 2
+    sort(lo, mid)
+    sort(mid, hi)
+    merge the two sorted halves`,
+    quick: `sort(lo, hi):
+    if lo > hi: return
+    pivot = a[hi]
+    i = lo
+    for j in lo..hi-1:
+      if a[j] < pivot:
+        swap(a[i], a[j])
+        i += 1
+    swap(a[i], a[hi])     # pivot is now final
+    sort(lo, i-1)
+    sort(i+1, hi)`,
+    heap: `build a max heap over the whole array
+  for end in n-1 down to 1:
+    swap(a[0], a[end])  # biggest value is final
+    sift_down(0, end)`,
+    linear: `for i in 0..n-1:
+    if a[i] == target:
+      return i
+  return -1`,
+    binary: `lo = 0, hi = n - 1
+  while lo <= hi:
+    mid = (lo + hi) / 2
+    if a[mid] == target: return mid
+    if a[mid] < target:  lo = mid + 1
+    else:                hi = mid - 1
+  return -1`,
+    exponential: `bound = 1
+  while a[bound] <= target:
+    bound *= 2               # find a range that contains it
+  binary search inside [bound/2, bound]`,
+    lowerBound: `lo = 0, hi = n
+  while lo < hi:
+    mid = (lo + hi) / 2
+    if a[mid] < target: lo = mid + 1
+    else:               hi = mid
+  return lo               # where the value would be inserted`,
+    factorial: `fact(n):
+    if n <= 1: return 1
+    return n * fact(n - 1)`,
+    fibonacci: `fib(n):
+    if n < 2: return n
+    return fib(n - 1) + fib(n - 2)
+  # fib(1) is recomputed many times - this is why it is slow`,
+    hanoi: `hanoi(n, from, to, spare):
+    if n == 0: return
+    hanoi(n - 1, from, spare, to)
+    move disc n: from -> to
+    hanoi(n - 1, spare, to, from)`,
+    gcd: `gcd(a, b):
+    if b == 0: return a
+    return gcd(b, a mod b)`,
+    bstInsert: `insert(node, value):
+    if node is empty:
+      return new node(value)
+    if value < node.value:
+      node.left  = insert(node.left,  value)
+    else:
+      node.right = insert(node.right, value)
+    return node`,
+    traversals: `pre-order : node, left,  right
+  in-order  : left,  node,  right
+  post-order: left,  right, node`,
+    bfs: `queue = [start]
+  while queue is not empty:
+    node = queue.pop_front()
+    for each neighbour:
+      if not seen:
+        seen.add(neighbour)
+        queue.push_back(neighbour)`,
+    dfs: `stack = [start]
+  while stack is not empty:
+    node = stack.pop()
+    if seen: continue
+    seen.add(node)
+    for each unvisited neighbour:
+      stack.push(neighbour)`,
+    dijkstra: `dist[start] = 0, everything else unknown
+  while unvisited nodes remain:
+    settle the unvisited node with the smallest dist
+    for each edge from it:
+      if dist[here] + weight < dist[there]:
+        dist[there] = dist[here] + weight   # relax`,
+    slidingWindow: `sum = 0
+  for i in 0..n-1:
+    sum += a[i]
+    if i >= k:
+      sum -= a[i - k]    # drop what left the window
+    if i >= k - 1:
+      record(sum)`,
+    twoPointers: `lo = 0, hi = n - 1
+  while lo <= hi:
+    if a[lo] + a[hi] == target: found
+    if a[lo] + a[hi] <  target: lo += 1
+    else:                      hi -= 1`,
+    prefixSum: `prefix[0] = 0
+  for i in 0..n-1:
+    prefix[i+1] = prefix[i] + a[i]
+
+  # any range sum is now one subtraction:
+  #   sum(a[i..j]) = prefix[j+1] - prefix[i]`,
+    kadane: `best = current = a[0]
+  for i in 1..n-1:
+    if current + a[i] < a[i]:
+      current = a[i]        # a negative tail: start again
+    else:
+      current += a[i]
+    best = max(best, current)`,
+    dpFibonacci: `fib[0] = 0, fib[1] = 1
+  for i in 2..n:
+    fib[i] = fib[i-1] + fib[i-2]   # each value computed once`,
+    climbStairs: `ways[0] = 1, ways[1] = 1
+  for i in 2..n:
+    ways[i] = ways[i-1] + ways[i-2]`,
+    knapsack: `best[i][c] = best value using items 0..i with capacity c
+  best[i][c] = max(
+    best[i-1][c],                          # skip item i
+    value[i] + best[i-1][c - weight[i]]    # take item i
+  )`,
+    lcs: `dp[i][j] = longest common subsequence of a[0..i) and b[0..j)
+  if a[i-1] == b[j-1]: dp[i][j] = dp[i-1][j-1] + 1
+  else:                 dp[i][j] = max(dp[i-1][j], dp[i][j-1])`
+  };
+
+  const vizDpCodeKey = {
+    fibonacci: "dpFibonacci",
+    climbStairs: "climbStairs",
+    knapsack: "knapsack",
+    lcs: "lcs"
+  };
+
+  /* ---------------------------- input parsing ---------------------------- */
+
+  /* Only the shapes the engine can actually draw are accepted. A value like
+     "3.5" or "1,2,abc" is reported rather than silently coerced, because a
+     visualizer that quietly changes your data teaches the wrong thing. */
+  const vizParseList = (raw) => {
+    const text = String(raw || "").trim();
+    if (!text) return { values: [], error: "Enter some numbers." };
+    const parts = text.split(/[\s,]+/).filter(Boolean);
+    const values = [];
+    for (const part of parts) {
+      if (!/^-?\d+$/.test(part)) return { values: [], error: `"${part}" is not a whole number.` };
+      values.push(Number(part));
+    }
+    if (values.length < 2) return { values, error: "Use at least two values." };
+    if (values.length > 24) return { values: [], error: "Keep it to 24 values so the bars stay readable." };
+    return { values, error: "" };
+  };
+
+  const vizParseInt = (raw, label, { min = 0, max = 99 } = {}) => {
+    const text = String(raw || "").trim();
+    if (!/^\d+$/.test(text)) return { value: null, error: `${label} must be a whole number.` };
+    const value = Number(text);
+    if (value < min || value > max) return { value: null, error: `${label} must be between ${min} and ${max}.` };
+    return { value, error: "" };
+  };
+
+  /* ------------------------------ rendering ------------------------------ */
+
+  const vizEl = (id) => document.getElementById(id);
+
+  const vizRenderPicker = () => {
+    const host = vizEl("viz-picker");
+    if (!host) return;
+    host.innerHTML = "";
+    for (const [key, group] of Object.entries(window.VISUALIZERS || {})) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `viz-chip${vizState.group === key ? " is-active" : ""}`;
+      button.textContent = group.label;
+      button.dataset.group = key;
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-selected", vizState.group === key ? "true" : "false");
+      button.addEventListener("click", () => {
+        if (vizState.group === key) return;
+        vizState.group = key;
+        vizState.algorithm = Object.keys(group.items)[0];
+        vizStop();
+        vizRenderPicker();
+        vizRenderAlgorithms();
+        vizRenderInputs();
+        vizRun();
+      });
+      host.appendChild(button);
+    }
+  };
+
+  const vizRenderAlgorithms = () => {
+    const host = vizEl("viz-algorithms");
+    if (!host) return;
+    host.innerHTML = "";
+    const group = (window.VISUALIZERS || {})[vizState.group];
+    if (!group) return;
+    for (const [key, algo] of Object.entries(group.items)) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `viz-alg${vizState.algorithm === key ? " is-active" : ""}`;
+      button.dataset.algorithm = key;
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-selected", vizState.algorithm === key ? "true" : "false");
+      const name = document.createElement("span");
+      name.className = "viz-alg__name";
+      name.textContent = algo.label;
+      const cost = document.createElement("span");
+      cost.className = "viz-alg__cost";
+      cost.textContent = algo.complexity;
+      button.append(name, cost);
+      button.addEventListener("click", () => {
+        if (vizState.algorithm === key) return;
+        vizState.algorithm = key;
+        vizStop();
+        vizRenderAlgorithms();
+        vizRenderInputs();
+        vizRun();
+      });
+      host.appendChild(button);
+    }
+    const about = vizEl("viz-about");
+    const current = group.items[vizState.algorithm];
+    if (about && current) about.textContent = current.note;
+  };
+
+    /* Inputs are stored per group AND per algorithm.
+     A single shared object let the sorting group's array leak into the
+     searching group, which then complained that its own default was unsorted -
+     an error the user could not see the cause of, and could not fix without
+     guessing. Keying by group/algorithm means every algorithm keeps its own
+     last-used values, which is also what someone comparing two algorithms
+     actually wants. */
+  const vizInputKey = () => `${vizState.group}.${vizState.algorithm}`;
+  const vizInputs = () => {
+    const key = vizInputKey();
+    if (!vizState.inputs[key] || typeof vizState.inputs[key] !== "object") vizState.inputs[key] = {};
+    return vizState.inputs[key];
+  };
+
+  const vizInputField = (id, label, value, hint) => {
+    const wrap = document.createElement("label");
+    wrap.className = "viz-field";
+    const caption = document.createElement("span");
+    caption.textContent = label;
+    const input = document.createElement("input");
+    input.className = "settings-input";
+    input.type = "text";
+    input.id = id;
+    input.value = value;
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    wrap.append(caption, input);
+    if (hint) {
+      const small = document.createElement("small");
+      small.textContent = hint;
+      wrap.appendChild(small);
+    }
+    return { wrap, input };
+  };
+
+  const vizRenderInputs = () => {
+    const host = vizEl("viz-inputs");
+    if (!host) return;
+    host.innerHTML = "";
+    const example = (window.VIZ_EXAMPLES || {})[vizState.group] || {};
+    const algo = vizState.algorithm;
+    const state = vizInputs();
+
+    /* Each field writes its value back into the stored state before the run is
+       rebuilt. Without that the state kept its old value, so typing "3,
+       banana, 7" into the array box re-ran the previous array and the invalid
+       input was never reported - the run looked like it had worked. */
+    const addField = (field, storeKey) => {
+      const apply = () => {
+        if (storeKey) vizInputs()[storeKey] = field.input.value;
+        vizRun();
+      };
+      field.input.addEventListener("change", apply);
+      field.input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          apply();
+        }
+      });
+      host.appendChild(field.wrap);
+      return field.input;
+    };
+
+    const shuffle = vizEl("viz-shuffle");
+
+    if (vizState.group === "sort") {
+      if (state.array === undefined) state.array = (example.array || [5, 2, 9, 1, 5, 6, 3]).join(", ");
+      addField(vizInputField("viz-in-array", "Values", state.array, "Whole numbers, separated by commas."), "array");
+      if (shuffle) shuffle.hidden = false;
+    } else if (vizState.group === "search") {
+      if (state.array === undefined) state.array = (example.array || []).join(", ");
+      if (state.target === undefined) state.target = String(example.target ?? 11);
+      addField(vizInputField("viz-in-array", "Sorted values", state.array, "Searching needs a sorted array."), "array");
+      addField(vizInputField("viz-in-target", "Looking for", state.target), "target");
+      if (shuffle) shuffle.hidden = false;
+    } else if (vizState.group === "recursion") {
+      if (algo === "gcd") {
+        if (state.a === undefined) state.a = String(example.gcdA ?? 48);
+        if (state.b === undefined) state.b = String(example.gcdB ?? 18);
+        addField(vizInputField("viz-in-a", "First number", state.a), "a");
+        addField(vizInputField("viz-in-b", "Second number", state.b), "b");
+      } else {
+        const label = algo === "factorial" ? "n" : algo === "fibonacci" ? "n (max 12)" : "discs (max 5)";
+        const fallback = algo === "factorial" ? example.factorial ?? 5 : algo === "fibonacci" ? example.fibonacci ?? 8 : example.hanoi ?? 3;
+        if (state.n === undefined) state.n = String(fallback);
+        addField(vizInputField("viz-in-n", label, state.n), "n");
+      }
+      if (shuffle) shuffle.hidden = true;
+    } else if (vizState.group === "tree") {
+      if (state.values === undefined) state.values = (example.values || [50, 30, 70, 20, 40, 60, 80]).join(", ");
+      addField(vizInputField("viz-in-values", "Values to insert", state.values, "Inserted in this order, in a binary search tree."), "values");
+      if (shuffle) shuffle.hidden = false;
+    } else if (vizState.group === "graph") {
+      if (state.note === undefined) state.note = "";
+      const caption = document.createElement("p");
+      caption.className = "viz-note viz-note--plain";
+      caption.textContent =
+        "This one uses a fixed graph so the paths stay readable: 0 → 1 (4), 0 → 2 (1), 2 → 1 (2), 1 → 3 (1), 2 → 3 (5), 3 → 4 (3). The number on each edge is its weight.";
+      host.appendChild(caption);
+      if (shuffle) shuffle.hidden = true;
+    } else if (vizState.group === "pattern") {
+      if (algo === "slidingWindow") {
+        if (state.array === undefined) state.array = (example.array || []).join(", ");
+        if (state.k === undefined) state.k = String(example.k ?? 3);
+        addField(vizInputField("viz-in-array", "Values", state.array), "array");
+        addField(vizInputField("viz-in-k", "Window size", state.k), "k");
+      } else if (algo === "twoPointers") {
+        if (state.array === undefined) state.array = (example.sorted || []).join(", ");
+        if (state.target === undefined) state.target = String(example.target ?? 9);
+        addField(vizInputField("viz-in-array", "Sorted values", state.array), "array");
+        addField(vizInputField("viz-in-target", "Looking for", state.target), "target");
+      } else {
+        if (state.array === undefined) state.array = (example.array || [2, 1, 5, 1, 3, 2, 8, 1]).join(", ");
+        addField(vizInputField("viz-in-array", "Values", state.array), "array");
+      }
+      if (shuffle) shuffle.hidden = algo !== "slidingWindow" && algo !== "prefixSum" && algo !== "kadane";
+    } else if (vizState.group === "dp") {
+      if (algo === "knapsack") {
+        const items = example.items || [];
+        const caption = document.createElement("p");
+        caption.className = "viz-note viz-note--plain";
+        caption.textContent = `Fixed items so the table stays small: ${items
+          .map((item) => `weight ${item.weight} / value ${item.value}`)
+          .join(", ")}.`;
+        host.appendChild(caption);
+        if (state.capacity === undefined) state.capacity = String(example.capacity ?? 8);
+        addField(vizInputField("viz-in-capacity", "Bag capacity (max 12)", state.capacity), "capacity");
+      } else if (algo === "lcs") {
+        const caption = document.createElement("p");
+        caption.className = "viz-note viz-note--plain";
+        caption.textContent = `Fixed strings so the table stays readable: "${example.strA}" and "${example.strB}".`;
+        host.appendChild(caption);
+      } else {
+        const fallback = example.n ?? 8;
+        if (state.n === undefined) state.n = String(fallback);
+        addField(vizInputField("viz-in-n", "n (max 20)", state.n), "n");
+      }
+      if (shuffle) shuffle.hidden = true;
+    }
+  };
+
+  /* Builds the frame list for the current selection, or reports why it cannot. */
+  const vizBuild = () => {
+    const V = window;
+    const algo = (V.VISUALIZERS?.[vizState.group]?.items || {})[vizState.algorithm];
+    if (!algo) return { error: "That algorithm is not available." };
+    const example = (V.VIZ_EXAMPLES || {})[vizState.group] || {};
+    const state = vizInputs();
+    /* Reads the array field the current algorithm actually uses. The tree
+       group names its field "values" while the others name it "array";
+       reading one fixed name meant the tree group always saw an empty field
+       and reported "Enter some numbers" while a perfectly good list sat in
+       the box. */
+    const readArray = () => vizParseList(vizState.group === "tree" ? state.values : state.array);
+
+    try {
+      if (vizState.group === "sort") {
+        const { values, error } = readArray();
+        if (error) return { error };
+        return algo.run(values);
+      }
+      if (vizState.group === "search") {
+        const { values, error } = readArray();
+        if (error) return { error };
+        const sortedCopy = values.slice().sort((a, b) => a - b);
+        if (values.some((v, i) => v !== sortedCopy[i])) {
+          return { error: "Searching needs the values in ascending order." };
+        }
+        const target = vizParseInt(state.target, "The value");
+        if (target.error) return { error: target.error };
+        return algo.run(values, target.value);
+      }
+      if (vizState.group === "recursion") {
+        if (vizState.algorithm === "gcd") {
+          const a = vizParseInt(state.a, "The first number", { min: 0, max: 99999 });
+          const b = vizParseInt(state.b, "The second number", { min: 0, max: 99999 });
+          if (a.error) return { error: a.error };
+          if (b.error) return { error: b.error };
+          if (a.value === 0 && b.value === 0) return { error: "Both numbers cannot be zero." };
+          return algo.build(a.value, b.value);
+        }
+        const cap = vizState.algorithm === "hanoi" ? 5 : vizState.algorithm === "fibonacci" ? 12 : 12;
+        const parsed = vizParseInt(state.n, "That value", { min: 0, max: cap });
+        if (parsed.error) return { error: parsed.error };
+        return algo.build(parsed.value);
+      }
+      if (vizState.group === "tree") {
+        const { values, error } = readArray();
+        if (error) return { error };
+        if (values.length > 15) return { error: "Keep it to 15 values so the tree stays readable." };
+        if (algo === "traversals" && values.length < 2) return { error: "A traversal needs at least two values." };
+        return algo.run(values);
+      }
+      if (vizState.group === "graph") {
+        return algo.run(example.edges || []);
+      }
+      if (vizState.group === "pattern") {
+        if (vizState.algorithm === "slidingWindow") {
+          const { values, error } = readArray();
+          if (error) return { error };
+          const k = vizParseInt(state.k, "The window size", { min: 1, max: values.length });
+          if (k.error) return { error: k.error };
+          return algo.run(values, k.value);
+        }
+        if (vizState.algorithm === "twoPointers") {
+          const { values, error } = readArray();
+          if (error) return { error };
+          const sortedCopy = values.slice().sort((a, b) => a - b);
+          if (values.some((v, i) => v !== sortedCopy[i])) {
+            return { error: "Two pointers needs the values in ascending order." };
+          }
+          const target = vizParseInt(state.target, "The value", { min: -9999, max: 9999 });
+          if (target.error) return { error: target.error };
+          return algo.run(values, target.value);
+        }
+        const { values, error } = readArray();
+        if (error) return { error };
+        return algo.run(values);
+      }
+      if (vizState.group === "dp") {
+        if (vizState.algorithm === "knapsack") {
+          const items = example.items || [];
+          const capacity = vizParseInt(state.capacity, "The capacity", { min: 0, max: 12 });
+          if (capacity.error) return { error: capacity.error };
+          return algo.run(items.map((i) => i.weight), items.map((i) => i.value), capacity.value);
+        }
+        if (vizState.algorithm === "lcs") {
+          return algo.run(example.strA || "ABCBDAB", example.strB || "BDCABA");
+        }
+        const parsed = vizParseInt(state.n, "That value", { min: 0, max: 20 });
+        if (parsed.error) return { error: parsed.error };
+        return algo.run(parsed.value);
+      }
+      return { error: "That algorithm is not available." };
+    } catch (error) {
+      /* An algorithm that throws is a bug in the engine, not the user's input.
+         It is reported as such rather than being shown as bad input. */
+      return { error: `The visualizer hit an error while preparing this run: ${error?.message || error}` };
+    }
+  };
+
+  const vizRun = () => {
+    const built = vizBuild();
+    const note = vizEl("viz-note");
+    if (built.error) {
+      vizState.frames = [];
+      vizState.index = 0;
+      vizState.error = built.error;
+      if (note) {
+        note.textContent = built.error;
+        note.classList.add("viz-note--error");
+      }
+      const canvas = vizEl("viz-canvas");
+      if (canvas) canvas.innerHTML = "";
+      vizSyncControls();
+      return;
+    }
+    vizState.error = "";
+    vizState.frames = built.frames || [];
+    vizState.index = 0;
+    if (note) {
+      note.classList.remove("viz-note--error");
+    }
+    vizPersist();
+    vizSyncControls();
+    vizRenderFrame();
+  };
+
+  const vizPersist = () => {
+    writeJson(VIZ_KEY, {
+      group: vizState.group,
+      algorithm: vizState.algorithm,
+      speed: vizState.speed,
+      inputs: vizState.inputs
+    });
+  };
+
+  /* ------------------------------- drawing ------------------------------- */
+
+  const vizBars = (host, frame, { highlight = [] } = {}) => {
+    const values = frame.array || [];
+    if (!values.length) return;
+    const max = Math.max(...values.map((v) => Math.abs(v)), 1);
+    const row = document.createElement("div");
+    row.className = "viz-bars";
+
+    values.forEach((value, index) => {
+      const cell = document.createElement("div");
+      cell.className = "viz-bar-cell";
+      const bar = document.createElement("div");
+      bar.className = "viz-bar";
+      const height = Math.max(6, Math.round((Math.abs(value) / max) * 100));
+      bar.style.height = `${height}%`;
+      if (highlight.includes(index)) bar.classList.add("is-active");
+      if (typeof frame.sorted === "number" && index >= values.length - frame.sorted) bar.classList.add("is-done");
+      if (Array.isArray(frame.range) && index >= frame.range[0] && index <= frame.range[1]) bar.classList.add("is-window");
+      if (frame.found === index) bar.classList.add("is-found");
+      const label = document.createElement("span");
+      label.className = "viz-bar__label";
+      label.textContent = String(value);
+      cell.append(bar, label);
+      row.appendChild(cell);
+    });
+
+    host.appendChild(row);
+
+    /* The index rail, so it is obvious *which* bars the step refers to. */
+    const rail = document.createElement("div");
+    rail.className = "viz-indexes";
+    values.forEach((_, index) => {
+      const tick = document.createElement("span");
+      tick.className = "viz-index";
+      tick.textContent = String(index);
+      if (highlight.includes(index)) tick.classList.add("is-active");
+      rail.appendChild(tick);
+    });
+    host.appendChild(rail);
+  };
+
+  const vizStack = (host, frame) => {
+    const calls = frame.calls || [];
+    if (!calls.length) return;
+    const box = document.createElement("div");
+    box.className = "viz-stack";
+    const maxDepth = Math.max(...calls.map((c) => c.depth));
+    const latest = calls.length - 1;
+
+    calls.forEach((call, i) => {
+      const row = document.createElement("div");
+      row.className = `viz-stack__row is-${call.state}`;
+      if (i === latest) row.classList.add("is-current");
+      const indent = document.createElement("span");
+      indent.className = "viz-stack__indent";
+      indent.textContent = "│ ".repeat(call.depth);
+      const label = document.createElement("span");
+      label.className = "viz-stack__label";
+      label.textContent = call.label;
+      row.append(indent, label);
+      box.appendChild(row);
+    });
+    host.appendChild(box);
+    void maxDepth;
+  };
+
+  const vizTree = (host, frame) => {
+    const root = frame.nodes;
+    /* The first frame of an insert has no tree yet. Saying so beats drawing an
+       empty box, because "nothing here" is exactly what is true at that step. */
+    if (!root) {
+      const empty = document.createElement("p");
+      empty.className = "viz-note--plain";
+      empty.textContent = "The tree is empty so far — this step is about deciding where the first value goes.";
+      host.appendChild(empty);
+      return;
+    }
+    const layout = window.layoutTree(root);
+    if (!layout.nodes.length) return;
+
+    const box = document.createElement("div");
+    box.className = "viz-tree";
+    const depthCount = Math.max(...layout.nodes.map((n) => n.depth)) + 1;
+
+    layout.nodes.forEach((node) => {
+      const el = document.createElement("div");
+      el.className = "viz-node";
+      if (frame.highlight === node.id) el.classList.add("is-active");
+      el.textContent = String(node.value);
+      el.style.left = `${node.x * 100}%`;
+      el.style.top = `${(node.depth / Math.max(1, depthCount)) * 100}%`;
+      box.appendChild(el);
+    });
+
+    const edgeLayer = document.createElement("svg");
+    /* `className` is a read-only accessor on SVGElement, so assigning it throws
+       and aborts the whole render. setAttribute is the only correct way. */
+    edgeLayer.setAttribute("class", "viz-tree__edges");
+    edgeLayer.setAttribute("viewBox", "0 0 100 100");
+    edgeLayer.setAttribute("preserveAspectRatio", "none");
+    const byId = new Map(layout.nodes.map((n) => [n.id, n]));
+    for (const [fromId, toId] of layout.edges) {
+      const from = byId.get(fromId);
+      const to = byId.get(toId);
+      if (!from || !to) continue;
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      const y = (d) => ((d + 0.5) / Math.max(1, depthCount)) * 100;
+      line.setAttribute("x1", String(from.x * 100));
+      line.setAttribute("y1", String(y(from.depth)));
+      line.setAttribute("x2", String(to.x * 100));
+      line.setAttribute("y2", String(y(to.depth)));
+      edgeLayer.appendChild(line);
+    }
+    box.appendChild(edgeLayer);
+    box.style.setProperty("--viz-depth", String(depthCount));
+    host.appendChild(box);
+  };
+
+  const vizGraph = (host, frame) => {
+    const nodes = frame.nodes || [];
+    if (!nodes.length) return;
+    const edges = frame.edges || [];
+    const box = document.createElement("div");
+    box.className = "viz-graph";
+
+    const edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    edgeLayer.setAttribute("class", "viz-graph__edges");
+    edgeLayer.setAttribute("viewBox", "0 0 100 100");
+    edgeLayer.setAttribute("preserveAspectRatio", "none");
+
+    const radius = 34;
+    const angleFor = (index, total) => (Math.PI * 2 * index) / total - Math.PI / 2;
+    const posFor = (node) => {
+      const index = nodes.indexOf(node);
+      return { x: 50 + Math.cos(angleFor(index, nodes.length)) * radius, y: 50 + Math.sin(angleFor(index, nodes.length)) * radius };
+    };
+
+    for (const [from, to, weight] of edges) {
+      const a = posFor(from);
+      const b = posFor(to);
+      if (!a || !b) continue;
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", String(a.x));
+      line.setAttribute("y1", String(a.y));
+      line.setAttribute("x2", String(b.x));
+      line.setAttribute("y2", String(b.y));
+      const active =
+        (Array.isArray(frame.visited) && frame.visited.includes(from) && frame.visited.includes(to)) ||
+        frame.current === from;
+      if (active) line.classList.add("is-active");
+      edgeLayer.appendChild(line);
+
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", String((a.x + b.x) / 2));
+      text.setAttribute("y", String((a.y + b.y) / 2 - 1));
+      text.setAttribute("text-anchor", "middle");
+      /* className is read-only on an SVGElement, so it must be set as an
+         attribute. Assigning `.className` throws and kills the whole render. */
+      text.setAttribute("class", "viz-graph__weight");
+      text.textContent = String(weight === undefined ? 1 : weight);
+      edgeLayer.appendChild(text);
+    }
+    box.appendChild(edgeLayer);
+
+    for (const node of nodes) {
+      const p = posFor(node);
+      const el = document.createElement("div");
+      el.className = "viz-node";
+      el.textContent = String(node);
+      el.style.left = `${p.x}%`;
+      el.style.top = `${p.y}%`;
+      if (Array.isArray(frame.visited) && frame.visited.includes(node)) el.classList.add("is-done");
+      if (frame.current === node) el.classList.add("is-active");
+      if (Array.isArray(frame.dist) && frame.dist[node] !== undefined && Number.isFinite(frame.dist[node])) {
+        el.dataset.distance = String(frame.dist[node]);
+      }
+      box.appendChild(el);
+    }
+
+    if (Array.isArray(frame.queue) && frame.queue.length) {
+      const q = document.createElement("div");
+      q.className = "viz-graph__queue";
+      q.textContent = `Queue: ${frame.queue.join(" → ")}`;
+      box.appendChild(q);
+    }
+    if (Array.isArray(frame.stack) && frame.stack.length) {
+      const q = document.createElement("div");
+      q.className = "viz-graph__queue";
+      q.textContent = `Stack: ${frame.stack.join(", ")}`;
+      box.appendChild(q);
+    }
+    host.appendChild(box);
+  };
+
+  const vizTable = (host, frame) => {
+    if (Array.isArray(frame.table)) {
+      const list = document.createElement("div");
+      list.className = "viz-table viz-table--row";
+      for (const cell of frame.table) {
+        const el = document.createElement("div");
+        el.className = "viz-table__cell";
+        if (frame.highlight === cell.index) el.classList.add("is-active");
+        const key = document.createElement("span");
+        key.className = "viz-table__key";
+        key.textContent = String(cell.index);
+        const value = document.createElement("span");
+        value.className = "viz-table__value";
+        value.textContent = String(cell.value);
+        el.append(key, value);
+        list.appendChild(el);
+      }
+      host.appendChild(list);
+      return;
+    }
+    if (!Array.isArray(frame.table2d)) return;
+
+    const table = document.createElement("div");
+    table.className = "viz-table viz-table--grid";
+    const header = frame.headers || null;
+    const rows = frame.rowLabels || null;
+    const size = frame.table2d.length;
+    const cols = frame.table2d[0]?.length || 0;
+
+    if (header) {
+      const head = document.createElement("div");
+      head.className = "viz-table__row viz-table__row--head";
+      head.appendChild(Object.assign(document.createElement("div"), { className: "viz-table__cell viz-table__cell--head", textContent: "" }));
+      for (const label of header.slice(0, cols)) {
+        const cell = document.createElement("div");
+        cell.className = "viz-table__cell viz-table__cell--head";
+        cell.textContent = String(label);
+        head.appendChild(cell);
+      }
+      table.appendChild(head);
+    }
+
+    for (let r = 0; r < size; r += 1) {
+      const row = document.createElement("div");
+      row.className = "viz-table__row";
+      if (rows) {
+        const label = document.createElement("div");
+        label.className = "viz-table__cell viz-table__cell--head";
+        label.textContent = String(rows[r] ?? "");
+        row.appendChild(label);
+      }
+      for (let c = 0; c < cols; c += 1) {
+        const cell = document.createElement("div");
+        cell.className = "viz-table__cell";
+        if (frame.highlight && frame.highlight.row === r && frame.highlight.col === c) cell.classList.add("is-active");
+        cell.textContent = String(frame.table2d[r][c]);
+        row.appendChild(cell);
+      }
+      table.appendChild(row);
+    }
+    host.appendChild(table);
+  };
+
+  const vizRenderFrame = () => {
+    const canvas = vizEl("viz-canvas");
+    const note = vizEl("viz-note");
+    if (!canvas) return;
+    canvas.innerHTML = "";
+
+    const frame = vizState.frames[vizState.index];
+    if (!frame) {
+      if (!vizState.error && note) note.textContent = "Press Run it to build the steps.";
+      return;
+    }
+
+    if (note) {
+      note.classList.remove("viz-note--error");
+      /* Replaced, not appended to. Appending left every previous frame's text
+         on screen, so the note grew into a wall of text mixing several steps
+         together - the worst possible outcome for a feature whose whole job is
+         to explain one step at a time. */
+      note.textContent = "";
+      const title = document.createElement("strong");
+      title.className = "viz-note__title";
+      title.textContent = frame.title;
+      note.append(title, document.createTextNode(` ${frame.note || ""}`));
+    }
+
+    /* Which renderer a frame uses is decided by the shape of the frame, and
+       the order matters. Graph frames carry `nodes` as an ARRAY of node ids
+       while tree frames carry `nodes` as a TREE OBJECT, and an earlier version
+       tested `if (frame.nodes)` for the tree - which is truthy for the array
+       too, so every graph was drawn as a tree and the graph renderer below it
+       was unreachable. The type is now checked explicitly. */
+    if (Array.isArray(frame.array)) vizBars(canvas, frame, { highlight: frame.pointers || [] });
+    else if (Array.isArray(frame.calls)) vizStack(canvas, frame);
+    /* Tree frames carry `nodes` as a tree OBJECT, graph frames as an ARRAY of
+       ids. The test is on the object, not on truthiness: the very first frame
+       of an insert starts with an empty tree, so `nodes` is null there, and a
+       truthiness check sent that frame to the graph branch and drew nothing at
+       all - the page looked broken until you pressed next. */
+    else if (frame.nodes && typeof frame.nodes === "object" && !Array.isArray(frame.nodes)) vizTree(canvas, frame);
+    else if (Array.isArray(frame.nodes)) vizGraph(canvas, frame);
+    else if (frame.table || frame.table2d) vizTable(canvas, frame);
+
+    const code = vizEl("viz-code");
+    if (code) {
+      const key = vizDpCodeKey[vizState.algorithm] || vizState.algorithm;
+      code.textContent = VIZ_CODE[key] || "The code for this algorithm is not listed.";
+    }
+
+    vizSyncControls();
+  };
+
+  /* ------------------------------- playback ------------------------------ */
+
+  const vizSyncControls = () => {
+    const total = vizState.frames.length;
+    const scrub = vizEl("viz-scrub");
+    if (scrub) {
+      scrub.max = String(Math.max(0, total - 1));
+      /* Only written when it disagrees with the state. Writing it on every
+         render fought the user's drag: the browser moved the thumb, the render
+         put it straight back, and dragging appeared to do nothing at all. */
+      if (Number(scrub.value) !== vizState.index) scrub.value = String(vizState.index);
+      scrub.disabled = total === 0;
+    }
+    const step = vizEl("viz-step");
+    if (step) step.textContent = total ? `Step ${vizState.index + 1}` : "No steps";
+    const totalEl = vizEl("viz-total");
+    if (totalEl) totalEl.textContent = total ? `of ${total}` : "";
+    const play = vizEl("viz-play");
+    if (play) {
+      play.setAttribute("aria-label", vizState.playing ? "Pause" : "Play");
+      play.title = vizState.playing ? "Pause" : "Play";
+      const icons = play.querySelectorAll("svg");
+      icons.forEach((icon) => {
+        const isPlay = icon.dataset.icon === "play";
+        icon.hidden = isPlay === vizState.playing;
+      });
+    }
+    for (const id of ["viz-first", "viz-prev", "viz-next", "viz-last"]) {
+      const node = vizEl(id);
+      if (node) node.disabled = total === 0;
+    }
+  };
+
+  const vizGoTo = (index) => {
+    const total = vizState.frames.length;
+    if (!total) return;
+    const next = Number(index);
+    if (!Number.isFinite(next)) return;
+    vizState.index = Math.max(0, Math.min(total - 1, next));
+    vizRenderFrame();
+  };
+
+  const vizStop = () => {
+    vizState.playing = false;
+    if (vizState.timer) {
+      window.clearInterval(vizState.timer);
+      vizState.timer = null;
+    }
+    vizSyncControls();
+  };
+
+  const vizPlay = () => {
+    const total = vizState.frames.length;
+    if (total < 2) return;
+    /* Restarting from the end is what people expect from a play button. */
+    if (vizState.index >= total - 1) vizState.index = 0;
+    vizState.playing = true;
+    vizState.timer = window.setInterval(() => {
+      if (vizState.index >= vizState.frames.length - 1) {
+        vizStop();
+        return;
+      }
+      vizGoTo(vizState.index + 1);
+    }, vizState.speed);
+    vizSyncControls();
+  };
+
+  /* Builds a shuffled but readable example, so the "Different values" button
+     actually changes the picture instead of reshuffling the same numbers. */
+  const vizShuffle = () => {
+    const state = vizInputs();
+    const example = (window.VIZ_EXAMPLES || {})[vizState.group] || {};
+    const randomArray = (count, min, max) =>
+      Array.from({ length: count }, () => min + Math.floor(Math.random() * (max - min + 1)));
+    const sortNumbers = (a) => a.slice().sort((x, y) => x - y);
+
+    if (vizState.group === "sort") {
+      state.array = randomArray(9, 1, 99).join(", ");
+    } else if (vizState.group === "search") {
+      const size = 9 + Math.floor(Math.random() * 4);
+      const sorted = sortNumbers(Array.from(new Set(randomArray(size, 1, 99))));
+      state.array = sorted.join(", ");
+      state.target = String(sorted[Math.floor(Math.random() * sorted.length)]);
+    } else if (vizState.group === "tree") {
+      state.values = randomArray(7 + Math.floor(Math.random() * 4), 10, 99).join(", ");
+    } else if (vizState.group === "pattern") {
+      if (vizState.algorithm === "twoPointers") {
+        const sorted = sortNumbers(Array.from(new Set(randomArray(10, 1, 60))));
+        state.array = sorted.join(", ");
+        state.target = String(sorted[Math.floor(Math.random() * sorted.length)] + sorted[Math.floor(Math.random() * sorted.length)]);
+      } else if (vizState.algorithm === "slidingWindow") {
+        state.array = randomArray(10, 1, 20).join(", ");
+        state.k = String(2 + Math.floor(Math.random() * 3));
+      } else {
+        state.array = randomArray(11, -9, 20).join(", ");
+      }
+    }
+    void example;
+    vizRenderInputs();
+    vizRun();
+  };
+
+  /* -------------------------------- wiring ------------------------------- */
+
+  const initVisualizer = () => {
+    const stored = readJson(VIZ_KEY, () => ({}));
+    if (stored && typeof stored === "object") {
+      if (stored.group && window.VISUALIZERS?.[stored.group]) vizState.group = stored.group;
+      if (stored.algorithm && window.VISUALIZERS?.[vizState.group]?.items?.[stored.algorithm]) {
+        vizState.algorithm = stored.algorithm;
+      }
+      if (stored.inputs && typeof stored.inputs === "object") vizState.inputs = { ...stored.inputs };
+      if ([80, 200, 450, 900].includes(Number(stored.speed))) vizState.speed = Number(stored.speed);
+    }
+
+    const speed = vizEl("viz-speed");
+    if (speed) {
+      speed.value = String(vizState.speed);
+      speed.addEventListener("change", () => {
+        vizState.speed = Number(speed.value) || 450;
+        vizPersist();
+        if (vizState.playing) {
+          vizStop();
+          vizPlay();
+        }
+      });
+    }
+
+    const scrub = vizEl("viz-scrub");
+    if (scrub) {
+      scrub.addEventListener("input", () => {
+        /* The target is read BEFORE stopping playback. vizStop() re-syncs the
+           controls, which writes the slider from the current step, so reading
+           it afterwards returned the old position and the drag appeared to do
+           nothing. */
+        const target = Number(scrub.value);
+        vizStop();
+        vizGoTo(target);
+      });
+    }
+
+    vizEl("viz-run")?.addEventListener("click", () => {
+      vizStop();
+      vizRun();
+    });
+    vizEl("viz-shuffle")?.addEventListener("click", () => {
+      vizStop();
+      vizShuffle();
+    });
+    vizEl("viz-first")?.addEventListener("click", () => { vizStop(); vizGoTo(0); });
+    vizEl("viz-prev")?.addEventListener("click", () => { vizStop(); vizGoTo(vizState.index - 1); });
+    vizEl("viz-next")?.addEventListener("click", () => { vizStop(); vizGoTo(vizState.index + 1); });
+    vizEl("viz-last")?.addEventListener("click", () => { vizStop(); vizGoTo(vizState.frames.length - 1); });
+    vizEl("viz-play")?.addEventListener("click", () => (vizState.playing ? vizStop() : vizPlay()));
+
+    /* Keyboard stepping, but only while this page is on screen, so the arrow
+       keys keep working normally everywhere else in the app. */
+    document.addEventListener("keydown", (event) => {
+      if (currentPage !== "visualizer") return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" && document.activeElement !== scrub) return;
+      if (tag === "TEXTAREA" || tag === "SELECT") return;
+      if (event.key === "ArrowRight") { event.preventDefault(); vizStop(); vizGoTo(vizState.index + 1); }
+      else if (event.key === "ArrowLeft") { event.preventDefault(); vizStop(); vizGoTo(vizState.index - 1); }
+      else if (event.key === " ") { event.preventDefault(); vizState.playing ? vizStop() : vizPlay(); }
+    });
+
+    vizRenderPicker();
+    vizRenderAlgorithms();
+    vizRenderInputs();
+    vizRun();
+
+    /* Pause when the page is hidden: a timer that keeps stepping frames nobody
+       is looking at is wasted work, and it would jump to a random frame when the
+       page came back. */
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) vizStop();
+    });
+  };
+
+
   /* -------------------------------- init -------------------------------- */
 
   ensureActiveSession();
@@ -7998,6 +10333,7 @@ const refreshStudyForActiveProblem = () => {
   /* Connection diagnostics run once in the background and then only when the
      network changes or the user asks. Nothing here blocks start-up. */
   initConnectionDiagnostics();
+  initVisualizer();
   initLcFilters();
   renderTabs();
   renderLcAll();

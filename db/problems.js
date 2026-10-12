@@ -63,6 +63,18 @@ const PROBLEM_SORTS = ["catalog", "title", "difficulty", "solved", "attempted", 
 const PROBLEM_STATUS_FILTERS = ["all", "yes", "no"];
 const REVISION_FILTERS = ["all", "scheduled", "due", "overdue"];
 const STATEMENT_FILTERS = ["all", "stored", "missing"];
+/* Only platforms the curator actually imports. A value outside this list is
+   ignored rather than interpolated, so the filter cannot be used to probe the
+   table with arbitrary strings. */
+const PLATFORM_FILTERS = ["leetcode", "codeforces"];
+/* Company slugs are validated against the companies table at request time (see
+   the caller in server.js), because that table ships empty: a company row
+   asserts that the company asks that problem, and no public dataset states
+   that, so nothing is asserted here rather than guessing at attributions. */
+const companySlugs = async () => {
+  const rows = await query("SELECT slug FROM companies ORDER BY name");
+  return rows.map((row) => row.slug);
+};
 
 const SORT_SQL = {
   catalog: "(p.lc_num IS NULL) ASC, p.lc_num ASC, p.title ASC",
@@ -126,6 +138,24 @@ const listProblems = async (options = {}) => {
     params.push(difficulty);
   }
 
+  /* Platform filter. The catalog now spans LeetCode and Codeforces, so "show me
+     only Codeforces" is a real question. The value is validated against a fixed
+     list rather than passed through, because it goes into SQL as a string. */
+  const platform = String(options.platform || "").trim();
+  if (platform && platform !== "all" && PLATFORM_FILTERS.includes(platform)) {
+    where.push("p.platform = ?");
+    params.push(platform);
+  }
+
+  /* Topic filter. `topics` is a JSON array, so this is a JSON_CONTAINS test
+     against the normalized topic label. Only applied when a topic is actually
+     given, because it cannot use the plain column index. */
+  const topic = String(options.topic || "").trim();
+  if (topic && topic !== "all") {
+    where.push("JSON_CONTAINS(p.topics, JSON_QUOTE(?))");
+    params.push(topic);
+  }
+
   if (options.hasDescription === true) where.push("p.description_html IS NOT NULL");
   if (options.hasDescription === false) where.push("p.description_html IS NULL");
 
@@ -174,6 +204,17 @@ const listProblems = async (options = {}) => {
     joinParams.push(PROBLEM_OWNER);
   }
 
+  /* Company filter, declared here because it needs joinParts to exist.
+     The companies table ships empty: a row in it asserts that a company asks a
+     given problem, and no public dataset states that, so the filter honestly
+     matches nothing today instead of attributing problems to companies that
+     were never recorded as asking them. */
+  if (options.company) {
+    where.push(
+      "EXISTS (SELECT 1 FROM problem_companies x JOIN companies c ON c.id = x.company_id WHERE x.problem_slug = p.slug AND c.slug = ?)"
+    );
+    params.push(String(options.company));
+  }
   let join = "";
   const category = String(options.category || "").trim();
   if (category) {
@@ -213,8 +254,43 @@ if (joinParts.length) join = ` ${joinParts.join(" ")}`;
   if (sort === "attempted") extraColumns.push("DATE_FORMAT(lr.last_run_at, '%Y-%m-%d %H:%i:%s') AS last_run_at");
 
 
+  /* One aggregate query for the counts the filter panel shows, so the numbers
+     on screen are always the real totals for the current catalog rather than
+     something cached in the browser. Grouping sets keep this to a single scan
+     instead of one query per facet. */
+  const facetRows = await query(
+    `SELECT p.platform, p.difficulty, COUNT(*) AS n
+       FROM problems p${join}${whereSql}
+      GROUP BY p.platform, p.difficulty`,
+    [...queryParams]
+  );
+
+  const platforms = {};
+  const difficulties = {};
+  let total = 0;
+  for (const row of facetRows) {
+    const n = Number(row.n);
+    total += n;
+    platforms[row.platform || "leetcode"] = (platforms[row.platform || "leetcode"] || 0) + n;
+    difficulties[row.difficulty] = (difficulties[row.difficulty] || 0) + n;
+  }
+
+  /* Topics come from the JSON array, so they are read out of the rows that
+     match the current filter rather than counted in SQL. Bounded by the filter
+     itself, and this is a catalog of ~2,100 rows. */
+  const topicRows = await query(
+    `SELECT p.topics FROM problems p${join}${whereSql}`,
+    [...queryParams]
+  );
+  const topics = {};
+  for (const row of topicRows) {
+    for (const topic of parseJson(row.topics)) {
+      if (typeof topic === "string" && topic) topics[topic] = (topics[topic] || 0) + 1;
+    }
+  }
+
   const rows = await query(
-    `SELECT p.id, p.lc_num, p.slug, p.title, p.difficulty, p.url, p.topics,
+    `SELECT p.id, p.lc_num, p.slug, p.title, p.difficulty, p.url, p.topics, p.platform, p.rating,
             (p.description_html IS NOT NULL) AS has_description, p.updated_at
             ${extraColumns.length ? `, ${extraColumns.join(",\n            ")}` : ""}
        FROM problems p${join}${whereSql}
@@ -232,6 +308,12 @@ if (joinParts.length) join = ` ${joinParts.join(" ")}`;
         title: row.title,
         difficulty: row.difficulty,
         url: row.url,
+        /* platform and rating came with the multi-platform catalog. They are
+           always returned rather than only on request, because the client needs
+           them to label a non-LeetCode problem correctly and to offer the
+           platform filter. */
+        platform: row.platform || "leetcode",
+        rating: row.rating ?? null,
         topics: parseJson(row.topics),
         hasDescription: Boolean(Number(row.has_description)),
         updatedAt: row.updated_at
@@ -252,7 +334,18 @@ if (joinParts.length) join = ` ${joinParts.join(" ")}`;
     total: Number(countRow?.total || 0),
     limit,
     offset,
-    sort
+    sort,
+    /* Counts for the current filter, so the filter panel can show real totals
+       for this catalog instead of numbers cached when the page loaded. */
+    facets: {
+      total,
+      platforms,
+      difficulties,
+      topics: Object.entries(topics)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 40)
+        .map(([name, count]) => ({ name, count }))
+    }
   };
 };
 
@@ -374,6 +467,8 @@ module.exports = {
   PROBLEM_STATUS_FILTERS,
   REVISION_FILTERS,
   STATEMENT_FILTERS,
+  PLATFORM_FILTERS,
+  companySlugs,
   getExamples,
   getCategories,
   saveFetchedDescription,

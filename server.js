@@ -853,8 +853,23 @@ app.get("/api/categories", rateLimit, async (_req, res) => {
 });
 
 app.get("/api/problems", rateLimit, async (req, res) => {
-  const { query: search, difficulty, category, limit, offset, num, sort, solved, revision, statement, inStatement, today } =
-    req.query;
+  const {
+    query: search,
+    difficulty,
+    category,
+    limit,
+    offset,
+    num,
+    sort,
+    solved,
+    revision,
+    statement,
+    inStatement,
+    today,
+    platform,
+    topic,
+    company
+  } = req.query;
 
   if (search !== undefined && (typeof search !== "string" || search.length > 100)) {
     res.status(400).json({ ok: false, error: "Invalid search query." });
@@ -909,6 +924,27 @@ app.get("/api/problems", rateLimit, async (req, res) => {
     res.status(400).json({ ok: false, error: "inStatement must be true or false." });
     return;
   }
+
+  /* Multi-platform catalog filters. `platform` is validated against the real
+     list; `topic` is a free label but is bound as a parameter and matched
+     against the JSON topics array, never concatenated. `company` is checked
+     against the companies table below, because that table ships empty. */
+  const platformValue = platform === undefined ? "" : String(platform);
+  if (platformValue && !["all", ...problemsRepo.PLATFORM_FILTERS].includes(platformValue)) {
+    res.status(400).json({
+      ok: false,
+      error: `Platform must be all or one of: ${problemsRepo.PLATFORM_FILTERS.join(", ")}.`
+    });
+    return;
+  }
+  if (topic !== undefined && (typeof topic !== "string" || topic.length > 60)) {
+    res.status(400).json({ ok: false, error: "Invalid topic." });
+    return;
+  }
+  if (company !== undefined && (typeof company !== "string" || !/^[a-z0-9-]{1,64}$/.test(company))) {
+    res.status(400).json({ ok: false, error: "Invalid company." });
+    return;
+  }
   /* Due/overdue are relative to the caller's today, sent as a calendar day. */
   let todayKey = "";
   if (revisionValue === "due" || revisionValue === "overdue") {
@@ -931,10 +967,94 @@ app.get("/api/problems", rateLimit, async (req, res) => {
       statement: statementValue,
       inStatement: ["1", "true"].includes(String(inStatement || "").toLowerCase()),
       today: todayKey,
+      platform: platformValue,
+      topic: typeof topic === "string" ? topic : "",
+      company: typeof company === "string" ? company : "",
       limit,
       offset
     });
     res.json({ ok: true, ...page });
+  } catch (error) {
+    respondDatabaseError(res, error);
+  }
+});
+
+/* What the catalog contains, for the filter panel and the About page.
+   Reports real counts per platform, per difficulty and per topic, plus the
+   companies that are actually recorded.
+
+   The companies list is empty today, and that is the honest answer: a company
+   row asserts that the company asks that problem, no public dataset states
+   which companies ask which problems, and guessing would put false
+   attributions in front of the user. The endpoint returns the empty list plus
+   a note saying why, so the UI can explain it instead of rendering a broken
+   control. */
+app.get("/api/problems-facets", rateLimit, async (_req, res) => {
+  try {
+    const { query } = require("./db/pool");
+
+    const totals = await query(
+      `SELECT platform, COUNT(*) AS n,
+              SUM(difficulty = 'Easy') AS easy,
+              SUM(difficulty = 'Medium') AS medium,
+              SUM(difficulty = 'Hard') AS hard,
+              SUM(description_html IS NOT NULL) AS with_statement
+         FROM problems GROUP BY platform ORDER BY n DESC`
+    );
+
+    const topicRows = await query(
+      `SELECT topics FROM problems WHERE topics IS NOT NULL AND JSON_LENGTH(topics) > 0`
+    );
+    const topics = {};
+    for (const row of topicRows) {
+      let list = row.topics;
+      if (typeof list === "string") {
+        try {
+          list = JSON.parse(list);
+        } catch {
+          list = [];
+        }
+      }
+      if (!Array.isArray(list)) continue;
+      for (const topic of list) {
+        if (typeof topic === "string" && topic) topics[topic] = (topics[topic] || 0) + 1;
+      }
+    }
+
+    const companyRows = await query(
+      `SELECT c.slug, c.name, COUNT(pc.problem_slug) AS n
+         FROM companies c
+         LEFT JOIN problem_companies pc ON pc.company_id = c.id
+        GROUP BY c.slug, c.name ORDER BY c.name`
+    );
+
+    const total = totals.reduce((sum, row) => sum + Number(row.n), 0);
+
+    res.json({
+      ok: true,
+      total,
+      platforms: totals.map((row) => ({
+        slug: row.platform || "leetcode",
+        count: Number(row.n),
+        easy: Number(row.easy || 0),
+        medium: Number(row.medium || 0),
+        hard: Number(row.hard || 0),
+        withStatement: Number(row.with_statement || 0)
+      })),
+      difficulties: {
+        Easy: totals.reduce((s, r) => s + Number(r.easy || 0), 0),
+        Medium: totals.reduce((s, r) => s + Number(r.medium || 0), 0),
+        Hard: totals.reduce((s, r) => s + Number(r.hard || 0), 0)
+      },
+      topics: Object.entries(topics)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([name, count]) => ({ name, count })),
+      companies: companyRows.map((row) => ({ slug: row.slug, name: row.name, count: Number(row.n) })),
+      /* Said out loud so the UI never has to imply otherwise. */
+      companiesNote: companyRows.length
+        ? null
+        : "No company attributions are recorded. Quanta does not guess which company asks which problem, because no permitted public dataset states that."
+    });
   } catch (error) {
     respondDatabaseError(res, error);
   }
