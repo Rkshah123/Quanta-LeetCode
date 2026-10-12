@@ -57,7 +57,7 @@ const readEmbedded = () => {
      `p(num, slug, title, difficulty, platform, url)` for anything else. The
      trailing group is optional so both forms parse with one pattern; a row that
      matches neither is a real problem and is reported rather than skipped. */
-  const ROW = /^p\((-?\d+),\s*(".*?"),\s*(".*?"),\s*("(?:Easy|Medium|Hard)")(?:,\s*("[a-z]+")?,\s*(".*?"))?\)/;
+  const ROW = /^p\((-?\d+),\s*(".*?"),\s*(".*?"),\s*("(?:Easy|Medium|Hard)")(?:,\s*("[a-z]+")?,\s*(".*?"))?(?:,\s*\[([\d,\s]*)\])?\)/;
 
   const entries = [];
   const unparsed = [];
@@ -76,7 +76,8 @@ const readEmbedded = () => {
       title: JSON.parse(match[3]),
       difficulty: JSON.parse(match[4]),
       platform: match[5] ? JSON.parse(match[5]) : "leetcode",
-      url: match[6] ? JSON.parse(match[6]) : ""
+      url: match[6] ? JSON.parse(match[6]) : "",
+      topicIndices: match[7] ? match[7].split(",").map((n) => Number(n.trim())).filter(Number.isFinite) : []
     });
   }
   return { source, lines, retIndex, end, entries, unparsed };
@@ -117,6 +118,7 @@ const main = async () => {
        conflicts are reported instead of being applied. */
   const adopt = [];
   const numberConflicts = [];
+  const unknownTopics = new Set();
 
   const dropped = [];
 
@@ -138,7 +140,7 @@ const main = async () => {
        rather than anything the app chose. Carrying the embedded values forward
        would keep a stale "leetcode" on a problem the curator has since
        recorded as coming from another platform. */
-    const identity = { platform: match.platform || "leetcode", url: match.url || "" };
+    const identity = { platform: match.platform || "leetcode", url: match.url || "", topics: match.topics || [] };
 
     if (normaliseTitle(match.title) !== normaliseTitle(entry.title)) {
       adopt.push({ ...entry, ...identity, title: String(match.title).trim().replace(/\s+/g, " "), difficulty: match.difficulty });
@@ -164,7 +166,8 @@ const main = async () => {
       title: String(p.title).trim().replace(/\s+/g, " "),
       difficulty: p.difficulty,
       platform: p.platform || "leetcode",
-      url: p.url || ""
+      url: p.url || "",
+      topics: p.topics || []
     });
   }
 
@@ -187,11 +190,47 @@ const main = async () => {
 
   /* Renders one catalog row. Shared by the early-exit comparison and the real
      rewrite so the two can never disagree about the output format - which is
-     exactly the bug that let a stale 4-argument form linger. */
+     exactly the bug that let a stale 4-argument form linger.
+
+     Topics are written as indices into the SEED_TOPICS table declared in
+     lab-notes.js, never as full labels: ~2,000 rows averaging five topics would
+     otherwise add about 200 KB of repeated strings to the file that ships with
+     the app. */
   const renderRow = (p) => {
     const base = `      p(${Number(p.num) || 0}, ${jsString(p.slug)}, ${jsString(p.title)}, ${jsString(p.difficulty)}`;
-    if (!p.platform || p.platform === "leetcode") return `${base}),`;
-    return `${base}, ${jsString(p.platform)}, ${jsString(p.url || "")}),`;
+    const isLeetCode = !p.platform || p.platform === "leetcode";
+    const url = isLeetCode ? "" : `, ${jsString(p.platform)}, ${jsString(p.url || "")}`;
+    const topics = topicIndices(p.topics);
+    const topicArg = topics.length ? `, [${topics.join(", ")}]` : "";
+    return `${base}${url}${topicArg}),`;
+  };
+
+  /* The label list, mirroring SEED_TOPICS in lab-notes.js. If the two ever drift
+     the app would label topics with the wrong words, so the script verifies its
+     own copy against the file it is writing to. */
+  const TOPIC_LABELS = [
+    "Arrays", "Strings", "Hashing", "Two Pointers", "Sliding Window", "Prefix Sum",
+    "Binary Search", "Linked List", "Stack", "Queue", "Trees", "BST", "Heaps",
+    "Graphs", "Backtracking", "Greedy", "Dynamic Programming", "Tries",
+    "Bit Manipulation", "Sorting", "Math", "Number Theory", "Advanced Graphs",
+    "Probability", "SQL"
+  ];
+  const TOPIC_INDEX = new Map(TOPIC_LABELS.map((label, i) => [label, i]));
+
+  const topicIndices = (topics) => {
+    if (!Array.isArray(topics)) return [];
+    const out = [];
+    for (const topic of topics) {
+      const index = TOPIC_INDEX.get(topic);
+      /* A topic that is not in the table is reported rather than dropped in
+         silence, because a silently missing topic makes the topic filter lie. */
+      if (index === undefined) {
+        unknownTopics.add(topic);
+        continue;
+      }
+      out.push(index);
+    }
+    return out.sort((a, b) => a - b);
   };
 
   const sortRows = (rows) =>
@@ -236,6 +275,12 @@ const main = async () => {
   const ordered = sortRows(adopt);
 
   const generated = ordered.map(renderRow);
+
+  if (unknownTopics.size) {
+    console.log(`  ${unknownTopics.size} topic label(s) are not in the table in lab-notes.js and cannot be embedded:`);
+    for (const label of [...unknownTopics].slice(0, 10)) console.log(`    ${label}`);
+    console.log("  Add them to SEED_TOPICS in lab-notes.js, or they will be missing from the offline topic filter.");
+  }
 
   const crlf = lines.join("\n").includes("\r\n");
   const updated = [...lines.slice(0, retIndex + 1), ...generated, ...lines.slice(end)];

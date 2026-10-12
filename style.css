@@ -2229,6 +2229,184 @@ body[data-theme="beige"] .btn-toggle {
   font-size: 0.72rem;
 }
 
+/* ====================== smart problem discovery ========================= */
+/* Same theme tokens as everything else; no colours are invented here. */
+
+.discovery-body {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 40px;
+}
+
+.discovery-honest {
+  margin: 0;
+}
+
+.discovery-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.discovery-card {
+  display: grid;
+  gap: 7px;
+  padding: 13px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  transition: border-color var(--anim-fast), transform var(--anim-fast);
+}
+
+.discovery-card:hover {
+  border-color: var(--accent-line);
+  transform: translateY(-1px);
+}
+
+.discovery-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.discovery-card__badge {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
+.discovery-card[data-strategy="due"] .discovery-card__badge {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+}
+
+.discovery-card[data-strategy="weakSpot"] .discovery-card__badge {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.12);
+  color: #f8a6a6;
+}
+
+.discovery-card__difficulty {
+  font-size: 0.68rem;
+  font-weight: 750;
+  color: var(--text-c);
+}
+
+.discovery-card__difficulty.is-easy {
+  color: #34d399;
+}
+
+.discovery-card__difficulty.is-medium {
+  color: #fbbf24;
+}
+
+.discovery-card__difficulty.is-hard {
+  color: #f87171;
+}
+
+.discovery-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+}
+
+.discovery-card__meta {
+  font-size: 0.7rem;
+  color: var(--text-c);
+}
+
+.discovery-card__reason {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-b);
+}
+
+.discovery-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.discovery-more {
+  margin-top: 12px;
+}
+
+.discovery-legend {
+  margin: 0 0 10px;
+  font-size: 0.74rem;
+  color: var(--text-c);
+}
+
+.discovery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 9px;
+}
+
+.discovery-tile {
+  display: grid;
+  gap: 6px;
+  padding: 11px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+}
+
+.discovery-tile.is-untouched {
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.discovery-tile.is-partial {
+  border-color: var(--accent-line);
+}
+
+.discovery-tile.is-covered {
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.discovery-tile__name {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-a);
+}
+
+.discovery-tile__bar {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.discovery-tile__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-text);
+  transition: width var(--anim-mid);
+}
+
+.discovery-tile.is-covered .discovery-tile__fill {
+  background: #34d399;
+}
+
+.discovery-tile.is-untouched .discovery-tile__fill {
+  background: #fbbf24;
+}
+
+.discovery-tile__counts {
+  font-size: 0.66rem;
+  color: var(--text-c);
+}
+
 /* ===================== algorithm visualizer ============================= */
 /* Every colour here comes from the existing theme tokens, so the visualizer
    follows the theme switch exactly like the rest of the app and needs no
