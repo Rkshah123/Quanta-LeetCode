@@ -2229,6 +2229,372 @@ body[data-theme="beige"] .btn-toggle {
   font-size: 0.72rem;
 }
 
+/* =============================== code review ============================= */
+
+.review-body {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 40px;
+}
+
+.rev-code {
+  min-height: 240px;
+}
+
+.rev-problem-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+/* ---- complexity -------------------------------------------------------- */
+
+.rev-complexity__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.rev-complexity__item {
+  display: grid;
+  gap: 2px;
+  padding: 11px 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+}
+
+.rev-complexity__label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-c);
+}
+
+.rev-complexity__value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-a);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* The caveat is real text on the value itself, not a CSS ::after, so it is
+   announced and can be copied. The colour just takes the edge off it. */
+.rev-complexity__item.is-heuristic .rev-complexity__value {
+  color: var(--text-b);
+}
+
+.rev-complexity__value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-a);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.rev-complexity__note {
+  font-size: 0.68rem;
+  color: var(--text-c);
+  line-height: 1.5;
+}
+
+/* The caveats are the honest half of the estimate, so they sit directly beneath
+   it rather than in a footnote at the bottom of the page. */
+.rev-caveats {
+  padding: 11px 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.07);
+}
+
+.rev-caveats__title {
+  margin: 0 0 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+.rev-caveats__item {
+  margin: 0 0 3px;
+  font-size: 0.72rem;
+  color: var(--text-b);
+  line-height: 1.55;
+}
+
+/* ---- findings ---------------------------------------------------------- */
+
+.rev-findings-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rev-counts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rev-pill {
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-c);
+  font-size: 0.64rem;
+  font-weight: 650;
+  color: var(--text-c);
+  white-space: nowrap;
+}
+
+.rev-pill.is-serious {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+
+.rev-pill.is-warning {
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fbbf24;
+}
+
+.rev-pill.is-notice {
+  border-color: var(--border);
+}
+
+.rev-pill.is-clear {
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #34d399;
+}
+
+.rev-pill.is-error {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+
+.rev-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+.rev-filter {
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-c);
+  font-size: 0.7rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--anim-fast), border-color var(--anim-fast), color var(--anim-fast);
+}
+
+.rev-filter:hover {
+  border-color: var(--accent-line);
+}
+
+.rev-filter.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.rev-finding {
+  margin-bottom: 7px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  overflow: hidden;
+}
+
+.rev-finding.is-serious {
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.rev-finding__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 13px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rev-finding__badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-c);
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-c);
+  white-space: nowrap;
+}
+
+.rev-finding.is-serious .rev-finding__badge {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+
+.rev-finding.is-warning .rev-finding__badge {
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fbbf24;
+}
+
+.rev-finding__title {
+  font-size: 0.79rem;
+  font-weight: 650;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+}
+
+.rev-finding__where {
+  font-size: 0.66rem;
+  color: var(--text-c);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rev-finding__body {
+  padding: 0 13px 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.rev-finding__code {
+  display: block;
+  margin-bottom: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-c);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  color: var(--text-a);
+  overflow-x: auto;
+}
+
+.rev-finding__why,
+.rev-finding__matters,
+.rev-finding__evidence {
+  margin: 0 0 6px;
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: var(--text-b);
+}
+
+.rev-finding__matters {
+  color: var(--text-c);
+}
+
+/* The provenance of the finding. A claim without its evidence is a guess, and
+   this page does not make guesses. */
+.rev-finding__evidence {
+  margin-bottom: 0;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.7rem;
+  color: var(--accent-text);
+}
+
+/* ---- notices ----------------------------------------------------------- */
+
+.rev-notice {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  font-size: 0.77rem;
+  line-height: 1.6;
+}
+
+.rev-notice p {
+  margin: 0 0 5px;
+}
+
+.rev-notice p:last-child {
+  margin-bottom: 0;
+}
+
+.rev-notice.is-clear {
+  border-color: rgba(52, 211, 153, 0.42);
+  background: rgba(52, 211, 153, 0.07);
+}
+
+.rev-notice.is-error {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+}
+
+/* The empty state says what it does NOT mean. "No problems found" would be a
+   correctness verdict this page has no standing to give. */
+.rev-notice__where {
+  font-size: 0.7rem;
+  color: var(--text-c);
+}
+
+/* ---- cross-checks ------------------------------------------------------ */
+
+.rev-check {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  margin-bottom: 7px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+}
+
+.rev-check.is-ok {
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.rev-check.is-warning {
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+.rev-check.is-serious {
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.rev-check__title {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-c);
+}
+
+.rev-check__detail {
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--text-b);
+}
+
+@media (max-width: 700px) {
+  .rev-problem-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rev-finding__head {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 5px;
+  }
+
+  .rev-finding__where {
+    grid-column: 2;
+  }
+}
+
 /* ============================ step debugger ============================= */
 
 .debugger-body {

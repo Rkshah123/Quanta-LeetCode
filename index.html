@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=41" />
+  <link rel="stylesheet" href="style.css?v=43" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -53,6 +53,7 @@
     <button class="nav-btn" type="button" data-page="discovery">What&rsquo;s next</button>
     <button class="nav-btn" type="button" data-page="academy">Academy</button>
     <button class="nav-btn" type="button" data-page="patterns">Patterns</button>
+    <button class="nav-btn" type="button" data-page="review">Review</button>
     <button class="nav-btn" type="button" data-page="debugger">Debugger</button>
     <button class="nav-btn" type="button" data-page="arena">Arena</button>
     <button class="nav-btn" type="button" data-page="mock">Mock</button>
@@ -826,6 +827,72 @@
         </section>
       </div>
     </section>
+    <!-- =========================== Review page ============================ -->
+    <section id="page-review" class="page page--review" data-page-id="review" aria-label="Code review" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Code review</h2>
+          <p class="page-sub">Static analysis of a solution you have written &mdash; what it costs and what might be wrong</p>
+        </div>
+      </header>
+
+      <div class="settings-body review-body">
+        <p class="viz-note--plain">
+          This is a static analyser, not a language model, and nothing here is sent anywhere. It parses your code
+          and reports conditions that are either true or false about the syntax tree &mdash; nested loops, a
+          function that can fall off the end, an array being changed while it is iterated. Every finding shows
+          how Quanta knows it, so you can check it and disagree with it. It will never tell you your code is
+          correct, because it has no standing to.
+        </p>
+
+        <section class="settings-group" aria-labelledby="rev-source-title">
+          <h3 id="rev-source-title">Your solution</h3>
+          <div class="dbg-toolbar">
+            <label class="viz-field dbg-examples-field">
+              <span>Start from</span>
+              <select id="rev-examples" class="settings-select"></select>
+            </label>
+            <button id="rev-run" class="prog-btn" type="button">Review it</button>
+          </div>
+          <textarea id="rev-code" class="dbg-code rev-code" rows="12" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="JavaScript to review"></textarea>
+        </section>
+
+        <section class="settings-group" aria-labelledby="rev-problem-title">
+          <h3 id="rev-problem-title">The problem</h3>
+          <p class="pattern-intro">Optional. With these filled in, the estimate is compared against the input size the constraints allow.</p>
+          <div class="rev-problem-fields">
+            <label class="viz-field">
+              <span>Constraints, as written</span>
+              <input id="rev-constraints" class="settings-input" type="text" placeholder="e.g. 2 &lt;= nums.length &lt;= 1e5" autocomplete="off" spellcheck="false" />
+            </label>
+            <label class="viz-field">
+              <span>Name of the input in your code</span>
+              <input id="rev-param" class="settings-input" type="text" placeholder="e.g. nums" autocomplete="off" spellcheck="false" />
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="rev-cost-title">
+          <h3 id="rev-cost-title">What it costs</h3>
+          <div id="rev-complexity"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="rev-findings-title">
+          <div class="rev-findings-head">
+            <h3 id="rev-findings-title">What might be wrong</h3>
+            <div id="rev-counts" class="rev-counts"></div>
+          </div>
+          <div id="rev-filters" class="rev-filters"></div>
+          <div id="rev-findings"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="rev-cross-title">
+          <h3 id="rev-cross-title">Against the constraints</h3>
+          <div id="rev-cross"></div>
+        </section>
+      </div>
+    </section>
     <!-- ========================== Debugger page ============================ -->
     <section id="page-debugger" class="page page--debugger" data-page-id="debugger" aria-label="Interactive debugger" hidden>
       <header class="page-head">
@@ -1539,7 +1606,8 @@
   <script src="mock.js?v=1"></script>
   <script src="solutions.js?v=1"></script>
 <script src="debugger.js?v=1"></script>
+<script src="review.js?v=1"></script>
 <script src="contests.js?v=1"></script>
-  <script src="lab-notes.js?v=74"></script>
+  <script src="lab-notes.js?v=78"></script>
 </body>
 </html>

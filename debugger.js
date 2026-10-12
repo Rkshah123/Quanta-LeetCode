@@ -1,3 +1,20 @@
+/* Wrapped in an IIFE on purpose.
+
+   These files load as plain <script> tags, so an unwrapped top-level `const`
+   joins the single global scope every other script on the page shares. Two
+   files declaring the same name is a SyntaxError for the second one - the whole
+   file, not just the offending line - and it fails silently from the outside:
+   the page still loads, the module simply never ran.
+
+   That happened here: debugger.js and review.js both declared `getAcorn`, and
+   review.js's `estimateComplexity` also collided with solutions.js.
+
+   Only what is attached to `window` below is visible from outside. Under Node
+   the same block exports through `module.exports`, which is how the test
+   suites load them. */
+(function () {
+"use strict";
+
 /* ========================== interactive debugger ==========================
    Step through JavaScript and watch it run, in the page, with no server.
 
@@ -1121,3 +1138,5 @@ if (typeof window !== "undefined" && window) {
     prepare
   };
 }
+
+})();

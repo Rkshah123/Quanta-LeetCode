@@ -13380,6 +13380,511 @@ const refreshStudyForActiveProblem = () => {
     dbgCompile({ reset: true });
   };
 
+  /* =============================== code review =============================
+     A static reviewer for a solution you have written.
+
+     What this is
+     ------------
+     A static analyser. It parses the code, walks the tree, and reports conditions
+     it can establish from that tree - how many loops are nested, whether a
+     function can fall off the end, whether the array being modified is the array
+     being iterated.
+
+     What this is not
+     ----------------
+     It is not a language model, and it does not pretend to be one. There is no
+     model behind this page and nothing is sent anywhere. It cannot tell you why
+     your algorithm is right, it does not read the problem statement, and it will
+     never say "looks good" - because a tool that hands you a verdict you have not
+     earned is worse than one that hands you nothing.
+
+     So every finding carries the evidence that produced it. You are meant to
+     check it and disagree with it. A finding you have reasoned past and dismissed
+     is the page working; a finding you accept without reading is the page failing.
+
+     The complexity figure is a heuristic and is labelled as one throughout
+     ---------------------------------------------------------------------
+     Counting nested loops gives a real bound for loop-shaped code and nothing at
+     all for work hidden behind a call. Array.sort inside a loop is O(n) to the
+     counter and O(n log n) in reality. Every estimate therefore lists what it was
+     derived from and what it could not see, and the ceiling it compares against
+     is stated as a rough one. */
+
+  const REVIEW_KEY = "quantaReviewV1";
+
+  const REVIEW_EXAMPLES = [
+    {
+      key: "two-sum-map",
+      title: "Two Sum, linear",
+      code: `function twoSum(nums, target) {
+    const seen = new Map();
+    for (let i = 0; i < nums.length; i++) {
+      const need = target - nums[i];
+      if (seen.has(need)) return [seen.get(need), i];
+      seen.set(nums[i], i);
+    }
+    return [];
+  }`,
+      problem: { paramHint: "nums", constraintsHint: "2 <= nums.length <= 1e5" }
+    },
+    {
+      key: "two-sum-brute",
+      title: "Two Sum, the version that times out",
+      code: `function twoSum(nums, target) {
+    for (let i = 0; i < nums.length; i++) {
+      for (let j = i + 1; j < nums.length; j++) {
+        if (nums[i] + nums[j] === target) return [i, j];
+      }
+    }
+    return [];
+  }`,
+      problem: { paramHint: "nums", constraintsHint: "2 <= nums.length <= 1e9" }
+    },
+    {
+      key: "mutate-while-looping",
+      title: "Removing duplicates by splicing",
+      code: `function removeDuplicates(nums) {
+    for (let i = 0; i < nums.length; i++) {
+      if (nums[i] === nums[i + 1]) {
+        nums.splice(i, 1);
+      }
+    }
+    return nums;
+  }`,
+      problem: null
+    },
+    {
+      key: "clean-accumulator",
+      title: "Filtering, done correctly",
+      code: `function evenNumbers(nums) {
+    const out = [];
+    for (let i = 0; i < nums.length; i++) {
+      if (nums[i] % 2 === 0) {
+        out.push(nums[i]);
+      }
+    }
+    return out;
+  }`,
+      problem: { paramHint: "nums", constraintsHint: "1 <= nums.length <= 1e4" }
+    },
+    {
+      key: "missing-return",
+      title: "A function that forgets to return",
+      code: `function indexOfValue(nums, target) {
+    for (let i = 0; i < nums.length; i++) {
+      if (nums[i] === target) {
+        return i;
+      }
+    }
+  }`,
+      problem: null
+    },
+    {
+      key: "loose-equality",
+      title: "Equality, the lazy way",
+      code: `function sameLength(a, b) {
+    return a.length == b.length;
+  }
+
+  function isMissing(value) {
+    return value == null;
+  }`,
+      problem: null
+    }
+  ];
+
+  const reviewState = {
+    source: REVIEW_EXAMPLES[0].code,
+    example: "two-sum-map",
+    problem: REVIEW_EXAMPLES[0].problem,
+    result: null,
+    filter: "all",
+    expanded: new Set()
+  };
+
+  const revEl = (id) => document.getElementById(id);
+
+  const revLoadState = () => {
+    const saved = readJson(REVIEW_KEY, () => ({}));
+    if (saved && typeof saved === "object") {
+      if (typeof saved.source === "string" && saved.source.trim()) reviewState.source = saved.source;
+      if (saved.filter && ["all", "serious", "warning", "notice"].includes(saved.filter)) reviewState.filter = saved.filter;
+    }
+  };
+
+  const revSaveState = () => {
+    writeJson(REVIEW_KEY, { source: reviewState.source, filter: reviewState.filter });
+  };
+
+  /* ------------------------------ rendering ------------------------------- */
+
+  const SEVERITY_LABEL = { serious: "Worth fixing", warning: "Check this", notice: "Minor" };
+
+  const renderComplexity = () => {
+    const host = revEl("rev-complexity");
+    if (!host) return;
+    host.innerHTML = "";
+    const result = reviewState.result;
+    if (!result?.ok) return;
+
+    const complexity = result.complexity;
+
+    const grid = document.createElement("div");
+    grid.className = "rev-complexity__grid";
+
+    const cell = (label, value, note, tone) => {
+      const item = document.createElement("div");
+      item.className = `rev-complexity__item${tone ? ` is-${tone}` : ""}`;
+      const k = document.createElement("span");
+      k.className = "rev-complexity__label";
+      k.textContent = label;
+      const v = document.createElement("span");
+      v.className = "rev-complexity__value";
+      /* The caveat is real text, not a CSS ::after. A pseudo-element is
+         invisible to a screen reader, absent from the accessibility tree, and
+         cannot be copied - and this is the one thing stopping the number from
+         reading as a verdict. */
+      v.textContent = tone === "heuristic" ? `${value} (estimate)` : value;
+      item.append(k, v);
+      if (note) {
+        const n = document.createElement("span");
+        n.className = "rev-complexity__note";
+        n.textContent = note;
+        item.appendChild(n);
+      }
+      grid.appendChild(item);
+    };
+
+    cell("Time", complexity.time, complexity.basis, "heuristic");
+    cell("Space", complexity.space, null);
+    cell("Shape", `${complexity.loopCount} loop${complexity.loopCount === 1 ? "" : "s"}, deepest nest ${complexity.loopDepth}`,
+      complexity.recursion.length ? `recurses: ${complexity.recursion.map((r) => r.name).join(", ")}` : null);
+
+    host.appendChild(grid);
+
+    /* The caveats are the honest half of the estimate, so they sit directly under
+       it rather than in a footnote at the bottom of the page. */
+    if (complexity.caveats.length) {
+      const box = document.createElement("div");
+      box.className = "rev-caveats";
+      const title = document.createElement("p");
+      title.className = "rev-caveats__title";
+      title.textContent = "The loop count cannot see this";
+      box.appendChild(title);
+      for (const caveat of complexity.caveats) {
+        const row = document.createElement("p");
+        row.className = "rev-caveats__item";
+        row.textContent = `${caveat.title} — ${caveat.detail}, so ${caveat.cost}`;
+        box.appendChild(row);
+      }
+      host.appendChild(box);
+    }
+  };
+
+  const renderFindings = () => {
+    const host = revEl("rev-findings");
+    if (!host) return;
+    host.innerHTML = "";
+
+    const result = reviewState.result;
+    if (!result) return;
+
+    if (!result.ok) {
+      const box = document.createElement("div");
+      box.className = "rev-notice is-error";
+      const p = document.createElement("p");
+      p.textContent = result.error;
+      box.appendChild(p);
+      if (result.line) {
+        const where = document.createElement("p");
+        where.className = "rev-notice__where";
+        where.textContent = `Line ${result.line}. Nothing below was checked, because nothing could be parsed.`;
+        box.appendChild(where);
+      }
+      host.appendChild(box);
+      return;
+    }
+
+    const all = result.findings;
+    const shown = reviewState.filter === "all" ? all : all.filter((f) => f.severity === reviewState.filter);
+
+    /* The empty state is careful. "No problems found" would be a claim about
+       correctness that this page has no standing to make. */
+    if (!all.length) {
+      const box = document.createElement("div");
+      box.className = "rev-notice is-clear";
+      const p = document.createElement("p");
+      p.textContent = "None of the checks here fired.";
+      const why = document.createElement("p");
+      why.className = "rev-notice__where";
+      why.textContent = `That is ${window.reviewEngine.REVIEW_RULES.length} specific conditions, each either true or false about the syntax tree — not a judgement that the code is correct. Whether the algorithm is right is still your call.`;
+      box.append(p, why);
+      host.appendChild(box);
+    }
+
+    if (all.length && !shown.length) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = "Nothing at this level.";
+      host.appendChild(p);
+      return;
+    }
+
+    for (const finding of shown) {
+      const card = document.createElement("article");
+      card.className = `rev-finding is-${finding.severity}`;
+
+      const head = document.createElement("button");
+      head.type = "button";
+      head.className = "rev-finding__head";
+      head.setAttribute("aria-expanded", String(reviewState.expanded.has(finding.key)));
+
+      const badge = document.createElement("span");
+      badge.className = "rev-finding__badge";
+      badge.textContent = SEVERITY_LABEL[finding.severity] || finding.severity;
+
+      const title = document.createElement("span");
+      title.className = "rev-finding__title";
+      title.textContent = finding.title;
+
+      const where = document.createElement("span");
+      where.className = "rev-finding__where";
+      where.textContent = finding.line ? `line ${finding.line}` : "whole file";
+
+      head.append(badge, title, where);
+      card.appendChild(head);
+
+      /* The detail is always visible - the line number and the one-line reason
+         are the part you scan - and the explanation is what you open. */
+      const body = document.createElement("div");
+      body.className = "rev-finding__body";
+      body.hidden = !reviewState.expanded.has(finding.key);
+
+      if (finding.detail) {
+        const code = document.createElement("code");
+        code.className = "rev-finding__code";
+        code.textContent = finding.detail.replace(/`/g, "");
+        body.appendChild(code);
+      }
+      const why = document.createElement("p");
+      why.className = "rev-finding__why";
+      why.textContent = finding.why;
+      body.appendChild(why);
+      if (finding.whyItMatters) {
+        const matters = document.createElement("p");
+        matters.className = "rev-finding__matters";
+        matters.textContent = finding.whyItMatters;
+        body.appendChild(matters);
+      }
+      if (finding.evidence) {
+        const evidence = document.createElement("p");
+        evidence.className = "rev-finding__evidence";
+        evidence.textContent = `How Quanta knows: ${finding.evidence}`;
+        body.appendChild(evidence);
+      }
+      card.appendChild(body);
+
+      head.addEventListener("click", () => {
+        if (reviewState.expanded.has(finding.key)) reviewState.expanded.delete(finding.key);
+        else reviewState.expanded.add(finding.key);
+        /* This card only. Re-rendering the whole list detaches the button that
+           was just pressed, so focus falls back to the body and keyboard use
+           breaks after a single toggle. */
+        const isOpen = reviewState.expanded.has(finding.key);
+        body.hidden = !isOpen;
+        head.setAttribute("aria-expanded", String(isOpen));
+      });
+
+      host.appendChild(card);
+    }
+  };
+
+  const renderCross = () => {
+    const host = revEl("rev-cross");
+    if (!host) return;
+    host.innerHTML = "";
+    const result = reviewState.result;
+    if (!result?.ok) return;
+
+    if (!result.cross.checks.length) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = result.cross.summary || "Nothing to cross-check.";
+      host.appendChild(p);
+      return;
+    }
+
+    for (const check of result.cross.checks) {
+      const row = document.createElement("div");
+      row.className = `rev-check is-${check.severity}`;
+      const title = document.createElement("span");
+      title.className = "rev-check__title";
+      title.textContent = check.title;
+      const detail = document.createElement("span");
+      detail.className = "rev-check__detail";
+      detail.textContent = check.detail;
+      row.append(title, detail);
+      host.appendChild(row);
+    }
+  };
+
+  const renderReviewAll = () => {
+    const editor = revEl("rev-code");
+    if (editor && editor.value !== reviewState.source) editor.value = reviewState.source;
+
+    const counts = revEl("rev-counts");
+    if (counts) {
+      const result = reviewState.result;
+      counts.innerHTML = "";
+      if (!result?.ok) {
+        const pill = document.createElement("span");
+        pill.className = "rev-pill is-error";
+        pill.textContent = "could not parse";
+        counts.appendChild(pill);
+      } else {
+        const total = result.findings.length;
+        const pill = document.createElement("span");
+        pill.className = `rev-pill${total ? "" : " is-clear"}`;
+        pill.textContent = total ? `${total} to look at` : "nothing fired";
+        counts.appendChild(pill);
+        for (const severity of ["serious", "warning", "notice"]) {
+          const n = result.counts[severity];
+          if (!n) continue;
+          const p = document.createElement("span");
+          p.className = `rev-pill is-${severity}`;
+          p.textContent = `${n} ${SEVERITY_LABEL[severity].toLowerCase()}`;
+          counts.appendChild(p);
+        }
+      }
+    }
+
+    renderComplexity();
+    renderFindings();
+    renderCross();
+  };
+
+  /* ------------------------------- running -------------------------------- */
+
+  const runReview = () => {
+    const editor = revEl("rev-code");
+    if (editor) reviewState.source = editor.value;
+    revSaveState();
+
+    /* In the page, not over the network. `review` is synchronous and touches
+       nothing else. */
+    reviewState.result = window.reviewEngine.review(reviewState.source, reviewState.problem);
+    renderReviewAll();
+  };
+
+  const loadReviewExample = (key) => {
+    const example = REVIEW_EXAMPLES.find((e) => e.key === key);
+    if (!example) return;
+    reviewState.example = key;
+    reviewState.source = example.code;
+    reviewState.problem = example.problem;
+    reviewState.expanded = new Set();
+    /* The severity filter goes back to Everything. Loading new code produces a
+       new set of findings, and carrying a filter over from the previous snippet
+       left the reader looking at an empty list with no visible reason. */
+    reviewState.filter = "all";
+    for (const button of revEl("rev-filters")?.querySelectorAll(".rev-filter") || []) {
+      button.classList.toggle("is-active", button.textContent === "Everything");
+    }
+    const editor = revEl("rev-code");
+    if (editor) editor.value = example.code;
+    const problem = revEl("rev-constraints");
+    if (problem) problem.value = example.problem?.constraintsHint || "";
+    const param = revEl("rev-param");
+    if (param) param.value = example.problem?.paramHint || "";
+    runReview();
+  };
+
+  /* Reads the two problem fields back into the object the reviewer takes. Both
+     optional: without them the review still runs, it just cannot compare against
+     constraints. */
+  const readProblemFields = () => {
+    const constraints = (revEl("rev-constraints")?.value || "").trim();
+    const param = (revEl("rev-param")?.value || "").trim();
+    reviewState.problem = constraints || param ? { constraintsHint: constraints, paramHint: param } : null;
+  };
+
+  /* ---------------------------------- init -------------------------------- */
+
+  const initReview = () => {
+    revLoadState();
+
+    const editor = revEl("rev-code");
+    if (editor) {
+      editor.value = reviewState.source;
+      let timer = null;
+      editor.addEventListener("input", () => {
+        reviewState.source = editor.value;
+        clearTimeout(timer);
+        timer = setTimeout(runReview, 500);
+      });
+      editor.addEventListener("keydown", (event) => {
+        if (event.key !== "Tab") return;
+        event.preventDefault();
+        const start = editor.selectionStart;
+        editor.setRangeText("  ", start, editor.selectionEnd, "end");
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    }
+
+    revEl("rev-run")?.addEventListener("click", () => {
+      readProblemFields();
+      runReview();
+    });
+
+    const picker = revEl("rev-examples");
+    if (picker) {
+      picker.innerHTML = "";
+      for (const example of REVIEW_EXAMPLES) {
+        const option = document.createElement("option");
+        option.value = example.key;
+        option.textContent = example.title;
+        picker.appendChild(option);
+      }
+      const own = document.createElement("option");
+      own.value = "";
+      own.textContent = "Your own code";
+      picker.appendChild(own);
+      picker.value = reviewState.example || "";
+      picker.addEventListener("change", () => loadReviewExample(picker.value));
+    }
+
+    const filters = revEl("rev-filters");
+    if (filters) {
+      filters.innerHTML = "";
+      for (const [value, label] of [["all", "Everything"], ["serious", "Worth fixing"], ["warning", "Check this"], ["notice", "Minor"]]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `rev-filter${reviewState.filter === value ? " is-active" : ""}`;
+        button.textContent = label;
+        button.addEventListener("click", () => {
+          reviewState.filter = value;
+          revSaveState();
+          for (const other of filters.querySelectorAll(".rev-filter")) other.classList.remove("is-active");
+          button.classList.add("is-active");
+          renderFindings();
+        });
+        filters.appendChild(button);
+      }
+    }
+
+    /* The two problem fields feed the cross-check, and changing them re-runs it
+       without touching the code. */
+    for (const id of ["rev-constraints", "rev-param"]) {
+      revEl(id)?.addEventListener("input", () => {
+        readProblemFields();
+        runReview();
+      });
+    }
+
+    runReview();
+  };
+
+
   /* ---------------------------------- init -------------------------------- */
 
   const initDebugger = () => {
@@ -13505,6 +14010,7 @@ const refreshStudyForActiveProblem = () => {
   initPatterns();
   initMock();
   initDebugger();
+  initReview();
   initCompanies();
   initArena();
   initLcFilters();
