@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=29" />
+  <link rel="stylesheet" href="style.css?v=30" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -51,6 +51,7 @@
     <button class="nav-btn" type="button" data-page="lab">Lab</button>
     <button class="nav-btn" type="button" data-page="visualizer">Visualizer</button>
     <button class="nav-btn" type="button" data-page="discovery">What&rsquo;s next</button>
+    <button class="nav-btn" type="button" data-page="academy">Academy</button>
     <button class="nav-btn" type="button" data-page="settings">Settings</button>
     <button class="nav-btn" type="button" data-page="about">About</button>
     <div class="nav-drawer-extra" aria-hidden="false">
@@ -819,6 +820,50 @@
         </section>
       </div>
     </section>
+    <!-- =========================== Academy page ============================= -->
+    <section id="page-academy" class="page page--academy" data-page-id="academy" aria-label="Interview academy" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Interview academy</h2>
+          <p class="page-sub">The parts of an interview that are not one specific algorithm</p>
+        </div>
+        <button id="academy-reset" class="icon-btn" type="button" aria-label="Clear academy progress" title="Clear progress">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7zm3-4h6l1 2H8l1-2zM4 6h16v2H4V6z"/></svg>
+        </button>
+      </header>
+
+      <div class="settings-body academy-body">
+        <p class="viz-note--plain academy-honest">
+          Written from general computer-science knowledge, not copied from any question bank. Quota-style
+          "most asked questions" material is deliberately absent: no permitted public dataset says which
+          questions get asked, so Quanta does not invent one.
+        </p>
+
+        <section class="settings-group" aria-labelledby="academy-progress-title">
+          <h3 id="academy-progress-title">Your progress</h3>
+          <div class="academy-progress" role="img" aria-label="Points marked as understood">
+            <div class="academy-progress__bar"><div id="academy-progress-fill" class="academy-progress__fill"></div></div>
+            <p id="academy-progress-text" class="viz-about"></p>
+          </div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="academy-topics-title">
+          <h3 id="academy-topics-title">Topic</h3>
+          <div id="academy-nav" class="viz-picker" role="group" aria-label="Academy topic"></div>
+          <div id="academy-body" class="academy-body__content"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="academy-quiz-title">
+          <h3 id="academy-quiz-title">Check yourself</h3>
+          <p id="academy-quiz-score" class="viz-about"></p>
+          <details id="academy-quiz-toggle">
+            <summary class="quiz-summary">Open the questions</summary>
+            <div id="academy-quiz" class="academy-quiz"></div>
+          </details>
+        </section>
+      </div>
+    </section>
     <!-- ============================ Settings page ============================ -->
     <section id="page-settings" class="page page--settings" data-page-id="settings" aria-label="Settings" hidden>
       <header class="page-head">
@@ -1210,6 +1255,7 @@
   <script src="script.js?v=16"></script>
   <script src="visualizer.js?v=4"></script>
   <script src="discovery.js?v=1"></script>
-  <script src="lab-notes.js?v=57"></script>
+  <script src="academy.js?v=1"></script>
+  <script src="lab-notes.js?v=59"></script>
 </body>
 </html>

@@ -10663,6 +10663,244 @@ const refreshStudyForActiveProblem = () => {
   };
 
 
+  /* --------------------- technical interview academy --------------------- */
+  /* Content comes from academy.js, checked by scripts/test-academy.js. This
+     half renders it, tracks which points the reader marked, and runs the quiz
+     so that an explanation is always shown once an answer is chosen. */
+
+  /* ========================= technical interview academy ====================
+     The player for academy.js: topic navigation, per-point checkboxes, a progress
+     bar, and a quiz that explains itself whether the answer is right or wrong.
+
+     Progress is stored per point, keyed by `topic.sectionIndex.pointIndex`, so
+     editing one section never invalidates the rest. */
+  (() => {
+    const ACADEMY_KEY = `quantaAcademyV${window.ACADEMY_VERSION || 1}`;
+    const academyState = { topic: null, progress: null, quizAnswers: {} };
+
+    const el = (id) => document.getElementById(id);
+
+    const pointId = (topicKey, sectionIndex, pointIndex) => `${topicKey}.${sectionIndex}.${pointIndex}`;
+
+    const loadProgress = () => {
+      const raw = readJson(ACADEMY_KEY, () => ({}));
+      const saved = raw && typeof raw === "object" ? raw : {};
+      academyState.progress = new Set(Array.isArray(saved.done) ? saved.done : []);
+      academyState.quizAnswers = saved.answers && typeof saved.answers === "object" ? saved.answers : {};
+    };
+
+    const saveProgress = () => {
+      writeJson(ACADEMY_KEY, { done: [...academyState.progress], answers: academyState.quizAnswers });
+    };
+
+    const totalPoints = () =>
+      window.ACADEMY_TOPICS.reduce((sum, t) => sum + t.sections.reduce((s, sec) => s + sec.points.length, 0), 0);
+
+    const donePoints = () => academyState.progress.size;
+
+    const renderNav = () => {
+      const host = el("academy-nav");
+      if (!host) return;
+      host.innerHTML = "";
+      for (const topic of window.ACADEMY_TOPICS) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `viz-chip${academyState.topic === topic.key ? " is-active" : ""}`;
+        button.dataset.topic = topic.key;
+        button.textContent = topic.label;
+        button.setAttribute("aria-pressed", academyState.topic === topic.key ? "true" : "false");
+
+        const topicDone = topic.sections.reduce((sum, sec, si) => sum + sec.points.filter((_, pi) => academyState.progress.has(pointId(topic.key, si, pi))).length, 0);
+        const topicTotal = topic.sections.reduce((sum, sec) => sum + sec.points.length, 0);
+        const done = topicDone === topicTotal && topicTotal > 0;
+
+        button.addEventListener("click", () => {
+          academyState.topic = topic.key;
+          renderNav();
+          renderTopic();
+        });
+        host.appendChild(button);
+        if (done) button.classList.add("is-complete");
+      }
+    };
+
+    const renderProgress = () => {
+      const text = el("academy-progress-text");
+      if (text) {
+        const total = totalPoints();
+        text.textContent = `${donePoints()} of ${total} points marked as understood.`;
+      }
+      const bar = el("academy-progress-fill");
+      if (bar) {
+        const total = totalPoints();
+        bar.style.width = `${total ? Math.round((donePoints() / total) * 100) : 0}%`;
+      }
+    };
+
+    const renderTopic = () => {
+      const host = el("academy-body");
+      if (!host) return;
+      host.innerHTML = "";
+      const topic = window.ACADEMY_TOPICS.find((t) => t.key === academyState.topic) || window.ACADEMY_TOPICS[0];
+      academyState.topic = topic.key;
+
+      const intro = document.createElement("p");
+      intro.className = "viz-about";
+      intro.textContent = topic.blurb;
+      host.appendChild(intro);
+
+      topic.sections.forEach((section, si) => {
+        const card = document.createElement("section");
+        card.className = "settings-group academy-section";
+
+        const title = document.createElement("h3");
+        title.textContent = section.title;
+        card.appendChild(title);
+
+        const list = document.createElement("ul");
+        list.className = "academy-points";
+
+        section.points.forEach((point, pi) => {
+          const id = pointId(topic.key, si, pi);
+          const checked = academyState.progress.has(id);
+
+          const li = document.createElement("li");
+          li.className = `academy-point${checked ? " is-done" : ""}`;
+
+          const label = document.createElement("label");
+          label.className = "academy-point__label";
+
+          const box = document.createElement("input");
+          box.type = "checkbox";
+          box.checked = checked;
+          box.className = "academy-point__box";
+          box.addEventListener("change", () => {
+            if (box.checked) academyState.progress.add(id);
+            else academyState.progress.delete(id);
+            li.classList.toggle("is-done", box.checked);
+            saveProgress();
+            renderProgress();
+          });
+
+          const text = document.createElement("span");
+          text.className = "academy-point__text";
+          text.textContent = point;
+
+          label.append(box, text);
+          li.appendChild(label);
+          list.appendChild(li);
+        });
+
+        card.appendChild(list);
+        host.appendChild(card);
+      });
+    };
+
+    const renderQuiz = () => {
+      const host = el("academy-quiz");
+      if (!host) return;
+      host.innerHTML = "";
+      if (!el("academy-quiz-toggle")) el("academy-quiz-toggle").checked = false;
+
+      window.ACADEMY_QUIZ.forEach((item, index) => {
+        const card = document.createElement("div");
+        card.className = "academy-quiz__item";
+
+        const topic = window.ACADEMY_TOPICS.find((t) => t.key === item.topic);
+        const label = document.createElement("span");
+        label.className = "academy-quiz__topic";
+        label.textContent = topic ? topic.label : item.topic;
+
+        const question = document.createElement("p");
+        question.className = "academy-quiz__question";
+        question.textContent = item.question;
+
+        card.append(label, question);
+
+        if (item.code) {
+          const pre = document.createElement("pre");
+          pre.className = "viz-code";
+          pre.textContent = item.code;
+          card.appendChild(pre);
+        }
+
+        const options = document.createElement("div");
+        options.className = "academy-quiz__options";
+        const chosen = academyState.quizAnswers[index];
+
+        item.options.forEach((option, oi) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "viz-alg";
+          if (chosen !== undefined && chosen === oi) button.classList.add("is-selected");
+          button.textContent = option;
+
+          button.addEventListener("click", () => {
+            academyState.quizAnswers[index] = oi;
+            saveProgress();
+            renderQuiz();
+          });
+          options.appendChild(button);
+        });
+        card.appendChild(options);
+
+        /* The explanation appears as soon as anything is chosen, right or wrong.
+           There is no state where the reader is told they are wrong and given
+           nothing to read. */
+        if (chosen !== undefined) {
+          const correct = chosen === item.answer;
+          const explain = document.createElement("p");
+          explain.className = `academy-quiz__why${correct ? " is-right" : " is-wrong"}`;
+          explain.textContent = `${correct ? "Correct." : "Not quite."} ${item.why}`;
+          card.appendChild(explain);
+        }
+
+        host.appendChild(card);
+      });
+
+      const score = el("academy-quiz-score");
+      if (score) {
+        const answered = Object.keys(academyState.quizAnswers).length;
+        const right = window.ACADEMY_QUIZ.filter((item, i) => academyState.quizAnswers[i] === item.answer).length;
+        score.textContent = answered ? `${right} of ${answered} answered correctly. ${window.ACADEMY_QUIZ.length - answered} still to try.` : `${window.ACADEMY_QUIZ.length} questions. Pick an answer to see why.`;
+      }
+    };
+
+    const initAcademy = () => {
+      loadProgress();
+      const stored = readJson(ACADEMY_KEY, () => ({}));
+      academyState.topic = (window.ACADEMY_TOPICS || []).some((t) => t.key === stored.topic)
+        ? stored.topic
+        : (window.ACADEMY_TOPICS || [])[0]?.key || null;
+
+      el("academy-reset")?.addEventListener("click", () => {
+        const confirmed = window.confirm(
+          "Clear your progress on this page?\n\nThis only forgets which points you marked and your quiz answers. Your problems, notes, code and revision schedule are not affected."
+        );
+        if (!confirmed) return;
+        academyState.progress = new Set();
+        academyState.quizAnswers = {};
+        saveProgress();
+        renderNav();
+        renderTopic();
+        renderQuiz();
+        renderProgress();
+        showLabToast("Academy progress cleared");
+      });
+
+      renderNav();
+      renderTopic();
+      renderQuiz();
+      renderProgress();
+    };
+
+    /* The module is wrapped in an IIFE so its helpers stay out of the app's
+       shared scope, but init still has to be called from the app's init block.
+       Publishing just this one function is the seam between the two. */
+    window.initAcademy = initAcademy;
+  })();
+
+
   /* -------------------------------- init -------------------------------- */
 
   ensureActiveSession();
@@ -10673,6 +10911,7 @@ const refreshStudyForActiveProblem = () => {
   initConnectionDiagnostics();
   initVisualizer();
   initDiscovery();
+  window.initAcademy();
   initLcFilters();
   renderTabs();
   renderLcAll();

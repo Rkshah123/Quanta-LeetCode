@@ -2229,6 +2229,171 @@ body[data-theme="beige"] .btn-toggle {
   font-size: 0.72rem;
 }
 
+/* ====================== technical interview academy ===================== */
+
+.academy-body {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 40px;
+}
+
+.academy-honest {
+  margin: 0;
+}
+
+.academy-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.academy-progress__bar {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.academy-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-text), #34d399);
+  transition: width var(--anim-mid);
+}
+
+.academy-section {
+  margin-top: 12px;
+}
+
+.academy-points {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.academy-point__label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  cursor: pointer;
+  transition: border-color var(--anim-fast), background var(--anim-fast);
+}
+
+.academy-point__label:hover {
+  border-color: var(--accent-line);
+}
+
+.academy-point.is-done .academy-point__label {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+/* The native checkbox is kept: it is keyboard accessible and works with
+   screen readers without any extra code. */
+.academy-point__box {
+  width: 19px;
+  height: 19px;
+  margin: 1px 0 0;
+  accent-color: var(--accent-text);
+  cursor: pointer;
+  flex: none;
+}
+
+.academy-point__text {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-b);
+}
+
+.academy-point.is-done .academy-point__text {
+  color: var(--text-c);
+}
+
+.quiz-summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--accent-text);
+  padding: 9px 0;
+}
+
+.academy-quiz {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.academy-quiz__item {
+  display: grid;
+  gap: 9px;
+  padding: 13px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.academy-quiz__topic {
+  justify-self: start;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 0.64rem;
+  font-weight: 750;
+}
+
+.academy-quiz__question {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-a);
+}
+
+.academy-quiz__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.academy-quiz__options .viz-alg.is-selected {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.academy-quiz__why {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.77rem;
+  line-height: 1.6;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text-b);
+}
+
+.academy-quiz__why.is-right {
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #9ff0cd;
+}
+
+.academy-quiz__why.is-wrong {
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fde3a7;
+}
+
+@media (max-width: 520px) {
+  .academy-quiz__options {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ====================== smart problem discovery ========================= */
 /* Same theme tokens as everything else; no colours are invented here. */
 
