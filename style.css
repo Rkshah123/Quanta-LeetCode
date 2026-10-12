@@ -2229,6 +2229,196 @@ body[data-theme="beige"] .btn-toggle {
   font-size: 0.72rem;
 }
 
+/* ================== connection and data-source diagnostics ================= */
+
+.diag-intro {
+  margin: 0 0 10px;
+  color: var(--text-c);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.diag-panel {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--field);
+  overflow: hidden;
+}
+
+.diag-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.diag-row:last-child {
+  border-bottom: 0;
+}
+
+.diag-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-c);
+  flex: none;
+}
+
+.diag-dot[data-dot="ok"] {
+  background: #34d399;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+}
+
+.diag-dot[data-dot="bad"] {
+  background: #f87171;
+  box-shadow: 0 0 6px rgba(248, 113, 113, 0.5);
+}
+
+.diag-dot[data-dot="warn"] {
+  background: #fbbf24;
+}
+
+.diag-dot[data-dot="checking"] {
+  background: var(--accent-text);
+  animation: diag-pulse 1.1s ease-in-out infinite;
+}
+
+.diag-dot[data-dot="muted"] {
+  background: var(--text-c);
+  opacity: 0.5;
+}
+
+@keyframes diag-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.diag-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.diag-text strong {
+  color: var(--text-a);
+  font-size: 0.82rem;
+}
+
+.diag-text span {
+  color: var(--text-c);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.diag-state {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--text-c);
+  font-size: 0.66rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.diag-state[data-state="ok"] {
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #34d399;
+}
+
+.diag-state[data-state="bad"] {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f87171;
+}
+
+.diag-state[data-state="warn"] {
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fbbf24;
+}
+
+.diag-state[data-state="checking"] {
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+
+.diag-facts {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.diag-facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.diag-facts dt {
+  color: var(--text-c);
+  font-size: 0.72rem;
+}
+
+.diag-facts dd {
+  margin: 0;
+  color: var(--text-b);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.diag-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.diag-actions .diag-action-btn--danger,
+.diag-actions .settings-action-btn--danger {
+  background: transparent;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: #f8a6a6;
+}
+
+.diag-actions .diag-action-btn--danger:hover,
+.diag-actions .settings-action-btn--danger:hover {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: #f8a6a6;
+  color: #fecaca;
+  box-shadow: none;
+  filter: none;
+}
+
+.diag-note {
+  margin: 10px 0 0;
+  color: var(--text-c);
+  font-size: 0.72rem;
+  min-height: 1em;
+}
+
+/* The small, permanently visible half of the story: which source the statement
+   currently on screen came from. The detail is in Settings. */
+.ql-desc-sync--error {
+  color: #f8a6a6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diag-dot[data-dot="checking"] {
+    animation: none;
+  }
+}
+
 /* ================ Study notes and saved solutions ====================== */
 /* These live inside the existing problem detail (Notes and Solutions tabs), so
    they reuse the app's tokens and work in all three themes. */

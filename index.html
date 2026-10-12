@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=25" />
+  <link rel="stylesheet" href="style.css?v=27" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -910,6 +910,53 @@
           </div>
         </section>
         <section class="settings-group">
+          <h3>Connection diagnostics</h3>
+          <p class="diag-intro">
+            Where this app is getting its data right now. Each line is checked against the real service, not
+            assumed from the fact that something is on screen.
+          </p>
+          <div class="diag-panel" id="diag-panel">
+            <div class="diag-row" data-diag="internet">
+              <span class="diag-dot" data-diag-dot></span>
+              <div class="diag-text"><strong>Internet</strong><span data-diag-detail>Not checked yet</span></div>
+              <span class="diag-state" data-diag-state>Unknown</span>
+            </div>
+            <div class="diag-row" data-diag="api">
+              <span class="diag-dot" data-diag-dot></span>
+              <div class="diag-text"><strong>Problem API</strong><span data-diag-detail>Not checked yet</span></div>
+              <span class="diag-state" data-diag-state>Unknown</span>
+            </div>
+            <div class="diag-row" data-diag="database">
+              <span class="diag-dot" data-diag-dot></span>
+              <div class="diag-text"><strong>Database</strong><span data-diag-detail>Not checked yet</span></div>
+              <span class="diag-state" data-diag-state>Unknown</span>
+            </div>
+            <div class="diag-row" data-diag="runner">
+              <span class="diag-dot" data-diag-dot></span>
+              <div class="diag-text"><strong>Code runner</strong><span data-diag-detail>Not checked yet</span></div>
+              <span class="diag-state" data-diag-state>Unknown</span>
+            </div>
+            <div class="diag-row" data-diag="statements">
+              <span class="diag-dot" data-diag-dot></span>
+              <div class="diag-text"><strong>Statements on this device</strong><span data-diag-detail>Not checked yet</span></div>
+              <span class="diag-state" data-diag-state>Unknown</span>
+            </div>
+          </div>
+          <dl class="diag-facts">
+            <div><dt>Last successful API connection</dt><dd data-diag-fact="lastApiOk">Never</dd></div>
+            <div><dt>Last check</dt><dd data-diag-fact="lastCheck">Never</dd></div>
+            <div><dt>Bundled statements</dt><dd data-diag-fact="bundled">Unknown</dd></div>
+            <div><dt>Cached statements</dt><dd data-diag-fact="cached">Unknown</dd></div>
+            <div><dt>Pending synchronization</dt><dd data-diag-fact="pending">Not supported</dd></div>
+          </dl>
+          <div class="diag-actions">
+            <button id="diag-check" class="settings-action-btn" type="button">Check connection</button>
+            <button id="diag-retry-statement" class="settings-action-btn" type="button">Retry this statement</button>
+            <button id="diag-clear-cache" class="settings-action-btn settings-action-btn--danger" type="button">Clear cached statements…</button>
+          </div>
+          <p class="diag-note" id="diag-note" role="status" aria-live="polite"></p>
+        </section>
+        <section class="settings-group">
           <h3>Data</h3>
           <div class="settings-rows">
             <div class="settings-row">
@@ -1048,6 +1095,6 @@
 
   <script src="vendor/monaco/min/vs/loader.js"></script>
   <script src="script.js?v=16"></script>
-  <script src="lab-notes.js?v=47"></script>
+  <script src="lab-notes.js?v=50"></script>
 </body>
 </html>
