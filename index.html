@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=35" />
+  <link rel="stylesheet" href="style.css?v=40" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -53,6 +53,7 @@
     <button class="nav-btn" type="button" data-page="discovery">What&rsquo;s next</button>
     <button class="nav-btn" type="button" data-page="academy">Academy</button>
     <button class="nav-btn" type="button" data-page="patterns">Patterns</button>
+    <button class="nav-btn" type="button" data-page="arena">Arena</button>
     <button class="nav-btn" type="button" data-page="mock">Mock</button>
     <button class="nav-btn" type="button" data-page="companies">Companies</button>
     <button class="nav-btn" type="button" data-page="settings">Settings</button>
@@ -824,6 +825,64 @@
         </section>
       </div>
     </section>
+    <!-- ============================ Arena page ============================= -->
+    <section id="page-arena" class="page page--arena" data-page-id="arena" aria-label="Contest arena" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Contest arena</h2>
+          <p class="page-sub">Live rounds, real standings and your real rating &mdash; straight from Codeforces</p>
+        </div>
+      </header>
+
+      <div class="settings-body arena-body">
+        <p class="viz-note--plain">
+          Everything on this page is fetched from Codeforces&rsquo;s public API while you look at it. Nothing here
+          is sampled or simulated: if a round has not started, its standings genuinely do not exist yet and this
+          page says so rather than showing an empty table.
+        </p>
+
+        <section class="settings-group" aria-labelledby="arena-you-title">
+          <h3 id="arena-you-title">You</h3>
+          <div class="arena-identity">
+            <label class="viz-field">
+              <span>Your Codeforces handle (optional)</span>
+              <input id="arena-handle" class="settings-input" type="text" placeholder="e.g. tourist" autocomplete="off" spellcheck="false" maxlength="32" />
+            </label>
+            <button id="arena-refresh" class="prog-btn" type="button">Refresh</button>
+          </div>
+          <p class="pattern-intro">
+            Only used to look up your own rating and find your row. Quanta never stores it server-side, and you
+            can leave it blank &mdash; contests still work.
+          </p>
+          <div id="arena-profile"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="arena-live-title">
+          <h3 id="arena-live-title">Running now</h3>
+          <p id="arena-summary" class="pattern-intro"></p>
+          <p id="arena-note" class="viz-note--plain" role="status" aria-live="polite" hidden></p>
+          <div id="arena-live" class="arena-list"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="arena-upcoming-title">
+          <h3 id="arena-upcoming-title">Coming up</h3>
+          <div id="arena-upcoming" class="arena-list"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="arena-detail-title">
+          <h3 id="arena-detail-title">Round detail</h3>
+          <div id="arena-detail" class="arena-detail">
+            <p class="pattern-intro">Pick a round above to see its problems, what they are worth and where you placed.</p>
+          </div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="arena-recent-title">
+          <h3 id="arena-recent-title">Recent rounds</h3>
+          <div id="arena-recent" class="arena-list"></div>
+        </section>
+      </div>
+    </section>
     <!-- ========================== Companies page =========================== -->
     <section id="page-companies" class="page page--companies" data-page-id="companies" aria-label="Company preparation" hidden>
       <header class="page-head">
@@ -1414,6 +1473,7 @@
   <script src="patterns.js?v=1"></script>
   <script src="mock.js?v=1"></script>
   <script src="solutions.js?v=1"></script>
-  <script src="lab-notes.js?v=64"></script>
+<script src="contests.js?v=1"></script>
+  <script src="lab-notes.js?v=72"></script>
 </body>
 </html>

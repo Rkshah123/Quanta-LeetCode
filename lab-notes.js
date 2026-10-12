@@ -114,6 +114,11 @@
        what a good suggestion is, so a cached list would go stale the moment
        the user solved anything. */
     if (pageId === "discovery") discoveryRefresh();
+    /* The arena's clock starts on show and stops on leave, and its contest list
+       is refetched each visit - a countdown you have to reload to trust is not
+       worth having. */
+    if (pageId === "arena") arenaOnShow();
+    else arenaOnHide();
     if (pageId === "lab" || pageId === "quantalab") relayoutMonacoEditors();
     if (pageId !== "lab") clearLanguageAccent();
     /* Hidden pages measure 0x0, so stored split sizes could not be applied
@@ -11923,6 +11928,982 @@ const refreshStudyForActiveProblem = () => {
   };
 
 
+  /* ============================ contest arena ==============================
+     Live contests, real standings, your real rating.
+
+     The honesty rules on this page
+     ------------------------------
+     Everything here is fetched from Codeforces while you look at it. So:
+
+       - If Codeforces cannot be reached, the page says so. It does not show an
+         empty contest list, which is indistinguishable from "nothing is running".
+       - If a contest has not started, its standings genuinely do not exist yet,
+         and the page says that rather than showing a blank table.
+       - If you have not entered a Codeforces handle, no rating is shown - not a
+         zero, not an average, not someone else's.
+       - Every number carries where it came from. A cached response says so.
+
+     Why a handle is asked for but never required
+     --------------------------------------------
+     Contests are useful without one. A reader who only wants to know what is
+     running should not have to sign up to Codeforces to find out, so the handle is
+     optional and only unlocks the rating and "your row" features.
+
+     The timers
+     ----------
+     A countdown that only updates when something else re-renders is a countdown
+     that lies. One interval ticks the visible timers every second, and it is torn
+     down when you leave the page - a page that keeps a timer running after you
+     have closed it is a battery drain with no user benefit. */
+
+  const ARENA_KEY = "quantaArenaV1";
+
+  const arenaState = {
+    handle: "",
+    contests: { live: [], upcoming: [], recent: [], counts: {} },
+    selected: null,
+    detail: null,
+    profile: null,
+    /* Kept separately from `profile: null` so the reason a lookup failed can
+       survive the re-render that follows it. */
+    profileError: null,
+    error: null,
+    loadingContests: false,
+    loadingDetail: false,
+    loadingProfile: false,
+    note: null,
+    ticker: null,
+    seconds: 0
+  };
+
+  /* Exposed deliberately. This is the one page that keeps a timer running and
+     reaches the network, so being able to ask "is that interval still alive?"
+     and "what did it last fetch?" from the console is worth more than the
+     tidiness of a module-scoped variable - and the browser test relies on it to
+     prove the timer is really torn down when you leave the page.
+
+     `open` is the one public action, so a particular round can be jumped to
+     directly - which is how the browser test reaches a contest the reader has
+     actually entered, rather than whichever round happens to be newest. */
+  window.arenaState = arenaState;
+  window.arena = { open: (contestId) => loadArenaContest(contestId), reload: () => loadArena() };
+
+  const arenaEl = (id) => document.getElementById(id);
+
+  const arenaLoadState = () => {
+    const saved = readJson(ARENA_KEY, () => ({}));
+    if (saved && typeof saved === "object") {
+      arenaState.handle = typeof saved.handle === "string" ? saved.handle.slice(0, 32) : "";
+    }
+  };
+
+  const arenaSaveState = () => {
+    writeJson(ARENA_KEY, { handle: arenaState.handle });
+  };
+
+  const arenaApi = async (path) => {
+    const response = await fetch(`${getApiBase()}${path}`, { headers: { Accept: "application/json" } });
+    let body = {};
+    try {
+      body = await response.json();
+    } catch {
+      body = {};
+    }
+    if (!response.ok || body.ok === false) {
+      throw new Error(body.error || `The server answered ${response.status}.`);
+    }
+    return body;
+  };
+
+  /* One note under the page title, explaining where the numbers came from. Shown
+     only when it is something the reader cannot see for themselves - a cached
+     response, or a gap the API left. */
+  const arenaSetNote = (text, kind = "plain") => {
+    const host = arenaEl("arena-note");
+    if (!host) return;
+    host.hidden = !text;
+    host.className = kind === "error" ? "viz-note--error" : "viz-note--plain";
+    host.textContent = text || "";
+  };
+
+  const arenaClear = (hostId) => {
+    const host = arenaEl(hostId);
+    if (host) host.innerHTML = "";
+  };
+
+  const arenaErrorBox = (hostId, error, retryLabel) => {
+    const host = arenaEl(hostId);
+    if (!host) return;
+    host.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "arena-error";
+    const text = document.createElement("p");
+    text.textContent = error?.message || String(error);
+    box.appendChild(text);
+    if (retryLabel) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "prog-btn";
+      retry.textContent = retryLabel;
+      retry.addEventListener("click", retryLabel === "Try again" ? () => void loadArena() : () => void loadArenaContest(arenaState.selected));
+      box.appendChild(retry);
+    }
+    host.appendChild(box);
+  };
+
+  /* ------------------------------ contests -------------------------------- */
+
+  const arenaContestCard = (contest, { showProgress = false } = {}) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = `arena-contest${arenaState.selected === contest.id ? " is-active" : ""}`;
+    row.dataset.contest = String(contest.id);
+
+    const head = document.createElement("span");
+    head.className = "arena-contest__head";
+
+    const name = document.createElement("span");
+    name.className = "arena-contest__name";
+    name.textContent = contest.name;
+
+    /* ICPC and CF rounds are scored differently, and the tag says which - the
+       first thing you need to know before reading a standings table. */
+    const badge = document.createElement("span");
+    badge.className = `arena-contest__badge is-${String(contest.scoring || "points")}`;
+    badge.textContent = contest.scoring === "penalty" ? "solves + penalty" : "points";
+    head.append(name, badge);
+
+    const meta = document.createElement("span");
+    meta.className = "arena-contest__meta";
+    meta.append(arenaTimeEl(contest));
+
+    if (contest.durationSeconds) {
+      const len = document.createElement("span");
+      len.textContent = `${Math.round(contest.durationSeconds / 60)} min`;
+      meta.appendChild(len);
+    }
+
+    row.append(head, meta);
+
+    /* A live round gets a progress bar, because "42 minutes left" tells you how
+       much runway you have and the bar tells you how far in you are. */
+    if (showProgress) {
+      const progress = document.createElement("span");
+      progress.className = "arena-progress";
+      const fill = document.createElement("span");
+      fill.className = "arena-progress__fill";
+      const ratio = window.contestEngine.contestProgress(contest, arenaState.seconds);
+      fill.style.width = `${Math.round((ratio ?? 0) * 100)}%`;
+      progress.appendChild(fill);
+      row.appendChild(progress);
+    }
+
+    row.addEventListener("click", () => void loadArenaContest(contest.id));
+    return row;
+  };
+
+  /* The clock on a card. Built once and kept, because rebuilding it every second
+     would throw away the element mid-click and make the list feel broken. */
+  const arenaTimeEl = (contest) => {
+    const time = document.createElement("span");
+    time.className = "arena-contest__time";
+
+    const key = `${contest.id}`;
+    arenaState.timers = arenaState.timers || {};
+    const entry = arenaState.timers[key] || {};
+    entry.el = time;
+    entry.contest = contest;
+    arenaState.timers[key] = entry;
+
+    /* Painted by the shared painter, so a card countdown and the detail header
+       clock are computed by the same code and cannot disagree. */
+    paintArenaTimer(entry);
+    return time;
+  };
+
+  const renderArenaContests = () => {
+    const { live, upcoming, recent } = arenaState.contests;
+    const total = (live || []).length + (upcoming || []).length + (recent || []).length;
+
+    const summary = arenaEl("arena-summary");
+    if (summary) {
+      summary.textContent = arenaState.loadingContests && !total
+        ? "Asking Codeforces what is running…"
+        : `${live.length} running now · ${upcoming.length} coming up · ${recent.length} recent`;
+    }
+
+    const liveHost = arenaEl("arena-live");
+    const upHost = arenaEl("arena-upcoming");
+    const recentHost = arenaEl("arena-recent");
+
+    if (liveHost) {
+      arenaClear("arena-live");
+      if (!live.length) {
+        const p = document.createElement("p");
+        p.className = "pattern-intro";
+        p.textContent = "Nothing is running. Rounds usually start in the evening, so check back later.";
+        liveHost.appendChild(p);
+      } else {
+        for (const contest of live) liveHost.appendChild(arenaContestCard(contest, { showProgress: true }));
+      }
+    }
+
+    if (upHost) {
+      arenaClear("arena-upcoming");
+      if (!upcoming.length) {
+        const p = document.createElement("p");
+        p.className = "pattern-intro";
+        p.textContent = "Codeforces has no rounds announced yet.";
+        upHost.appendChild(p);
+      } else {
+        for (const contest of upcoming.slice(0, 8)) upHost.appendChild(arenaContestCard(contest));
+      }
+    }
+
+    if (recentHost) {
+      arenaClear("arena-recent");
+      if (!recent.length) {
+        const p = document.createElement("p");
+        p.className = "pattern-intro";
+        p.textContent = "No recent rounds.";
+        recentHost.appendChild(p);
+      } else {
+        for (const contest of recent.slice(0, 12)) recentHost.appendChild(arenaContestCard(contest));
+      }
+    }
+  };
+
+  /* --------------------------- contest detail ----------------------------- */
+
+  const renderArenaDetail = () => {
+    const host = arenaEl("arena-detail");
+    if (!host) return;
+    host.innerHTML = "";
+
+    const detail = arenaState.detail;
+    if (arenaState.loadingDetail && !detail) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = "Loading the problems and standings…";
+      host.appendChild(p);
+      return;
+    }
+    if (!detail) return;
+
+    const contest = detail.contest || {};
+    const head = document.createElement("div");
+    head.className = "arena-detail__head";
+
+    const title = document.createElement("div");
+    const h = document.createElement("h3");
+    h.className = "arena-detail__title";
+    h.textContent = contest.name || `Contest ${contest.id}`;
+    const link = document.createElement("a");
+    link.className = "arena-detail__link";
+    link.href = contest.url || `https://codeforces.com/contests/${contest.id}`;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open on Codeforces ↗";
+    title.append(h, link);
+
+    const facts = document.createElement("div");
+    facts.className = "arena-detail__facts";
+    const startedAt = document.createElement("span");
+    startedAt.className = "arena-detail__clock";
+    facts.appendChild(startedAt);
+    head.append(title, facts);
+
+    /* The header clock is registered like the card clocks, so one tick updates
+       all of them together. */
+    const clockEntry = (arenaState.timers = arenaState.timers || {})["detail"] || { el: startedAt };
+    clockEntry.el = startedAt;
+    clockEntry.detail = contest;
+    arenaState.timers.detail = clockEntry;
+
+    const size = document.createElement("span");
+    size.textContent = `${detail.problems?.length || 0} problems · ${(detail.rowCount || 0).toLocaleString()} took part`;
+    facts.appendChild(size);
+
+    /* How much of this sheet Quanta already holds, stated plainly. Without it
+       the two "Solve here" buttons and the six off-site links look arbitrary -
+       the reader cannot tell whether the app simply failed to find the others,
+       or genuinely does not carry them. */
+    if (detail.catalog && detail.catalog.total) {
+      const overlap = document.createElement("span");
+      overlap.className = "arena-detail__overlap";
+      const held = detail.catalog.inCatalog;
+      overlap.textContent = held
+        ? `${held} of ${detail.catalog.total} in your catalog`
+        : "none of these are in your catalog yet";
+      facts.appendChild(overlap);
+    }
+
+    host.appendChild(head);
+
+    /* The plan: what the round is actually worth, problem by problem. Generated
+       from the real points, so it changes when the round's scoring does. */
+    if (detail.plan?.rows?.length) {
+      const plan = document.createElement("p");
+      plan.className = "arena-advice";
+      plan.textContent = detail.plan.advice;
+      host.appendChild(plan);
+    }
+
+    /* Problems */
+    const problemsHead = document.createElement("h4");
+    problemsHead.className = "arena-sub";
+    problemsHead.textContent = "Problems";
+    host.appendChild(problemsHead);
+
+    const table = document.createElement("div");
+    table.className = "arena-problems";
+
+    for (const problem of detail.problems || []) {
+      const row = document.createElement("div");
+      row.className = "arena-problem";
+
+      const index = document.createElement("span");
+      index.className = "arena-problem__index";
+      index.textContent = problem.index;
+
+      const name = document.createElement("span");
+      name.className = "arena-problem__name";
+      name.textContent = problem.name;
+      row.append(index, name);
+
+      if (problem.rating) {
+        const rating = document.createElement("span");
+        rating.className = "arena-problem__rating";
+        rating.textContent = String(problem.rating);
+        rating.title = "Codeforces difficulty estimate";
+        row.appendChild(rating);
+      } else {
+        const unknown = document.createElement("span");
+        unknown.className = "arena-problem__rating is-unknown";
+        unknown.textContent = "—";
+        unknown.title = "Codeforces has not published a difficulty for this one yet";
+        row.appendChild(unknown);
+      }
+
+      const points = document.createElement("span");
+      points.className = "arena-problem__points";
+      points.textContent = problem.points != null ? String(problem.points) : "";
+      points.title = "Points for solving this";
+      row.appendChild(points);
+
+      /* The link into Quanta, and only when the problem really is in the catalog.
+         The join is on Codeforces' own problem id, so this is never a
+         title-similarity guess. */
+      if (problem.inCatalog && problem.slug) {
+        const open = document.createElement("button");
+        open.type = "button";
+        open.className = "prog-btn is-quiet";
+        open.textContent = "Solve here";
+        open.addEventListener("click", () => {
+          const local = (Array.isArray(lcState?.problems) ? lcState.problems : []).find((p) => p.slug === problem.slug);
+          if (local) {
+            showPage("quantalab");
+            selectLcProblem(local.id);
+            return;
+          }
+          const input = document.querySelector("#lc-search-input");
+          if (input) {
+            Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(input, problem.name);
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          showPage("quantalab");
+        });
+        row.appendChild(open);
+      } else {
+        const away = document.createElement("a");
+        away.className = "arena-problem__away";
+        away.href = problem.url;
+        away.target = "_blank";
+        away.rel = "noopener noreferrer";
+        away.textContent = "View ↗";
+        row.appendChild(away);
+      }
+
+      table.appendChild(row);
+    }
+
+    if (!detail.problems?.length) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = "Codeforces has not published this round's problems yet.";
+      table.appendChild(p);
+    }
+    host.appendChild(table);
+
+    /* Standings */
+    const standingsHead = document.createElement("h4");
+    standingsHead.className = "arena-sub";
+    standingsHead.textContent = "Standings";
+    host.appendChild(standingsHead);
+
+    /* The standings arrive already analysed by the server. A finished Div. 2
+       round is ten thousand rows and 7.8 MB of JSON, and there is no way to
+       page Codeforces' endpoint - so the table is cut down to what can be
+       shown on the way past, and the browser never sees the rest.
+
+       The fallback to buildStandings here is for a response that somehow lacks
+       them, not the normal path. */
+    const built = detail.standings || window.contestEngine.buildStandings(detail, { handle: arenaState.handle, limit: 20 });
+    renderArenaStandings(host, built, detail);
+  };
+
+  const renderArenaStandings = (host, built, detail) => {
+    arenaClear("arena-standings");
+
+    const note = document.createElement("p");
+    /* Its own class rather than the shared intro style, so the standings note
+       can be addressed directly - by a reader looking for it, or by a test
+       proving the comparison against the field is on screen. */
+    note.className = "arena-standings__note";
+    if (built.you) {
+      /* `positionInField` is the place in the field - how many entrants rank at
+         or above you - and `total` is how many entered. Confusing the two
+         produced "12th of 12 entrants" for someone who placed 12th out of
+         9,709. */
+      note.textContent = `You finished ${ordinal(built.you.rank)} of ${built.total.toLocaleString()} entrants, solving ${built.you.solved} of ${built.you.totalProblems}. That is better than ${built.field.betterThanPercent}% of the field, whose median was ${built.field.medianSolved} problem${built.field.medianSolved === 1 ? "" : "s"}.`;
+    } else {
+      note.textContent = arenaState.handle
+        ? `${arenaState.handle} did not enter this round, so there is no row to point at. Showing the top of the table.`
+        : `Add your Codeforces handle above and this becomes your round: your row, your solves, your position in the field. Showing the top of the table for now.`;
+    }
+    host.appendChild(note);
+
+    const scoringNote = document.createElement("p");
+    scoringNote.className = "arena-scoring";
+    /* The penalty note carries the evidence for the decision to report
+       Codeforces' figure rather than recompute one. Measured on this actual
+       contest, not asserted in a footnote somewhere. */
+    const check = detail?.penaltyCheck;
+    const evidence = check && check.rows > 0 && check.disagree > 0
+      ? ` Checked against the published formula on all ${check.rows.toLocaleString()} rows of this round: ${check.disagree.toLocaleString()} disagree, so Quanta reports Codeforces' number rather than showing a second, different one.`
+      : "";
+    scoringNote.textContent = built.scoring === "penalty"
+      ? "This round is scored on solves first and penalty second. Penalties below are Codeforces' own figures." + evidence
+      : "This round is scored on points. Codeforces reports no penalty for it, so the column is not shown.";
+    host.appendChild(scoringNote);
+
+    const table = document.createElement("div");
+    table.className = "arena-standings";
+
+    const header = document.createElement("div");
+    header.className = "arena-standing is-head";
+    for (const label of ["#", "Handle", "Solved", built.scoring === "penalty" ? "Penalty" : "", "Points"]) {
+      const cell = document.createElement("span");
+      cell.className = "arena-standing__cell";
+      cell.textContent = label;
+      header.appendChild(cell);
+    }
+    table.appendChild(header);
+
+    /* How many rows carry each rank. Codeforces shares a rank between tied
+       entrants and the next number skips, which reads as a bug unless it is
+       explained where it can be seen. */
+    const rankCounts = new Map();
+    for (const row of built.rows) rankCounts.set(row.rank, (rankCounts.get(row.rank) || 0) + 1);
+
+    for (const row of built.rows) {
+      const line = document.createElement("div");
+      line.className = `arena-standing${row.isYou ? " is-you" : ""}`;
+
+      const rank = document.createElement("span");
+      rank.className = "arena-standing__cell arena-standing__rank";
+      rank.textContent = row.rank == null ? "—" : `#${row.rank}`;
+      if (row.rank != null && rankCounts.get(row.rank) > 1) {
+        line.classList.add("is-tied");
+        rank.title = "Shared rank - Codeforces gives tied entrants the same rank and skips the next number";
+      }
+      line.appendChild(rank);
+
+      const handle = document.createElement("span");
+      handle.className = "arena-standing__cell arena-standing__handle";
+      handle.textContent = row.team || "(unknown)";
+      if (row.isTeam) handle.title = "A team entry - two or more handles";
+      /* The marker is a real node rather than a CSS ::after. A pseudo-element
+         is invisible to a screen reader, cannot be selected as text, and would
+         be the only signal that a row is yours. The `is-you` class styles the
+         row independently, so colour is never the only cue either. */
+      if (row.isYou) {
+        const you = document.createElement("span");
+        you.className = "arena-standing__you";
+        you.textContent = "you";
+        line.appendChild(you);
+      }
+      line.appendChild(handle);
+
+      const solved = document.createElement("span");
+      solved.className = "arena-standing__cell";
+      solved.textContent = row.solvedIndices.length ? row.solvedIndices.join(" ") : "—";
+      solved.title = row.solvedIndices.length ? `Solved ${row.solvedIndices.join(", ")}` : "Solved nothing";
+      line.appendChild(solved);
+
+      if (built.scoring === "penalty") {
+        const penalty = document.createElement("span");
+        penalty.className = "arena-standing__cell";
+        penalty.textContent = String(row.penalty);
+        penalty.title = "Penalty as reported by Codeforces";
+        line.appendChild(penalty);
+      }
+
+      const points = document.createElement("span");
+      points.className = "arena-standing__cell";
+      points.textContent = String(row.points);
+      line.appendChild(points);
+
+      table.appendChild(line);
+    }
+
+    if (!built.rows.length) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = "No entrants in this round.";
+      table.appendChild(p);
+    }
+
+    host.appendChild(table);
+
+    const foot = document.createElement("p");
+    foot.className = "arena-foot";
+    foot.textContent = built.you
+      ? `Showing the rows around you out of ${built.total.toLocaleString()} entrants.`
+      : `Showing the top ${built.rows.length} of ${built.total.toLocaleString()} entrants.`;
+    host.appendChild(foot);
+  };
+
+  /* The year of a Unix timestamp, for the chart caption. A locale-formatted
+     full date would be unreadable at the width available, and two dates from
+     the same decade need only the years. */
+  const yearOf = (seconds) => {
+    const value = Number(seconds);
+    if (!Number.isFinite(value)) return "";
+    try {
+      return String(new Date(value * 1000).getUTCFullYear());
+    } catch {
+      return "";
+    }
+  };
+
+  const ordinal = (n) => {    const value = Number(n);
+    if (!Number.isFinite(value)) return "?";
+    const suffix = ["th", "st", "nd", "rd"][((value % 100) - 20) % 10] || ["th", "st", "nd", "rd"][value % 100] || "th";
+    return `${value}${suffix}`;
+  };
+
+  /* -------------------------------- profile ------------------------------- */
+
+  const renderArenaProfile = () => {
+    const host = arenaEl("arena-profile");
+    if (!host) return;
+
+    if (arenaState.loadingProfile && !arenaState.profile) {
+      host.innerHTML = "";
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = `Looking up ${arenaState.handle}…`;
+      host.appendChild(p);
+      return;
+    }
+
+    const profile = arenaState.profile;
+    if (!profile) {
+      host.innerHTML = "";
+      /* The specific reason, carried over from the failed load rather than
+         rendered and then immediately overwritten. An earlier version set the
+         error text and re-rendered on top of it in the same tick, so the reader
+         got "could not be loaded" instead of "Codeforces does not have that
+         handle" - which is the difference between a typo and an outage. */
+      if (arenaState.profileError) {
+        const fail = document.createElement("p");
+        fail.className = "viz-note--error";
+        fail.textContent = arenaState.profileError;
+        host.appendChild(fail);
+        return;
+      }
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = arenaState.handle
+        ? "That handle could not be loaded."
+        : "Add a Codeforces handle above to see your rating, your band and every rated round you have entered.";
+      host.appendChild(p);
+      return;
+    }
+
+    host.innerHTML = "";
+
+    const head = document.createElement("div");
+    head.className = "arena-profile__head";
+
+    const name = document.createElement("div");
+    const h = document.createElement("span");
+    h.className = "arena-profile__handle";
+    h.textContent = profile.handle;
+    const band = document.createElement("span");
+    band.className = "arena-profile__band";
+    band.textContent = profile.rank;
+    name.append(h, band);
+
+    const rating = document.createElement("div");
+    rating.className = "arena-profile__rating";
+    rating.textContent = profile.rating == null ? "unrated" : String(profile.rating);
+    rating.title = "Current rating";
+    if (profile.maxRating != null) {
+      const peak = document.createElement("span");
+      peak.className = "arena-profile__peak";
+      peak.textContent = `peak ${profile.maxRating}`;
+      rating.appendChild(peak);
+    }
+
+    head.append(name, rating);
+    host.appendChild(head);
+
+    const facts = document.createElement("div");
+    facts.className = "arena-profile__facts";
+    const fact = (label, value, title) => {
+      if (value == null || value === "") return;
+      const cell = document.createElement("div");
+      cell.className = "arena-profile__fact";
+      const k = document.createElement("span");
+      k.className = "arena-profile__fact-label";
+      k.textContent = label;
+      const v = document.createElement("span");
+      v.className = "arena-profile__fact-value";
+      v.textContent = String(value);
+      if (title) cell.title = title;
+      cell.append(k, v);
+      facts.appendChild(cell);
+    };
+    fact("rated rounds", profile.ratedContests, "Rounds where you finished above the lowest rated band");
+    fact("contribution", profile.contribution, "Your impact on Codeforces' difficulty estimates");
+    if (profile.country) fact("country", profile.country);
+
+    const linkFact = document.createElement("div");
+    linkFact.className = "arena-profile__fact";
+    const linkLabel = document.createElement("span");
+    linkLabel.className = "arena-profile__fact-label";
+    linkLabel.textContent = "profile";
+    const linkValue = document.createElement("a");
+    linkValue.className = "arena-profile__fact-value";
+    linkValue.href = profile.url;
+    linkValue.target = "_blank";
+    linkValue.rel = "noopener noreferrer";
+    linkValue.textContent = "open ↗";
+    linkFact.append(linkLabel, linkValue);
+    facts.appendChild(linkFact);
+
+    host.appendChild(facts);
+
+    /* The rating chart. Real points, one per rated round, and nothing drawn that
+       is not in the data: no trend line, no "you are improving" verdict.
+
+       It does carry a scale. A line with no axis is decoration - you cannot
+       tell whether a dip is forty points or four hundred, and reading the shape
+       is the entire point of the chart. The labels are the real peak and the
+       real floor, not the ends of a padded range, which would show the reader
+       numbers they never earned. */
+    const series = profile.series;
+    if (series.pointCount >= 2) {
+      const wrap = document.createElement("div");
+      wrap.className = "arena-chart";
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", `0 0 ${series.width} ${series.height}`);
+      svg.setAttribute("class", "arena-chart__svg");
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", `Rating from ${series.min} to ${series.max} across ${series.pointCount} rated rounds`);
+
+      if (series.areaPath) {
+        const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        area.setAttribute("d", series.areaPath);
+        area.setAttribute("class", "arena-chart__area");
+        svg.appendChild(area);
+      }
+
+      const scale = (rating, label, placeAbove) => {
+        const y = Math.round(series.height - ((rating - series.low) / (series.high - series.low)) * series.height);
+        const grid = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        grid.setAttribute("x1", "0");
+        grid.setAttribute("x2", String(series.width));
+        grid.setAttribute("y1", String(y));
+        grid.setAttribute("y2", String(y));
+        grid.setAttribute("class", "arena-chart__grid");
+        svg.appendChild(grid);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", "5");
+        text.setAttribute("y", String(placeAbove ? y - 6 : y + 14));
+        text.setAttribute("class", "arena-chart__tick");
+        text.textContent = `${label} ${rating}`;
+        svg.appendChild(text);
+      };
+      scale(series.max, "peak", true);
+      scale(series.min, "low", false);
+
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      line.setAttribute("d", series.path);
+      line.setAttribute("class", "arena-chart__line");
+      svg.appendChild(line);
+
+      for (const point of series.points) {
+        const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        dot.setAttribute("cx", String(point.x));
+        dot.setAttribute("cy", String(point.y));
+        dot.setAttribute("r", "3");
+        dot.setAttribute("class", "arena-chart__dot");
+        const titleEl = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        const row = series.rows.find((r) => r.contestId === point.contestId);
+        titleEl.textContent = row ? `${row.contestName}: ${row.rating}${row.change > 0 ? ` (+${row.change})` : row.change < 0 ? ` (${row.change})` : ""}` : String(point.rating);
+        dot.appendChild(titleEl);
+        svg.appendChild(dot);
+      }
+
+      wrap.appendChild(svg);
+
+      const caption = document.createElement("p");
+      caption.className = "arena-chart__caption";
+      const change = series.change == null
+        ? "not enough rated rounds to show a change"
+        : `${series.change > 0 ? "+" : ""}${series.change} over the last ${series.changeWindow} rated rounds`;
+      /* The caption carries the numbers the axis does not, and the span of time
+         the chart covers - a rating line without a date range is a shape with no
+         meaning. Both ends come from Codeforces' own update timestamps. */
+      const firstAt = series.rows[0]?.at;
+      const lastAt = series.rows[series.rows.length - 1]?.at;
+      const span = firstAt && lastAt ? `, ${yearOf(firstAt)} to ${yearOf(lastAt)}` : "";
+      caption.textContent = `${series.pointCount} rated rounds · lowest ${series.min} · highest ${series.max}${span} · ${change}`;
+      wrap.appendChild(caption);
+
+      host.appendChild(wrap);
+    } else {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = profile.ratedContests === 0
+        ? `${profile.handle} has no rated rounds yet, so there is no rating history to draw. Unrated rounds do not count towards a rating.`
+        : "Not enough rated rounds to draw a line yet.";
+      host.appendChild(p);
+    }
+
+    const source = document.createElement("p");
+    source.className = "arena-source";
+    const when = new Date((profile.fetchedAt || 0) * 1000).toLocaleTimeString();
+    source.textContent = `From ${profile.source}${profile.cached ? ` (cached, last fetched ${when})` : ` (fetched ${when})`}`;
+    host.appendChild(source);
+  };
+
+  /* --------------------------------- loaders ------------------------------ */
+
+  const loadArenaContests = async () => {
+    arenaState.loadingContests = true;
+    arenaState.error = null;
+    arenaSetNote("");
+    try {
+      const payload = await arenaApi("/api/contests");
+      arenaState.contests = {
+        live: payload.live || [],
+        upcoming: payload.upcoming || [],
+        recent: payload.recent || [],
+        counts: payload.counts || {}
+      };
+      /* The cache note matters on a countdown page: a list up to a minute old is
+         the normal case, and saying so is better than letting someone trust a
+         clock that has quietly stopped. */
+      arenaSetNote(
+        payload.cached
+          ? "This list came from Quanta's cache rather than a fresh request, so a round that has just started may not appear yet. Reload to check."
+          : "",
+        "plain"
+      );
+    } catch (error) {
+      arenaState.contests = { live: [], upcoming: [], recent: [], counts: {} };
+      arenaState.error = error;
+      arenaSetNote(`Could not load contests from Codeforces: ${error.message}`, "error");
+    } finally {
+      arenaState.loadingContests = false;
+      renderArenaContests();
+    }
+  };
+
+  const loadArenaContest = async (contestId) => {
+    if (!contestId) return;
+    arenaState.selected = Number(contestId);
+    arenaState.loadingDetail = true;
+    renderArenaContests();
+    renderArenaDetail();
+    try {
+      /* Built with URLSearchParams rather than by concatenating a query string
+         onto a path. The first version appended "&handle=..." to a path that
+         had no "?", so every request made with a handle set asked for a contest
+         called "2271&handle=tourist" and got a 400. A handle is optional, which
+         is exactly the condition under which a hand-built query string goes
+         unchecked: without one the URL is simply correct. */
+      const query = new URLSearchParams();
+      if (arenaState.handle) query.set("handle", arenaState.handle);
+      const suffix = query.toString() ? `?${query}` : "";
+      const detail = await arenaApi(`/api/contests/${arenaState.selected}${suffix}`);
+      /* A slow request for a contest the reader has already navigated away from
+         must not overwrite the one they are looking at. */
+      if (arenaState.selected !== Number(contestId)) return;
+      arenaState.detail = detail;
+    } catch (error) {
+      if (arenaState.selected !== Number(contestId)) return;
+      arenaState.detail = null;
+      arenaErrorBox("arena-detail", error, "Try again");
+    } finally {
+      if (arenaState.selected === Number(contestId)) {
+        arenaState.loadingDetail = false;
+        renderArenaDetail();
+      }
+    }
+  };
+
+  const loadArenaProfile = async () => {
+    if (!arenaState.handle) {
+      arenaState.profile = null;
+      arenaState.profileError = null;
+      renderArenaProfile();
+      return;
+    }
+    arenaState.loadingProfile = true;
+    arenaState.profileError = null;
+    renderArenaProfile();
+    /* Captured, so a slow answer to a question the reader has already changed
+       can be recognised and dropped rather than replacing what they are now
+       looking at. */
+    const askedFor = arenaState.handle;
+    const stillWanted = () => askedFor.toLowerCase() === arenaState.handle.toLowerCase();
+    try {
+      const profile = await arenaApi(`/api/codeforces/profile?${new URLSearchParams({ handle: askedFor })}`);
+      if (!stillWanted()) return;
+      arenaState.profile = profile;
+      arenaState.profileError = null;
+    } catch (error) {
+      if (!stillWanted()) return;
+      arenaState.profile = null;
+      /* Kept in state rather than written straight into the DOM. An earlier
+         version did the latter and then re-rendered over the top of it in the
+         same tick, so the specific reason - "Codeforces does not have that
+         handle", or an outage - was replaced by a vague one. */
+      arenaState.profileError = error.message;
+    } finally {
+      if (stillWanted()) {
+        arenaState.loadingProfile = false;
+        renderArenaProfile();
+      }
+    }
+  };
+
+  const loadArena = async () => {
+    arenaState.seconds = Math.round(Date.now() / 1000);
+    renderArenaContests();
+    await loadArenaContests();
+    if (arenaState.handle) await loadArenaProfile();
+  };
+
+  /* --------------------------------- clock --------------------------------- */
+
+  /* One interval for every visible timer. Started when the page is shown and
+     stopped when it is left, because a page that is not on screen has no reason
+     to wake up once a second. */
+  const arenaStartClock = () => {
+    if (arenaState.ticker) return;
+    arenaState.ticker = setInterval(() => {
+      arenaState.seconds = Math.round(Date.now() / 1000);
+      for (const entry of Object.values(arenaState.timers || {})) {
+        if (entry.el && entry.contest) paintArenaTimer(entry);
+      }
+    }, 1000);
+  };
+
+  const arenaStopClock = () => {
+    if (arenaState.ticker) {
+      clearInterval(arenaState.ticker);
+      arenaState.ticker = null;
+    }
+  };
+
+  /* The paint function, shared by the card timers and the detail header, so a
+     countdown on a card and a clock in the header can never read differently. */
+  const paintArenaTimer = (entry) => {
+    const contest = entry.contest || entry.detail;
+    if (!contest || !entry.el) return;
+    const now = arenaState.seconds;
+    const start = Number(contest.startTimeSeconds);
+    const duration = Number(contest.durationSeconds || 0);
+    const end = start + duration;
+
+    if (entry.detail) {
+      if (!Number.isFinite(start)) {
+        entry.el.textContent = "start time not published";
+      } else if (now >= end && duration) {
+        const ago = window.contestEngine.countdown(now - end);
+        entry.el.textContent = `finished ${ago.spoken} ago`;
+      } else if (now >= start) {
+        const left = window.contestEngine.countdown(end - now);
+        entry.el.textContent = `running · ${left.expired ? "ending" : `${left.spoken} left`}`;
+      } else {
+        const away = window.contestEngine.countdown(start - now);
+        entry.el.textContent = `starts in ${away.spoken}`;
+      }
+      return;
+    }
+
+    if (!Number.isFinite(start)) {
+      entry.el.textContent = "time not published";
+    } else if (now >= end && duration) {
+      const ago = window.contestEngine.countdown(now - end);
+      entry.el.textContent = `ended ${ago.spoken} ago`;
+    } else if (now >= start) {
+      const left = window.contestEngine.countdown(end - now);
+      entry.el.textContent = left.expired ? "ending" : `${left.spoken} left`;
+      entry.el.classList.add("is-live");
+    } else {
+      const away = window.contestEngine.countdown(start - now);
+      entry.el.textContent = away.spoken ? `starts in ${away.spoken}` : "starting";
+      entry.el.classList.remove("is-live");
+    }
+  };
+
+  /* ---------------------------------- init -------------------------------- */
+
+  const initArena = () => {
+    arenaLoadState();
+    arenaState.seconds = Math.round(Date.now() / 1000);
+
+    const input = arenaEl("arena-handle");
+    if (input) {
+      input.value = arenaState.handle;
+      input.addEventListener("change", () => {
+        const value = input.value.trim().slice(0, 32);
+        arenaState.handle = value;
+        arenaSaveState();
+        void loadArenaProfile();
+        /* The standings need the handle too, so the open round redraws with the
+           reader's row in it. */
+        if (arenaState.selected) void loadArenaContest(arenaState.selected);
+      });
+    }
+
+    const refresh = arenaEl("arena-refresh");
+    refresh?.addEventListener("click", () => void loadArena());
+
+    void loadArena();
+  };
+
+  const arenaOnShow = () => {
+    arenaStartClock();
+    /* Refreshed on every visit rather than cached in the page, because the whole
+       reason to come back here is to see what changed. */
+    void loadArena();
+  };
+
+  const arenaOnHide = () => {
+    arenaStopClock();
+  };
+
+
   /* -------------------------------- init -------------------------------- */
 
   ensureActiveSession();
@@ -11937,6 +12918,7 @@ const refreshStudyForActiveProblem = () => {
   initPatterns();
   initMock();
   initCompanies();
+  initArena();
   initLcFilters();
   renderTabs();
   renderLcAll();

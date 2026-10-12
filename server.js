@@ -1159,6 +1159,156 @@ app.post("/api/companies/import", rateLimit, async (req, res) => {
   }
 });
 
+/* ============================== contest arena ==============================
+   Live contests, standings and rating history, from Codeforces' public API.
+
+   These are the only endpoints here that reach outside this database, so they
+   answer differently from the rest: an upstream failure is passed through with
+   what Codeforces actually said, because "Codeforces is unreachable" and "this
+   handle does not exist" are different facts and the page shows both.
+
+   Responses say where they came from and whether they were served from cache,
+   because a countdown built on a five-minute-old contest list is not the same
+   thing as a live one, and the page needs to be able to say so. */
+
+/* Upstream failures get their own handler: a database error handler would tell
+   the user the database is down, which would be a lie. */
+const respondUpstreamError = (res, error) => {
+  const message = error?.message || String(error);
+  /* A handle that does not exist, or a malformed one, is the caller's problem
+     rather than an outage - and saying 502 "could not reach Codeforces" about a
+     typo sends the reader looking at the wrong problem. */
+  const looksLikeBadInput = /not found|does not have that handle|is not a contest id|letters, digits and underscores/i.test(message);
+  console.log(`[codeforces] ${message}`);
+  if (looksLikeBadInput) {
+    res.status(404).json({ ok: false, error: message, source: "codeforces" });
+    return;
+  }
+  res.status(502).json({
+    ok: false,
+    error: `Could not reach Codeforces: ${message}`,
+    source: "codeforces"
+  });
+};
+
+/* Live, upcoming and recent rounds, already split by the server so the client
+   cannot disagree with itself about what is running. */
+app.get("/api/contests", rateLimit, async (_req, res) => {
+  try {
+    const codeforces = require("./codeforces");
+    res.json(await codeforces.getContests());
+  } catch (error) {
+    respondUpstreamError(res, error);
+  }
+});
+
+/* One contest: its problems and an analysed slice of its standings.
+
+   Why the analysis happens here rather than in the browser
+   -------------------------------------------------------
+   Codeforces refuses to page `contest.standings` for anonymous callers, so the
+   whole table arrives or nothing does. A busy Div. 2 round is around ten
+   thousand rows, each carrying a per-problem result object for every problem -
+   measured at 7.8 MB and six seconds for one request. Shipping that to every
+   tab to let the client find one row would be indefensible.
+
+   So the table is analysed on the way through and only the slice that can be
+   displayed leaves the building: the top rows, or the reader's own row with a
+   little context around it, plus the real field size and median. The response
+   drops from megabytes to a couple of kilobytes with nothing true removed.
+
+   The handle arrives in the query string, is used to find that one row, and is
+   not stored, logged or written anywhere. It is the reader's own handle, sent
+   to their own server, for the purpose they asked for. */
+app.get("/api/contests/:id", rateLimit, async (req, res) => {
+  const id = String(req.params.id || "").trim();
+  if (!/^\d{1,7}$/.test(id)) {
+    res.status(400).json({ ok: false, error: "A contest id is a positive number." });
+    return;
+  }
+  const handle = String(req.query.handle || "").trim();
+  if (handle && !/^[A-Za-z0-9_]{1,32}$/.test(handle)) {
+    res.status(400).json({ ok: false, error: "A Codeforces handle is letters, digits and underscores, up to 32 characters." });
+    return;
+  }
+  try {
+    const codeforces = require("./codeforces");
+    /* Which of this contest's problems are already in Quanta's catalog, so the
+       page can link straight to one instead of sending the reader off-site.
+       Joined on Codeforces' own problem id, never on the title. */
+    const { query } = require("./db/pool");
+    const catalogProblems = await query(
+      `SELECT slug, external_id, rating FROM problems WHERE platform = ?`,
+      ["codeforces"]
+    );
+    const payload = await codeforces.getContest(id);
+    const engine = require("./contests");
+    const matched = engine.matchToCatalog(payload.problems, catalogProblems);
+    const analysed = engine.buildStandings({ problems: payload.problems, rows: payload.rows, contest: payload.contest }, { handle, limit: 25 });
+
+    res.json({
+      ok: true,
+      cached: payload.cached,
+      fetchedAt: payload.fetchedAt,
+      source: payload.source,
+      contest: payload.contest,
+      problems: matched.problems,
+      catalog: { inCatalog: matched.inCatalog, total: matched.total },
+      plan: engine.contestPlan(matched.problems, { contest: payload.contest }),
+      /* The analysed standings. `rows` is the real number of entrants, not the
+         number shown, so the page can say "top 25 of 9,709" and mean it. */
+      standings: analysed,
+      rowCount: analysed.total,
+      /* What Codeforces' own penalty arithmetic looks like against the
+         published formula, so the decision not to recompute it stays checkable
+         rather than merely asserted. Measured on the server because it walks
+         every row. */
+      penaltyCheck: engine.verifyPenalty({ problems: payload.problems, rows: payload.rows })
+    });
+  } catch (error) {
+    respondUpstreamError(res, error);
+  }
+});
+
+/* A real Codeforces profile: rank, rating, and the full rating history. */
+app.get("/api/codeforces/profile", rateLimit, async (req, res) => {
+  const handle = String(req.query.handle || "").trim();
+  if (!handle) {
+    res.status(400).json({ ok: false, error: "Send a Codeforces handle as ?handle=." });
+    return;
+  }
+  /* Shape checked here as well as in the client module, so a malformed handle
+     is answered as the bad request it is. Left to the upstream client it became
+     a 404, which reads as "Codeforces has never heard of this person" - true,
+     but the wrong diagnosis: the string could not have been a handle at all. */
+  if (!/^[A-Za-z0-9_]{1,32}$/.test(handle)) {
+    res.status(400).json({
+      ok: false,
+      error: "A Codeforces handle is letters, digits and underscores, up to 32 characters.",
+      source: "quanta"
+    });
+    return;
+  }
+  try {
+    const codeforces = require("./codeforces");
+    res.json(await codeforces.getProfile(handle));
+  } catch (error) {
+    respondUpstreamError(res, error);
+  }
+});
+
+/* Whether the cache is doing its job. Diagnostics only - it exposes no user
+   data and no upstream credentials, and it is what makes the caching claim
+   checkable rather than merely stated. */
+app.get("/api/contests-cache", rateLimit, async (_req, res) => {
+  try {
+    const codeforces = require("./codeforces");
+    res.json({ ok: true, ...codeforces.cacheStats() });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Could not read the cache state." });
+  }
+});
+
 app.get("/api/problems/:id", rateLimit, async (req, res) => {
   const raw = String(req.params.id || "").trim();
   if (!raw || raw.length > 191) {

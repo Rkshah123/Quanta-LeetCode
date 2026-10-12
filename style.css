@@ -2229,6 +2229,495 @@ body[data-theme="beige"] .btn-toggle {
   font-size: 0.72rem;
 }
 
+/* ============================ contest arena ============================ */
+
+.arena-body {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 40px;
+}
+
+.arena-identity {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.arena-identity .viz-field {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.arena-list {
+  display: grid;
+  gap: 8px;
+}
+
+.arena-contest {
+  display: grid;
+  gap: 6px;
+  padding: 11px 13px;
+  text-align: left;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  cursor: pointer;
+  transition: border-color var(--anim-fast), background var(--anim-fast);
+}
+
+.arena-contest:hover {
+  border-color: var(--accent-line);
+}
+
+.arena-contest.is-active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.arena-contest__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.arena-contest__name {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+}
+
+.arena-contest__badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-c);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-c);
+  white-space: nowrap;
+}
+
+/* The one distinction that changes how a standings table reads. */
+.arena-contest__badge.is-penalty {
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fbbf24;
+}
+
+.arena-contest__meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.72rem;
+  color: var(--text-c);
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-contest__time.is-live {
+  color: #34d399;
+  font-weight: 650;
+}
+
+.arena-progress {
+  display: block;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-c);
+  overflow: hidden;
+}
+
+.arena-progress__fill {
+  display: block;
+  height: 100%;
+  background: var(--accent-line);
+}
+
+.arena-error {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 13px 15px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+  font-size: 0.78rem;
+}
+
+.arena-error p {
+  margin: 0;
+}
+
+.arena-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.arena-detail__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.arena-detail__title {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text-a);
+}
+
+.arena-detail__link {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 0.72rem;
+  color: var(--accent-text);
+  text-decoration: none;
+}
+
+.arena-detail__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.72rem;
+  color: var(--text-c);
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-detail__clock {
+  font-weight: 650;
+  color: var(--text-b);
+}
+
+.arena-detail__overlap {
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 650;
+}
+
+.arena-sub {
+  margin: 6px 0 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-c);
+}
+
+/* The advice line is generated from the round's real point values, so it
+   changes when the scoring does rather than being a fixed sentence. */
+.arena-advice {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+  font-size: 0.77rem;
+  line-height: 1.6;
+  color: var(--text-b);
+}
+
+.arena-problems {
+  display: grid;
+  gap: 6px;
+}
+
+.arena-problem {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--field);
+}
+
+.arena-problem__index {
+  font-size: 0.72rem;
+  font-weight: 750;
+  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-problem__name {
+  font-size: 0.78rem;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+}
+
+.arena-problem__rating {
+  min-width: 40px;
+  text-align: right;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-b);
+}
+
+/* A missing rating is shown as a dash with a reason on hover, never filled in
+   with a guess. */
+.arena-problem__rating.is-unknown {
+  color: var(--text-c);
+  opacity: 0.6;
+}
+
+.arena-problem__points {
+  min-width: 46px;
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--text-c);
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-problem__away {
+  font-size: 0.7rem;
+  color: var(--accent-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.arena-scoring {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-c);
+}
+
+.arena-standings {
+  display: grid;
+  gap: 3px;
+}
+
+.arena-standing {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) minmax(60px, auto) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 11px;
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-standing.is-head {
+  background: none;
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-c);
+}
+
+.arena-standing__cell {
+  color: var(--text-b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A shared rank is a tie, and Codeforces' convention of skipping the next
+   number otherwise looks like a bug. */
+.arena-standing.is-tied .arena-standing__rank {
+  color: var(--text-c);
+  font-style: italic;
+}
+
+/* The reader's own row. Colour alone is not the signal - the row is also the
+   only one that says "you", so it survives a monochrome screen. */
+.arena-standing.is-you {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent-line);
+}
+
+/* A real element, not a ::after, so a screen reader reaches it and it survives
+   a copy of the text. The row outline and this label are separate signals, so
+   neither depends on colour alone. */
+.arena-standing__you {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 0.58rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.arena-standing__handle {
+  color: var(--text-a);
+}
+
+.arena-foot {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--text-c);
+}
+
+.arena-profile {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.arena-profile__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.arena-profile__handle {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-a);
+}
+
+.arena-profile__band {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-c);
+  text-transform: capitalize;
+}
+
+.arena-profile__rating {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 1.5rem;
+  font-weight: 750;
+  color: var(--text-a);
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-profile__peak {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-c);
+}
+
+.arena-profile__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.arena-profile__fact {
+  display: grid;
+  gap: 1px;
+}
+
+.arena-profile__fact-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-c);
+}
+
+.arena-profile__fact-value {
+  font-size: 0.78rem;
+  color: var(--text-b);
+  text-decoration: none;
+}
+
+.arena-chart {
+  display: grid;
+  gap: 6px;
+}
+
+.arena-chart__svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.arena-chart__area {
+  fill: rgba(52, 211, 153, 0.1);
+}
+
+.arena-chart__line {
+  fill: none;
+  stroke: #34d399;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.arena-chart__dot {
+  fill: #34d399;
+  stroke: var(--field);
+  stroke-width: 1.5;
+}
+
+.arena-chart__dot:hover {
+  fill: #9ff0cd;
+}
+
+/* The scale. A rating line with no axis is decoration - you cannot tell whether
+   a dip is forty points or four hundred. The labels are the real peak and the
+   real floor, drawn from the same values the path was built from. */
+.arena-chart__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+/* Sized in viewBox units, so it scales with the chart rather than staying
+   fixed while the line grows - the SVG is 640 wide and typically renders at
+   roughly twice that, so 9 here lands near 18px on screen. */
+.arena-chart__tick {
+  fill: var(--text-c);
+  font-size: 9px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-chart__caption {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--text-c);
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-source {
+  margin: 0;
+  font-size: 0.66rem;
+  color: var(--text-c);
+}
+
+@media (max-width: 620px) {
+  .arena-problem {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+
+  .arena-problem__points,
+  .arena-problem__away,
+  .arena-problem .prog-btn {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+
+  .arena-standing {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+  }
+
+  /* The scoring columns are dropped rather than squeezed into unreadable
+     widths; the numbers are still in the tooltip-free title and in the
+     note above the table. */
+  .arena-standing .arena-standing__cell:nth-child(4),
+  .arena-standing .arena-standing__cell:nth-child(5) {
+    display: none;
+  }
+}
+
 /* ====================== company-wise preparation ====================== */
 
 .companies-body {
