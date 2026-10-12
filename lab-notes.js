@@ -7984,6 +7984,10 @@ const renderSolutionList = async (slug) => {
   list.innerHTML = "";
   if (empty) empty.hidden = items.length > 0;
 
+  /* The comparison is drawn from the same `items` this list renders, so it can
+     never describe a different set of solutions than the one on screen. */
+  await renderSolutionComparison(slug, items);
+
   items.forEach((solution) => {
     const card = document.createElement("article");
     card.className = "solution-card";
@@ -11472,6 +11476,164 @@ const refreshStudyForActiveProblem = () => {
       mockState.active.remaining -= 1;
       mockRenderClock();
     });
+  };
+
+
+  /* ---------------------- solution comparison -------------------------- */
+  /* The analysis lives in solutions.js, checked by scripts/test-solutions.js.
+     This half renders it into the existing Solutions tab. It reads the code
+     rather than the complexity the user typed, and shows both when they
+     disagree instead of silently preferring either. */
+
+  /* ======================= solution comparison UI ========================
+     Adds a comparison view to the existing Solutions tab.
+
+     The app already stored several named solutions per problem with free-text
+     complexity fields, and listed them. This adds the missing half: reading the
+     CODE, working out what the loops imply, ranking the versions against each
+     other, and flagging any case where the written-down complexity disagrees with
+     what the code actually does.
+
+     It deliberately does not replace the user's own complexity notes. Where the
+     two differ, both are shown and the disagreement is named - the reader is in a
+     better position than either source alone to know which is right. */
+
+  const solutionEl = (id) => document.getElementById(id);
+
+  /* Reads the solutions already saved for a problem. It uses the existing
+     `listSolutionsFor` accessor rather than reaching into storage, so the
+     comparison works for solutions stored on the server and for ones saved
+     offline while disconnected - exactly the same source the list below it
+     renders from, so the two can never disagree. */
+  const solutionSavedFor = async (slug) => {
+    if (!slug) return [];
+    try {
+      const items = await listSolutionsFor(slug);
+      return (Array.isArray(items) ? items : []).filter(
+        (s) => s && typeof s.code === "string" && s.code.trim()
+      );
+    } catch {
+      /* The solution list itself will report the failure. Comparison silently
+         disappearing is better than replacing a working list with an error. */
+      return [];
+    }
+  };
+
+  /* Renders the comparison block above the existing solution list. Returns true
+     when it drew something, so the caller can hide it when there is nothing to
+     compare. */
+  const renderSolutionComparison = async (slug, provided) => {
+    const host = solutionEl("solution-compare");
+    if (!host) return false;
+    host.innerHTML = "";
+
+    /* Takes the already-loaded solutions when the caller has them, so the
+       comparison is guaranteed to describe exactly the list on screen rather
+       than a second fetch that could disagree with it. */
+    const source = Array.isArray(provided) ? provided : await solutionSavedFor(slug);
+    const solutions = source.filter((s) => s && typeof s.code === "string" && s.code.trim());
+    if (solutions.length < 1) {
+      host.hidden = true;
+      return false;
+    }
+    host.hidden = false;
+
+    const analysis = window.solutionAnalysis;
+    if (!analysis) {
+      host.hidden = true;
+      return false;
+    }
+
+    const { ranked, complete, unknownCount } = analysis.rankSolutions(
+      solutions.map((solution) => ({
+        id: solution.id,
+        title: solution.title || "Untitled",
+        language: solution.language || "",
+        code: solution.code,
+        statedTime: solution.timeComplexity || "",
+        statedSpace: solution.spaceComplexity || ""
+      }))
+    );
+
+    const heading = document.createElement("h4");
+    heading.className = "solution-compare__title";
+    heading.textContent =
+      ranked.length > 1 ? "Comparing your versions" : "What the code says about this one";
+    host.appendChild(heading);
+
+    const intro = document.createElement("p");
+    intro.className = "pattern-intro";
+    intro.textContent =
+      "Read from the code, not from the complexity you typed. Quanta cannot run your solution against the problem's hidden tests, so this says nothing about whether it is correct.";
+    host.appendChild(intro);
+
+    if (!complete) {
+      const caveat = document.createElement("p");
+      caveat.className = "solution-compare__caveat";
+      caveat.textContent = `${unknownCount} of these could not be read from the shape of the code, so the order below is partial. Those are listed last rather than guessed at.`;
+      host.appendChild(caveat);
+    }
+
+    const grid = document.createElement("div");
+    grid.className = "solution-compare__grid";
+
+    ranked.forEach((solution, index) => {
+      const card = document.createElement("div");
+      card.className = "solution-compare__card";
+      if (solution.estimatedTime === null) card.classList.add("is-unknown");
+
+      const head = document.createElement("div");
+      head.className = "solution-compare__head";
+
+      const rank = document.createElement("span");
+      rank.className = "solution-compare__rank";
+      /* Only a real fastest solution gets "fastest". An unreadable one is never
+         crowned, even when it is the only one. */
+      rank.textContent =
+        solution.estimatedTime === null ? "?" : index === 0 && ranked[0].estimatedTime !== null ? "Fastest" : `#${index + 1}`;
+      head.appendChild(rank);
+
+      const name = document.createElement("span");
+      name.className = "solution-compare__name";
+      name.textContent = solution.title;
+      head.appendChild(name);
+      card.appendChild(head);
+
+      const badges = document.createElement("div");
+      badges.className = "solution-compare__badges";
+      const time = document.createElement("span");
+      time.className = "solution-compare__badge";
+      time.textContent = `time ${solution.estimatedTime || "not readable"}`;
+      badges.appendChild(time);
+      if (solution.estimatedSpace) {
+        const space = document.createElement("span");
+        space.className = "solution-compare__badge";
+        space.textContent = `space ${solution.estimatedSpace}`;
+        badges.appendChild(space);
+      }
+      card.appendChild(badges);
+
+      const why = document.createElement("p");
+      why.className = "solution-compare__why";
+      why.textContent = solution.timeReason;
+      card.appendChild(why);
+
+      /* The disagreement check, against whatever the user wrote down. */
+      const statedTime = analysis.compareStated(solution.statedTime, solution.estimatedTime);
+      const statedSpace = analysis.compareStated(solution.statedSpace, solution.estimatedSpace);
+      for (const check of [statedTime, statedSpace]) {
+        if (check.state === "unstated" || check.state === "unknown") continue;
+        const line = document.createElement("p");
+        line.className = `solution-compare__stated is-${check.state}`;
+        line.textContent = check.text;
+        card.appendChild(line);
+      }
+
+      grid.appendChild(card);
+    });
+
+    host.appendChild(grid);
+    return true;
   };
 
 
