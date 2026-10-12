@@ -104,6 +104,7 @@
     if (pageId === "quantalab") renderLcAll();
     if (pageId === "notes") renderPersonalNotes();
     if (pageId === "progress") void renderProgressPage();
+    if (pageId === "settings") void runConnectionDiagnostics();
     if (pageId === "revision") void loadRevisionDashboard();
     if (pageId === "lab" || pageId === "quantalab") relayoutMonacoEditors();
     if (pageId !== "lab") clearLanguageAccent();
@@ -3712,12 +3713,60 @@ const ensureRevisionStateForCatalog = () => {
     return true;
   };
 
-  const setDescStatus = (text, kind = "") => {
+  /* Where a statement actually came from, and how it is being shown right now.
+     These are two separate facts, and conflating them is what made the app say
+     "saved on this device" for a copy it had fetched from the database minutes
+     earlier. */
+  const DESC_SOURCE_LABEL = {
+    api: "from the database",
+    leetcode: "from LeetCode",
+    bundle: "from the offline bundle"
+  };
+
+  /* One vocabulary for every source, wherever it was recorded. "database" and
+     "offline-pack" were the two names in use; they become "api" and "bundle". */
+  const canonicalDescSource = (source) => {
+    const raw = String(source || "");
+    if (raw === "database" || raw === "api") return "api";
+    if (raw === "offline-pack" || raw === "bundle" || raw === "cache") return "bundle";
+    if (raw === "leetcode") return "leetcode";
+    return "";
+  };
+
+  /* The label always answers two questions: where did this text come from, and
+     is what I am looking at that copy or a fresh one? A copy the API served is
+     never labelled as offline content. The origin and serving mode are returned
+     as well as the wording, so they can be recorded on the element rather than
+     being thrown away with the text. */
+  const describeStatementSource = ({ origin, serving, state }) => {
+    const from = origin ? DESC_SOURCE_LABEL[canonicalDescSource(origin)] : "";
+    const base = { origin: canonicalDescSource(origin), serving };
+    if (serving === "network") return { ...base, text: `Online · ${from || "from the API"}`, kind: "synced" };
+    if (serving === "device") {
+      if (state === "refreshing") return { ...base, text: `Saved on this device · ${from} · checking for updates…`, kind: "cached" };
+      if (state === "refresh-failed") return { ...base, text: `Saved on this device · ${from} · could not check for updates`, kind: "cached" };
+      return { ...base, text: `Saved on this device · ${from}`, kind: "cached" };
+    }
+    if (serving === "unavailable") return { ...base, text: "Statement not available", kind: "error" };
+    return { text: "", kind: "" };
+  };
+
+  /* The status line under the problem statement. It also records the truth on
+     the element itself, so the Diagnostics panel and the tests can read what is
+     actually being shown instead of parsing the wording. */
+  const setDescStatus = (info) => {
     const node = byId("ql-desc-sync");
     if (!node) return;
-    node.textContent = text || "";
+    const { text = "", kind = "", origin = "", serving = "" } = typeof info === "string" ? { text: info } : info || {};
+    node.textContent = text;
     node.className = `ql-desc-sync${kind ? ` ql-desc-sync--${kind}` : ""}`;
     node.hidden = !text;
+    node.dataset.origin = canonicalDescSource(origin);
+    node.dataset.serving = serving;
+    if (serving === "network") node.dataset.source = "online";
+    else if (serving === "device") node.dataset.source = "cached";
+    else if (serving === "unavailable") node.dataset.source = "missing";
+    else delete node.dataset.source;
   };
 
   /* Timeout + one retry, but a 404 is a final answer and is never retried. */
@@ -3765,6 +3814,11 @@ const ensureRevisionStateForCatalog = () => {
     });
     return offlinePackPromise;
   };
+
+  /* Set by the diagnostics section further down. Statements load long before
+     Settings is ever opened, so the recorder is declared here and filled in
+     later rather than being called from nowhere. */
+  let noteStatementServed = () => {};
 
   /* One shared in-flight promise per slug, so switching tabs/problems quickly
      never fires duplicate requests for the same statement. */
@@ -3858,47 +3912,54 @@ const ensureRevisionStateForCatalog = () => {
       renderDescHtml(cached.html);
       const age = Date.now() - (cached.at || 0);
       if (age > DESC_CACHE_TTL_MS) {
-        setDescStatus("Saved on this device · refreshing…", "cached");
+        setDescStatus(describeStatementSource({ origin: cached.source, serving: "device", state: "refreshing" }));
         refreshDescription(slug, token);
       } else {
-        setDescStatus("Saved on this device", "cached");
+        /* The copy on screen is the device's, but it says where that copy came
+           from, so "saved on this device" is never mistaken for offline data. */
+        setDescStatus(describeStatementSource({ origin: cached.source, serving: "device" }));
       }
       return;
     }
 
-    setDescStatus("Syncing…", "syncing");
+    setDescStatus({ text: "Loading statement…", kind: "syncing" });
     qlDescBody.innerHTML = '<p class="ql-desc-loading">Loading problem description…</p>';
     requestDescription(slug).then((result) => {
       if (token !== qlDescToken) return; /* stale — another problem took over */
       if (result && result.html) {
         rememberDescription(slug, result.html, result.source);
         renderDescHtml(result.html);
+        const fromNetwork = result.source !== "offline-pack";
         setDescStatus(
-          result.source === "offline-pack"
-            ? "Bundled with the app"
-            : result.source === "database"
-              ? "Synced from database"
-              : "Synced from LeetCode",
-          result.source === "offline-pack" ? "cached" : "synced"
+          describeStatementSource({ origin: result.source, serving: fromNetwork ? "network" : "device" })
         );
+        noteStatementServed(fromNetwork);
       } else {
-        setDescStatus("");
+        setDescStatus({ text: "Statement not available", kind: "error", serving: "unavailable" });
         qlDescBody.innerHTML = describeUnavailable(offline);
       }
     });
   };
 
   /* Background refresh for an old cached statement. It never blocks the view
-     and never replaces text with an error — the saved copy stays readable. */
+     and never replaces text with an error — the saved copy stays readable. A
+     failed refresh leaves the copy alone and says only that the check failed,
+     because an outage must never destroy good cached data. */
   const refreshDescription = (slug, token) => {
     requestDescription(slug).then((result) => {
       if (token !== qlDescToken) return;
       if (result && result.html) {
         const changed = rememberDescription(slug, result.html, result.source);
         if (changed) renderDescHtml(result.html);
-        setDescStatus("Saved on this device · up to date", "cached");
+        const cached = readDescCache().get(slug);
+        noteStatementServed(result.source !== "offline-pack");
+        setDescStatus(
+          describeStatementSource({ origin: (cached && cached.source) || result.source, serving: "device" })
+        );
       } else {
-        setDescStatus("Saved on this device · offline copy", "cached");
+        setDescStatus(
+          describeStatementSource({ origin: readDescCache().get(slug)?.source, serving: "device", state: "refresh-failed" })
+        );
       }
     });
   };
@@ -7557,11 +7618,386 @@ const refreshStudyForActiveProblem = () => {
     if (revisionView.fromCache) void loadRevisionDashboard();
   });
   
+  /* ================= connection and data-source diagnostics ==================
+     What this section is for
+     ------------------------
+     The app can show a problem statement while the internet is down, and it can
+     show one straight from the database while other things fail. Saying "online"
+     or "offline" without saying which, is what makes the app confusing.
+
+     So every line here is checked against the thing it claims to describe, and
+     the three facts that used to be mixed together are reported separately:
+
+       internet  - does this device think it has a network
+       api       - did the hosted API answer a real request
+       database  - did the API's own health check find the database
+
+     An API that answers while its database is down is reported as exactly that:
+     API connected, database unhealthy.
+
+     Rules this file keeps to
+     -----------------------
+     - Nothing is ever shown as connected because something else worked.
+     - A Wi-Fi icon is not proof of an internet connection, so the device's own
+       answer is shown as a hint and the API check is what decides the rest.
+     - No address, host name, user or password is written into the panel.
+     - No status is reported as successful unless a request actually succeeded.
+     - There is no polling loop: one check at start-up, one when the network
+       changes, one when the panel is opened, and one on demand. */
+
+  const DIAG_STATE_KEY = "quantaDiagnosticsV1";
+  const DIAG_API_TIMEOUT_MS = 8000;
+  const DIAG_RUNNER_TIMEOUT_MS = 6000;
+
+  const diagState = {
+    checking: false,
+    lastCheckAt: 0,
+    lastApiOkAt: 0,
+    lastDatabaseOkAt: 0,
+    lastStatementOkAt: 0,
+    runToken: 0
+  };
+
+  /* Only ever stores timestamps and the place a service lives as "hosted" or
+     "local network" - never the address itself. */
+  const readDiagHistory = () => {
+    const stored = readJson(DIAG_STATE_KEY, () => ({}));
+    return {
+      lastApiOkAt: Number(stored.lastApiOkAt) || 0,
+      lastDatabaseOkAt: Number(stored.lastDatabaseOkAt) || 0,
+      lastStatementOkAt: Number(stored.lastStatementOkAt) || 0
+    };
+  };
+
+  const writeDiagHistory = (patch) => {
+    try {
+      localStorage.setItem(DIAG_STATE_KEY, JSON.stringify({ ...readDiagHistory(), ...patch }));
+    } catch {
+      /* private mode - the panel still shows this session's results */
+    }
+  };
+
+  /* Statements arriving from the network are the truest proof that the API works,
+     so they update the "last successful connection" time. Called from the
+     statement loader, which runs long before this section exists. */
+  noteStatementServed = (fromNetwork) => {
+    if (!fromNetwork) return;
+    diagState.lastStatementOkAt = Date.now();
+    diagState.lastApiOkAt = diagState.lastStatementOkAt;
+    writeDiagHistory({ lastApiOkAt: diagState.lastApiOkAt, lastStatementOkAt: diagState.lastStatementOkAt });
+  };
+
+  const diagTimeout = (ms) =>
+    typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(ms) : undefined;
+
+  /* A service is only ever called "local network" or "hosted" - the address
+     itself stays out of the panel. */
+  const diagServiceKind = (base) => {
+    const value = String(base || "");
+    if (!value) return "same server as this page";
+    try {
+      const url = new URL(value, window.location.href);
+      const host = url.hostname;
+      if (host === "localhost" || host === "127.0.0.1" || host === "::1") return "this computer";
+      if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) || host.endsWith(".local")) return "a local network address";
+      return "a hosted service";
+    } catch {
+      return "a configured address";
+    }
+  };
+
+  const DIAG_STATES = {
+    ok: { label: "Connected", dot: "ok" },
+    local: { label: "On this device", dot: "ok" },
+    checking: { label: "Checking", dot: "checking" },
+    bad: { label: "Unavailable", dot: "bad" },
+    warn: { label: "Degraded", dot: "warn" },
+    unset: { label: "Not configured", dot: "muted" },
+    unknown: { label: "Unknown", dot: "muted" }
+  };
+
+  const setDiagRow = (key, stateKey, detail) => {
+    const row = byId("diag-panel")?.querySelector(`[data-diag="${key}"]`);
+    if (!row) return;
+    const state = DIAG_STATES[stateKey] || DIAG_STATES.unknown;
+    const stateNode = row.querySelector("[data-diag-state]");
+    const detailNode = row.querySelector("[data-diag-detail]");
+    if (stateNode) {
+      stateNode.textContent = state.label;
+      stateNode.dataset.state = stateKey;
+    }
+    row.querySelector("[data-diag-dot]")?.setAttribute("data-dot", state.dot);
+    row.dataset.state = stateKey;
+    if (detailNode) detailNode.textContent = detail;
+  };
+
+  const setDiagFact = (name, value) => {
+    const node = document.querySelector(`[data-diag-fact="${name}"]`);
+    if (node) node.textContent = value;
+  };
+
+  /* "3 minutes ago" is friendlier than a timestamp, but the exact time stays
+     available in the tooltip so nothing is hidden. */
+  const diagAgo = (timestamp) => {
+    if (!timestamp) return "Never";
+    const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+    if (seconds < 45) return "Just now";
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+    const days = Math.round(hours / 24);
+    return `${days} day${days === 1 ? "" : "s"} ago`;
+  };
+
+  const diagExactTime = (timestamp) => {
+    if (!timestamp) return "";
+    try {
+      return new Date(timestamp).toLocaleString();
+    } catch {
+      return "";
+    }
+  };
+
+  const countOfflinePack = async () => {
+    const pack = await loadOfflinePack();
+    return pack ? Object.keys(pack).length : 0;
+  };
+
+  const renderDiagPanel = () => {
+    const history = readDiagHistory();
+    setDiagFact("lastApiOk", diagAgo(Math.max(history.lastApiOkAt, diagState.lastApiOkAt)));
+    const apiNode = document.querySelector('[data-diag-fact="lastApiOk"]');
+    if (apiNode) apiNode.title = diagExactTime(Math.max(history.lastApiOkAt, diagState.lastApiOkAt));
+    setDiagFact("lastCheck", diagAgo(diagState.lastCheckAt));
+    setDiagFact("cached", String(readDescCache().size));
+    setDiagFact("pending", "Not supported");
+    setDiagFact("bundled", diagState.bundledCount === undefined ? "Unknown" : String(diagState.bundledCount));
+  };
+
+  /* One request per service, each with its own timeout, all of them optional:
+     a slow service must not hold up the others or the page. */
+  const runConnectionDiagnostics = async ({ manual = false } = {}) => {
+    if (diagState.checking) return diagState;
+    diagState.checking = true;
+    const token = (diagState.runToken += 1);
+    const stale = () => token !== diagState.runToken;
+
+    const history = readDiagHistory();
+    diagState.lastCheckAt = Date.now();
+    renderDiagPanel();
+
+    setDiagRow("internet", "checking", "Asking this device…");
+    setDiagRow("api", "checking", "Contacting the API…");
+    setDiagRow("database", "checking", "Waiting for the API health check…");
+    setDiagRow("runner", "checking", "Checking the code runner…");
+    setDiagRow("statements", "checking", "Counting what is stored on this device…");
+    if (manual) showLabToast("Checking connections…");
+
+    /* --- internet: the device's own answer, labelled as a hint --- */
+    const deviceOnline = navigator.onLine !== false;
+    setDiagRow(
+      "internet",
+      deviceOnline ? "ok" : "bad",
+      deviceOnline ? "This device reports a network connection" : "This device reports no network"
+    );
+
+    /* --- the API, and the database as the API itself sees it --- */
+    const apiBase = getApiBase();
+    const apiStartedAt = performance.now();
+    try {
+      const response = await fetch(`${apiBase}/health`, { cache: "no-store", signal: diagTimeout(DIAG_API_TIMEOUT_MS) });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      const payload = await response.json();
+      if (payload?.ok !== true) throw new Error("unhealthy response");
+      if (stale()) return diagState;
+
+      /* Only this request's own duration, so a slow service is never blamed on
+         something else that happened during the same check. */
+      const apiMs = Math.round(performance.now() - apiStartedAt);
+      diagState.lastApiOkAt = Date.now();
+      writeDiagHistory({ lastApiOkAt: diagState.lastApiOkAt });
+      setDiagRow("api", "ok", `${diagServiceKind(apiBase)} · answered in ${apiMs}ms`);
+
+      /* The API answered but that says nothing about its database. The health
+         payload carries the database's own check, and the two are reported
+         separately so a broken database is never hidden behind a reachable API. */
+      const db = payload.database;
+      if (!db || db.configured === false) {
+        setDiagRow("database", "unset", "The API is not configured with a database");
+      } else if (db.ok === true) {
+        diagState.lastDatabaseOkAt = Date.now();
+        writeDiagHistory({ lastDatabaseOkAt: diagState.lastDatabaseOkAt });
+        setDiagRow("database", "ok", typeof db.latencyMs === "number" ? `Answered in ${db.latencyMs}ms` : "Answered");
+      } else {
+        setDiagRow("database", "bad", "The API could not reach its database — statements and progress will not load");
+      }
+    } catch {
+      if (stale()) return diagState;
+      /* No address is shown here on purpose: a failed request to a private
+         address should not put that address on screen. */
+      setDiagRow("api", deviceOnline ? "bad" : "bad", deviceOnline ? "The API did not answer" : "No answer, and this device reports no network");
+      /* The database cannot be judged when the API never answered. Saying
+         "unhealthy" here would be a guess. */
+      setDiagRow("database", "unknown", "Not checked — the API did not answer");
+    }
+
+    /* --- the code runner, only when one is configured --- */
+    const runBase = getRunServerBase();
+    try {
+      const response = await fetch(`${runBase}/api/run/capabilities`, { cache: "no-store", signal: diagTimeout(DIAG_RUNNER_TIMEOUT_MS) });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      const caps = await response.json();
+      if (stale()) return diagState;
+      const usable = Object.entries(caps || {})
+        .filter(([, value]) => value && value !== false && value !== "unavailable")
+        .map(([key]) => key);
+      const languages = usable.length ? usable.join(", ") : "no languages reported";
+      setDiagRow("runner", usable.length ? "ok" : "warn", `${diagServiceKind(runBase)} · ${languages}`);
+    } catch {
+      if (stale()) return diagState;
+      /* JavaScript runs in the browser without any server, so say what still
+         works rather than reporting a blanket failure. */
+      setDiagRow("runner", "warn", "The compiler server did not answer — JavaScript still runs in this browser");
+    }
+
+    /* --- what is stored on this device --- */
+    try {
+      const cached = readDescCache().size;
+      const bundled = await countOfflinePack();
+      if (stale()) return diagState;
+      diagState.bundledCount = bundled;
+      const node = byId("diag-panel")?.querySelector('[data-diag="statements"]');
+      const statementSource = byId("ql-desc-sync")?.dataset.source;
+      setDiagRow(
+        "statements",
+        "local",
+        `${cached} saved here${bundled ? `, ${bundled} bundled with the app` : ""}${
+          statementSource ? ` · the open statement is currently ${statementSource === "online" ? "online" : statementSource === "cached" ? "from this device" : "unavailable"}` : ""
+        }`
+      );
+    } catch {
+      if (stale()) return diagState;
+      setDiagRow("statements", "unknown", "Could not read what is stored on this device");
+    }
+
+    diagState.checking = false;
+    renderDiagPanel();
+    if (manual) showLabToast("Connection check finished");
+    return diagState;
+  };
+
+  /* Runs once at start-up and whenever the network changes, never on a timer. */
+  const initConnectionDiagnostics = () => {
+    byId("diag-check")?.addEventListener("click", () => {
+      void runConnectionDiagnostics({ manual: true });
+    });
+
+    byId("diag-retry-statement")?.addEventListener("click", () => {
+      const problem = getActiveLcProblem();
+      const slug = slugKey(problem?.url || "");
+      const node = byId("diag-note");
+      if (!slug) {
+        if (node) node.textContent = "Open a problem first — there is no statement to retry.";
+        showLabToast("Open a problem first");
+        return;
+      }
+      /* Only the statement is dropped, and only for this problem. Notes, saved
+         solutions and code are untouched. */
+      try {
+        const cache = readDescCache();
+        if (cache.has(slug)) {
+          cache.delete(slug);
+          writeDescCache();
+        }
+        readDescCache;
+      } catch {
+        /* private mode */
+      }
+      if (node) node.textContent = "Asking the API for this statement again…";
+      void requestDescription(slug).then((result) => {
+        if (result && result.html) {
+          rememberDescription(slug, result.html, result.source);
+          /* Saying "fetched again" when the answer actually came from the
+             bundled copy would be a claim the user cannot check. */
+          const fromBundle = result.source === "offline-pack";
+          if (node) {
+            node.textContent = fromBundle
+              ? "The API could not provide it just now - showing the copy bundled with the app."
+              : "The statement was fetched from the API again.";
+          }
+          showLabToast(fromBundle ? "Showing the bundled copy" : "Statement fetched from the API");
+        } else {
+          if (node) node.textContent = "The API could not provide that statement, and no copy is stored on this device.";
+          showLabToast("Still not available");
+        }
+        void runConnectionDiagnostics();
+      });
+    });
+
+    byId("diag-clear-cache")?.addEventListener("click", () => {
+      /* The confirmation says exactly what is lost and what is not, because
+         losing someone's notes would be unacceptable. */
+      const confirmed = window.confirm(
+        "Clear the statements saved on this device?\n\n" +
+          "This only removes cached problem statements (about 1 MB). " +
+          "Your notes, saved solutions, stars and code are NOT touched, and statements are fetched again as you open problems.\n\n" +
+          "Continue?"
+      );
+      const node = byId("diag-note");
+      if (!confirmed) {
+        if (node) node.textContent = "Nothing was cleared.";
+        return;
+      }
+      try {
+        localStorage.removeItem(DESC_CACHE_KEY);
+        descCache = new Map();
+      } catch {
+        if (node) node.textContent = "This browser will not let the app clear its storage.";
+        showLabToast("Could not clear the cache");
+        return;
+      }
+      if (node) node.textContent = "Cached statements cleared. Notes and solutions were not touched.";
+      showLabToast("Cached statements cleared");
+      void runConnectionDiagnostics();
+    });
+
+    /* Network changes are the moment a status is most likely to be wrong. */
+    window.addEventListener("online", () => {
+      void runConnectionDiagnostics();
+    });
+    window.addEventListener("offline", () => {
+      setDiagRow("internet", "bad", "This device reports no network");
+      /* A network that just went away does not prove the services are broken,
+         so the other rows are left as they were, marked stale. */
+      setDiagRow("api", "unknown", "Not re-checked since the network went away");
+      setDiagRow("database", "unknown", "Not re-checked since the network went away");
+      renderDiagPanel();
+    });
+
+    /* Render what is known immediately, then check for real in the background
+       so opening Settings is never blocked by a network round trip. */
+    const history = readDiagHistory();
+    diagState.lastCheckAt = 0;
+    renderDiagPanel();
+    void countOfflinePack()
+      .then((bundled) => {
+        diagState.bundledCount = bundled;
+        renderDiagPanel();
+      })
+      .catch(() => {});
+    void runConnectionDiagnostics();
+    return history;
+  };
+
   /* -------------------------------- init -------------------------------- */
 
   ensureActiveSession();
   labAutoSaveToggle.checked = labState.autoSave;
   initRevisionReminderSettings();
+  /* Connection diagnostics run once in the background and then only when the
+     network changes or the user asks. Nothing here blocks start-up. */
+  initConnectionDiagnostics();
   initLcFilters();
   renderTabs();
   renderLcAll();
