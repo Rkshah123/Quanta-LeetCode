@@ -5,8 +5,14 @@
 #
 #   - the Express backend (runs on Render, never on Vercel)
 #   - the database migrations and maintenance scripts
-#   - the 72 MB Android project, which contains its own copy of this web app
+#   - the Android project, which contains its own copy of this web app
 #   - environment files, keys, logs and build artifacts
+#
+# codeforces.js is listed on its own because it is a server-side module that
+# only server.js requires: it caches upstream API responses and serialises
+# requests. Nothing in the browser loads it, so publishing it would put the
+# frontend's private plumbing on the public frontend domain for no benefit.
+# Render still gets it - it is only this file that excludes it.
 #
 # Vercel reads this at deploy time; the files are still in git for local use.
 
@@ -18,6 +24,7 @@ backend/
 .freebuff/
 
 server.js
+codeforces.js
 render.yaml
 README.md
 package.json

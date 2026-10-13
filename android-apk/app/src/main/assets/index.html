@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=27" />
+  <link rel="stylesheet" href="style.css?v=43" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -49,6 +49,15 @@
     <button class="nav-btn" type="button" data-page="revision">Revision</button>
     <button class="nav-btn" type="button" data-page="notes">Notes</button>
     <button class="nav-btn" type="button" data-page="lab">Lab</button>
+    <button class="nav-btn" type="button" data-page="visualizer">Visualizer</button>
+    <button class="nav-btn" type="button" data-page="discovery">What&rsquo;s next</button>
+    <button class="nav-btn" type="button" data-page="academy">Academy</button>
+    <button class="nav-btn" type="button" data-page="patterns">Patterns</button>
+    <button class="nav-btn" type="button" data-page="review">Review</button>
+    <button class="nav-btn" type="button" data-page="debugger">Debugger</button>
+    <button class="nav-btn" type="button" data-page="arena">Arena</button>
+    <button class="nav-btn" type="button" data-page="mock">Mock</button>
+    <button class="nav-btn" type="button" data-page="companies">Companies</button>
     <button class="nav-btn" type="button" data-page="settings">Settings</button>
     <button class="nav-btn" type="button" data-page="about">About</button>
     <div class="nav-drawer-extra" aria-hidden="false">
@@ -333,7 +342,8 @@
                 </div>
                 <button id="solution-save-current" class="prog-btn" type="button">Save current editor as a solution</button>
               </div>
-              <div id="solution-list" class="solution-list"></div>
+              <div id="solution-compare" class="solution-compare" hidden></div>
+                <div id="solution-list" class="solution-list"></div>
               <p id="solution-empty" class="study-hint" hidden>No saved solutions for this problem yet.</p>
 
               <form id="solution-form" class="solution-form" hidden>
@@ -704,6 +714,499 @@
           <div id="revision-list" class="revision-list"></div>
           <p id="revision-offline" class="progress-note" hidden>Showing the list saved on this device - the server could not be reached.</p>
         </div>
+      </div>
+    </section>
+    <!-- ========================= Visualizer page ============================ -->
+    <section id="page-visualizer" class="page page--visualizer" data-page-id="visualizer" aria-label="Algorithm visualizer" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Visualizer</h2>
+          <p class="page-sub">Watch an algorithm work, one step at a time</p>
+        </div>
+      </header>
+
+      <div class="settings-body viz-body">
+        <div id="viz-picker" class="settings-group viz-picker" role="tablist" aria-label="Algorithm category"></div>
+
+        <section class="settings-group" aria-labelledby="viz-alg-title">
+          <h3 id="viz-alg-title">Algorithm</h3>
+          <div id="viz-algorithms" class="viz-algorithms" role="tablist" aria-label="Algorithm"></div>
+          <p id="viz-about" class="viz-about"></p>
+        </section>
+
+        <section class="settings-group" aria-labelledby="viz-input-title">
+          <h3 id="viz-input-title">Input</h3>
+          <div id="viz-inputs" class="viz-inputs"></div>
+          <div class="viz-run-row">
+            <button id="viz-run" class="prog-btn" type="button">Run it</button>
+            <button id="viz-shuffle" class="prog-btn prog-btn--ghost" type="button" hidden>Different values</button>
+          </div>
+        </section>
+
+        <section class="settings-group viz-stage-group" aria-labelledby="viz-stage-title">
+          <h3 id="viz-stage-title">Step</h3>
+          <div class="viz-controls">
+            <button id="viz-first" class="viz-icon-btn" type="button" aria-label="Jump to the first step" title="First">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+            </button>
+            <button id="viz-prev" class="viz-icon-btn" type="button" aria-label="Previous step" title="Previous">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 6 8 12l7.5 6z"/></svg>
+            </button>
+            <button id="viz-play" class="viz-icon-btn viz-icon-btn--play" type="button" aria-label="Play" title="Play">
+              <svg viewBox="0 0 24 24" aria-hidden="true" data-icon="play"><path d="M8 5v14l11-7z"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" data-icon="pause" hidden><path d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg>
+            </button>
+            <button id="viz-next" class="viz-icon-btn" type="button" aria-label="Next step" title="Next">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 6 16 12l-7.5 6z"/></svg>
+            </button>
+            <button id="viz-last" class="viz-icon-btn" type="button" aria-label="Jump to the last step" title="Last">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg>
+            </button>
+            <label class="viz-speed">
+              <span>Speed</span>
+              <select id="viz-speed" class="settings-select">
+                <option value="900">Slow</option>
+                <option value="450" selected>Normal</option>
+                <option value="200">Fast</option>
+                <option value="80">Very fast</option>
+              </select>
+            </label>
+          </div>
+
+          <input id="viz-scrub" class="viz-scrub" type="range" min="0" max="0" value="0" step="1" aria-label="Step position" />
+
+          <div class="viz-counter">
+            <span id="viz-step">Step 0</span>
+            <span id="viz-total"></span>
+          </div>
+
+          <p id="viz-note" class="viz-note" role="status" aria-live="polite"></p>
+
+          <div id="viz-canvas" class="viz-canvas" aria-label="Algorithm visualisation"></div>
+
+          <details id="viz-code-details" class="viz-code-details">
+            <summary>Show the code</summary>
+            <pre id="viz-code" class="viz-code"></pre>
+          </details>
+        </section>
+      </div>
+    </section>
+    <!-- ========================== Discovery page ============================ -->
+    <section id="page-discovery" class="page page--discovery" data-page-id="discovery" aria-label="Suggested problems" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">What to do next</h2>
+          <p class="page-sub">Suggestions from what you have solved, tried and scheduled</p>
+        </div>
+        <button id="discovery-refresh" class="icon-btn" type="button" aria-label="Rebuild suggestions" title="Rebuild suggestions">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35Z"/></svg>
+        </button>
+      </header>
+
+      <div class="settings-body discovery-body">
+        <p id="discovery-summary" class="viz-about"></p>
+        <p class="viz-note--plain discovery-honest">
+          These suggestions come from your own history and the topics each problem is tagged with. Nothing here
+          claims a problem is "popular" — no permitted source publishes that, so Quanta does not guess.
+        </p>
+
+        <section class="settings-group" aria-labelledby="discovery-list-title">
+          <h3 id="discovery-list-title">Suggestions</h3>
+          <div id="discovery-filters" class="viz-picker" role="group" aria-label="Filter suggestions"></div>
+          <p id="discovery-count" class="viz-about"></p>
+          <div id="discovery-list" class="discovery-list"></div>
+          <p id="discovery-empty" class="progress-state progress-state--empty" hidden></p>
+          <button id="discovery-more" class="prog-btn discovery-more" type="button">Show more</button>
+        </section>
+
+        <section class="settings-group" aria-labelledby="discovery-coverage-title">
+          <h3 id="discovery-coverage-title">Your topic coverage</h3>
+          <div id="discovery-coverage"></div>
+        </section>
+      </div>
+    </section>
+    <!-- =========================== Review page ============================ -->
+    <section id="page-review" class="page page--review" data-page-id="review" aria-label="Code review" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Code review</h2>
+          <p class="page-sub">Static analysis of a solution you have written &mdash; what it costs and what might be wrong</p>
+        </div>
+      </header>
+
+      <div class="settings-body review-body">
+        <p class="viz-note--plain">
+          This is a static analyser, not a language model, and nothing here is sent anywhere. It parses your code
+          and reports conditions that are either true or false about the syntax tree &mdash; nested loops, a
+          function that can fall off the end, an array being changed while it is iterated. Every finding shows
+          how Quanta knows it, so you can check it and disagree with it. It will never tell you your code is
+          correct, because it has no standing to.
+        </p>
+
+        <section class="settings-group" aria-labelledby="rev-source-title">
+          <h3 id="rev-source-title">Your solution</h3>
+          <div class="dbg-toolbar">
+            <label class="viz-field dbg-examples-field">
+              <span>Start from</span>
+              <select id="rev-examples" class="settings-select"></select>
+            </label>
+            <button id="rev-run" class="prog-btn" type="button">Review it</button>
+          </div>
+          <textarea id="rev-code" class="dbg-code rev-code" rows="12" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="JavaScript to review"></textarea>
+        </section>
+
+        <section class="settings-group" aria-labelledby="rev-problem-title">
+          <h3 id="rev-problem-title">The problem</h3>
+          <p class="pattern-intro">Optional. With these filled in, the estimate is compared against the input size the constraints allow.</p>
+          <div class="rev-problem-fields">
+            <label class="viz-field">
+              <span>Constraints, as written</span>
+              <input id="rev-constraints" class="settings-input" type="text" placeholder="e.g. 2 &lt;= nums.length &lt;= 1e5" autocomplete="off" spellcheck="false" />
+            </label>
+            <label class="viz-field">
+              <span>Name of the input in your code</span>
+              <input id="rev-param" class="settings-input" type="text" placeholder="e.g. nums" autocomplete="off" spellcheck="false" />
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="rev-cost-title">
+          <h3 id="rev-cost-title">What it costs</h3>
+          <div id="rev-complexity"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="rev-findings-title">
+          <div class="rev-findings-head">
+            <h3 id="rev-findings-title">What might be wrong</h3>
+            <div id="rev-counts" class="rev-counts"></div>
+          </div>
+          <div id="rev-filters" class="rev-filters"></div>
+          <div id="rev-findings"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="rev-cross-title">
+          <h3 id="rev-cross-title">Against the constraints</h3>
+          <div id="rev-cross"></div>
+        </section>
+      </div>
+    </section>
+    <!-- ========================== Debugger page ============================ -->
+    <section id="page-debugger" class="page page--debugger" data-page-id="debugger" aria-label="Interactive debugger" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Step debugger</h2>
+          <p class="page-sub">Run JavaScript one statement at a time and watch every variable change</p>
+        </div>
+      </header>
+
+      <div class="settings-body debugger-body">
+        <p class="viz-note--plain">
+          This runs your code, in this page, on your machine. Nothing is uploaded. Every value below was read
+          out of a live scope at that exact statement &mdash; it is not a replay, an estimate or a sample.
+          Syntax Quanta cannot step through correctly is refused before anything runs, with the line named.
+        </p>
+
+        <section class="settings-group" aria-labelledby="dbg-source-title">
+          <h3 id="dbg-source-title">Code</h3>
+          <div class="dbg-toolbar">
+            <label class="viz-field dbg-examples-field">
+              <span>Start from</span>
+              <select id="dbg-examples" class="settings-select"></select>
+            </label>
+            <p id="dbg-example-why" class="dbg-example-why"></p>
+          </div>
+          <div class="dbg-editor">
+            <div id="dbg-gutter" class="dbg-gutter" aria-label="Line numbers and breakpoints"></div>
+            <textarea id="dbg-code" class="dbg-code" rows="14" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="JavaScript to step through"></textarea>
+          </div>
+          <p class="dbg-help">Click a line number to set or clear a breakpoint &mdash; the dot fills in.</p>
+        </section>
+
+        <section class="settings-group" aria-labelledby="dbg-run-title">
+          <h3 id="dbg-run-title">Run</h3>
+          <div class="dbg-actions">
+            <button id="dbg-step" class="prog-btn" type="button">Step</button>
+            <button id="dbg-continue" class="prog-btn" type="button">Continue</button>
+            <button id="dbg-run-end" class="prog-btn" type="button">Run to end</button>
+            <button id="dbg-reset" class="prog-btn is-quiet" type="button">Reset</button>
+          </div>
+          <div id="dbg-status" class="dbg-status" role="status" aria-live="polite"></div>
+          <div id="dbg-notice"></div>
+        </section>
+
+        <div class="dbg-panels">
+          <section class="settings-group dbg-panel" aria-labelledby="dbg-vars-title">
+            <h3 id="dbg-vars-title">Variables</h3>
+            <div id="dbg-variables"></div>
+          </section>
+
+          <section class="settings-group dbg-panel" aria-labelledby="dbg-stack-title">
+            <h3 id="dbg-stack-title">Call stack</h3>
+            <div id="dbg-stack"></div>
+          </section>
+
+          <section class="settings-group dbg-panel dbg-panel--wide" aria-labelledby="dbg-output-title">
+            <h3 id="dbg-output-title">Output</h3>
+            <div id="dbg-output" class="dbg-output"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+    <!-- ============================ Arena page ============================= -->
+    <section id="page-arena" class="page page--arena" data-page-id="arena" aria-label="Contest arena" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Contest arena</h2>
+          <p class="page-sub">Live rounds, real standings and your real rating &mdash; straight from Codeforces</p>
+        </div>
+      </header>
+
+      <div class="settings-body arena-body">
+        <p class="viz-note--plain">
+          Everything on this page is fetched from Codeforces&rsquo;s public API while you look at it. Nothing here
+          is sampled or simulated: if a round has not started, its standings genuinely do not exist yet and this
+          page says so rather than showing an empty table.
+        </p>
+
+        <section class="settings-group" aria-labelledby="arena-you-title">
+          <h3 id="arena-you-title">You</h3>
+          <div class="arena-identity">
+            <label class="viz-field">
+              <span>Your Codeforces handle (optional)</span>
+              <input id="arena-handle" class="settings-input" type="text" placeholder="e.g. tourist" autocomplete="off" spellcheck="false" maxlength="32" />
+            </label>
+            <button id="arena-refresh" class="prog-btn" type="button">Refresh</button>
+          </div>
+          <p class="pattern-intro">
+            Only used to look up your own rating and find your row. Quanta never stores it server-side, and you
+            can leave it blank &mdash; contests still work.
+          </p>
+          <div id="arena-profile"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="arena-live-title">
+          <h3 id="arena-live-title">Running now</h3>
+          <p id="arena-summary" class="pattern-intro"></p>
+          <p id="arena-note" class="viz-note--plain" role="status" aria-live="polite" hidden></p>
+          <div id="arena-live" class="arena-list"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="arena-upcoming-title">
+          <h3 id="arena-upcoming-title">Coming up</h3>
+          <div id="arena-upcoming" class="arena-list"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="arena-detail-title">
+          <h3 id="arena-detail-title">Round detail</h3>
+          <div id="arena-detail" class="arena-detail">
+            <p class="pattern-intro">Pick a round above to see its problems, what they are worth and where you placed.</p>
+          </div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="arena-recent-title">
+          <h3 id="arena-recent-title">Recent rounds</h3>
+          <div id="arena-recent" class="arena-list"></div>
+        </section>
+      </div>
+    </section>
+    <!-- ========================== Companies page =========================== -->
+    <section id="page-companies" class="page page--companies" data-page-id="companies" aria-label="Company preparation" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">By company</h2>
+          <p class="page-sub">Prepare for a specific company&rsquo;s questions</p>
+        </div>
+      </header>
+
+      <div class="settings-body companies-body">
+        <p class="viz-note--plain companies-honest">
+          A company record is somebody&rsquo;s claim that they ask that problem. Quanta never invents one: no
+          permitted public dataset says which company asks which problem, so nothing appears here unless it
+          comes from a list you already hold and import below. Every row is labelled with where it came from.
+        </p>
+
+        <p id="company-note" class="viz-note--plain" hidden></p>
+
+        <section class="settings-group" aria-labelledby="company-pick-title">
+          <h3 id="company-pick-title">Company</h3>
+          <div id="company-list" class="company-list"></div>
+          <p id="company-empty" class="pattern-intro" hidden>
+            Nothing recorded yet. Import a list you already hold, below.
+          </p>
+          <label class="viz-field company-difficulty">
+            <span>Difficulty</span>
+            <select id="company-difficulty" class="settings-select">
+              <option value="all">All</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="settings-group" aria-labelledby="company-problems-title">
+          <h3 id="company-problems-title">Problems</h3>
+          <div id="company-problems"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="company-import-title">
+          <h3 id="company-import-title">Bring your own list</h3>
+          <details id="company-import-toggle">
+            <summary class="quiz-summary">Import a company list</summary>
+            <div id="company-import-panel" class="company-import" hidden>
+              <p class="viz-note--plain">
+                Quanta will not scrape company question lists: none is published as an API, and scraping one
+                would mean copying content you have no right to redistribute. If you already hold a list — your
+                team&rsquo;s, a course&rsquo;s, a company&rsquo;s own — import it here.
+              </p>
+              <p class="pattern-intro">
+                CSV with a header row (<code>slug,title,company,confidence</code>) or JSON as an array of
+                <code>{ "slug": "two-sum", "company": "Amazon", "confidence": "reported" }</code>.
+                Only problems already in your catalog are linked; the rest are reported as skipped.
+              </p>
+              <label class="viz-field">
+                <span>Where this list came from</span>
+                <input id="company-import-source" class="settings-input" type="text" value="my team's list" autocomplete="off" />
+              </label>
+              <label class="viz-field">
+                <span>The list</span>
+                <textarea id="company-import-data" class="settings-input" rows="8" spellcheck="false" placeholder="slug,company&#10;two-sum,Amazon&#10;valid-parentheses,Amazon"></textarea>
+              </label>
+              <button id="company-import-btn" class="prog-btn" type="button">Import it</button>
+              <p id="company-import-report" class="company-import__ok" role="status" aria-live="polite" hidden></p>
+            </div>
+          </details>
+        </section>
+      </div>
+    </section>
+    <!-- ============================ Mock page ============================== -->
+    <section id="page-mock" class="page page--mock" data-page-id="mock" aria-label="Mock interview" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Mock interview</h2>
+          <p class="page-sub">One problem, a clock, and an honest review</p>
+        </div>
+      </header>
+
+      <div class="settings-body mock-body">
+        <section id="mock-setup" class="settings-group" aria-labelledby="mock-setup-title">
+          <h3 id="mock-setup-title">Start</h3>
+          <div id="mock-difficulty-host"></div>
+          <p id="mock-setup-note" class="viz-about"></p>
+        </section>
+
+        <section id="mock-stage" class="settings-group mock-stage" aria-labelledby="mock-stage-title" hidden>
+          <div class="mock-stage__head">
+            <div>
+              <p id="mock-stage-label" class="mock-stage__label"></p>
+              <h3 id="mock-stage-title" class="mock-stage__title"></h3>
+            </div>
+            <p id="mock-clock" class="mock-clock">0:00</p>
+          </div>
+          <div class="mock-stage__bar"><div id="mock-stage-bar" class="mock-stage__fill"></div></div>
+          <p id="mock-stage-note" class="viz-about"></p>
+
+          <div class="mock-problem">
+            <p id="mock-problem-meta" class="pattern-intro"></p>
+            <h4 id="mock-problem-title" class="mock-problem__title"></h4>
+            <p id="mock-problem-reason" class="viz-note--plain"></p>
+            <div id="mock-problem-links" class="mock-actions"></div>
+          </div>
+        </section>
+
+        <section id="mock-review" class="settings-group" aria-labelledby="mock-review-title" hidden>
+          <h3 id="mock-review-title">How did that go?</h3>
+        </section>
+
+        <p id="mock-outcome" class="mock-outcome" role="status" aria-live="polite" hidden></p>
+
+        <section class="settings-group" aria-labelledby="mock-history-title">
+          <h3 id="mock-history-title">Previous interviews</h3>
+          <div id="mock-history"></div>
+        </section>
+      </div>
+    </section>
+    <!-- ========================== Patterns page ============================ -->
+    <section id="page-patterns" class="page page--patterns" data-page-id="patterns" aria-label="DSA pattern trainer" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Pattern trainer</h2>
+          <p class="page-sub">Learn the shape, then practise it on real problems</p>
+        </div>
+        <button id="pattern-reset" class="icon-btn" type="button" aria-label="Clear visited patterns" title="Clear history">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7zm3-4h6l1 2H8l1-2zM4 6h16v2H4V6z"/></svg>
+        </button>
+      </header>
+
+      <div class="settings-body patterns-body">
+        <p class="viz-note--plain patterns-honest">
+          Practice lists come from your own catalog by topic tag, so they are real problems you can open and solve —
+          not a fixed list that might not match what you have.
+        </p>
+
+        <section class="settings-group" aria-labelledby="pattern-pick-title">
+          <h3 id="pattern-pick-title">Pattern</h3>
+          <div id="pattern-nav" class="viz-picker" role="group" aria-label="Choose a pattern"></div>
+        </section>
+
+        <div id="pattern-body" class="pattern-body"></div>
+
+        <section class="settings-group" aria-labelledby="pattern-gaps-title">
+          <h3 id="pattern-gaps-title">Coverage</h3>
+          <div id="pattern-gaps"></div>
+        </section>
+      </div>
+    </section>
+    <!-- =========================== Academy page ============================= -->
+    <section id="page-academy" class="page page--academy" data-page-id="academy" aria-label="Interview academy" hidden>
+      <header class="page-head">
+        <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
+        <div class="page-head__text">
+          <h2 class="page-title">Interview academy</h2>
+          <p class="page-sub">The parts of an interview that are not one specific algorithm</p>
+        </div>
+        <button id="academy-reset" class="icon-btn" type="button" aria-label="Clear academy progress" title="Clear progress">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7zm3-4h6l1 2H8l1-2zM4 6h16v2H4V6z"/></svg>
+        </button>
+      </header>
+
+      <div class="settings-body academy-body">
+        <p class="viz-note--plain academy-honest">
+          Written from general computer-science knowledge, not copied from any question bank. Quota-style
+          "most asked questions" material is deliberately absent: no permitted public dataset says which
+          questions get asked, so Quanta does not invent one.
+        </p>
+
+        <section class="settings-group" aria-labelledby="academy-progress-title">
+          <h3 id="academy-progress-title">Your progress</h3>
+          <div class="academy-progress" role="img" aria-label="Points marked as understood">
+            <div class="academy-progress__bar"><div id="academy-progress-fill" class="academy-progress__fill"></div></div>
+            <p id="academy-progress-text" class="viz-about"></p>
+          </div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="academy-topics-title">
+          <h3 id="academy-topics-title">Topic</h3>
+          <div id="academy-nav" class="viz-picker" role="group" aria-label="Academy topic"></div>
+          <div id="academy-body" class="academy-body__content"></div>
+        </section>
+
+        <section class="settings-group" aria-labelledby="academy-quiz-title">
+          <h3 id="academy-quiz-title">Check yourself</h3>
+          <p id="academy-quiz-score" class="viz-about"></p>
+          <details id="academy-quiz-toggle">
+            <summary class="quiz-summary">Open the questions</summary>
+            <div id="academy-quiz" class="academy-quiz"></div>
+          </details>
+        </section>
       </div>
     </section>
     <!-- ============================ Settings page ============================ -->
@@ -1093,7 +1596,8 @@
     </div>
   </div>
 
-  <script src="vendor/monaco/min/vs/loader.js"></script>
+  <script src="vendor/acorn/acorn.js?v=1"></script>
+<script src="vendor/monaco/min/vs/loader.js"></script>
   <script>
     // Quanta Android wrapper: default the compiler-server to the PC running the dashboard.
     (function () {
@@ -1103,13 +1607,22 @@
         if (isWrapper && !localStorage.getItem("quantaRunServerUrl")) {
           localStorage.setItem("quantaRunServerUrl", "http://192.168.0.5:3000");
         }
-        if (isWrapper && "" && !localStorage.getItem("quantaApiBaseUrl")) {
-          localStorage.setItem("quantaApiBaseUrl", "");
+        if (isWrapper && "https://quanta-api-2i9a.onrender.com" && !localStorage.getItem("quantaApiBaseUrl")) {
+          localStorage.setItem("quantaApiBaseUrl", "https://quanta-api-2i9a.onrender.com");
         }
       } catch (e) {}
     })();
   </script>
   <script src="script.js?v=16"></script>
-  <script src="lab-notes.js?v=50"></script>
+  <script src="visualizer.js?v=4"></script>
+  <script src="discovery.js?v=1"></script>
+  <script src="academy.js?v=1"></script>
+  <script src="patterns.js?v=1"></script>
+  <script src="mock.js?v=1"></script>
+  <script src="solutions.js?v=1"></script>
+<script src="debugger.js?v=1"></script>
+<script src="review.js?v=1"></script>
+<script src="contests.js?v=1"></script>
+  <script src="lab-notes.js?v=78"></script>
 </body>
 </html>
