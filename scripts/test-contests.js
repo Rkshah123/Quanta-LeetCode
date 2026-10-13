@@ -206,6 +206,27 @@ check("a single round draws one point, not a divide-by-zero line", contests.rati
 check("an empty history is not a crash", contests.ratingSeries([]).pointCount === 0 && contests.ratingSeries(null).path === "");
 check("rows with no rating are dropped rather than drawn as zero", contests.ratingSeries([{ contestName: "x" }, { newRating: 1500, ratingUpdateTimeSeconds: 1 }]).pointCount === 1);
 
+console.log("\n== a field that is not a rank is not shown as one ==");
+{
+  /* Codeforces returns maxRank: "tourist" for the handle tourist. Verified
+     against their live API, not assumed. Passing that through means a page
+     rendering maxRank shows a handle in the place a rank belongs - so it is
+     dropped unless it actually looks like a rank. */
+  check("a real rank is kept", contests.looksLikeRank("legendary grandmaster", "tourist") === true);
+  check("every real band is kept", ["newbie", "pupil", "specialist", "expert", "candidate master", "master", "international grandmaster"].every((r) => contests.looksLikeRank(r, "someone")));
+  check("the handle itself is rejected", contests.looksLikeRank("tourist", "tourist") === false);
+  check("the handle in different case is rejected", contests.looksLikeRank("Tourist", "tourist") === false);
+  check("junk is rejected", contests.looksLikeRank("", "tourist") === false && contests.looksLikeRank(undefined, "tourist") === false && contests.looksLikeRank(42, "tourist") === false);
+
+  const real = contests.summariseProfile({ handle: "tourist", rank: "legendary grandmaster", maxRank: "tourist", rating: 3343, maxRating: 4009 }, history);
+  check("a profile whose maxRank echoes the handle drops maxRank", real.maxRank === null, String(real.maxRank));
+  check("and keeps the rank Codeforces does report correctly", real.rank === "legendary grandmaster", real.rank);
+
+  const clean = contests.summariseProfile({ handle: "someone", rank: "expert", maxRank: "master", rating: 2500 }, history);
+  check("a plausible maxRank survives", clean.maxRank === "master", String(clean.maxRank));
+  check("a profile with no maxRank at all is null, not a guess", contests.summariseProfile({ handle: "x", rank: "newbie" }, []).maxRank === null);
+}
+
 console.log("\n== profile ==");
 const profile = contests.summariseProfile({ handle: "tourist", rank: "legendary grandmaster", maxRank: "legendary grandmaster", rating: 3343, maxRating: 4009, contribution: 111, friendOfCount: 91259, country: "Belarus", registrationTimeSeconds: 100 }, history);
 check("a real profile summarises", profile.ok === true);

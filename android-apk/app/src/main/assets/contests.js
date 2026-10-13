@@ -532,6 +532,21 @@ const ratingSeries = (history) => {
   };
 };
 
+/* Whether a value from Codeforces' user.info is actually a rank name.
+
+   Rank names are words: newbie, specialist, master, grandmaster, and so on.
+   The failure mode this guards against is real and observed - Codeforces
+   returns maxRank: "tourist" for the handle tourist, so the field can hold a
+   handle. Anything that merely echoes the handle is not a rank. */
+const looksLikeRank = (value, handle) => {
+  if (typeof value !== "string" || !value.trim()) return false;
+  const text = value.trim().toLowerCase();
+  if (handle && text === String(handle).trim().toLowerCase()) return false;
+  /* A real band contains a word from the ladder. Matching on the word rather
+     than on a fixed list means a band Codeforces adds later still passes. */
+  return /newbie|pupil|specialist|expert|master|grandmaster/.test(text);
+};
+
 /* Profile headline. The handle is checked, not assumed, and the number of
    contests behind the rating is stated so a 1500 from one round does not read
    like a 1500 from two hundred. */
@@ -548,9 +563,12 @@ const summariseProfile = (info, history) => {
     handle: String(user.handle || ""),
     /* Codeforces' own words for the band, not a band this module derived. */
     rank: String(user.rank || series.band || "unrated"),
-    /* Their own band for a rating below 1200 is "unrated" even when there is a
-       number, so both are kept rather than one being made to agree. */
-    maxRank: user.maxRank ? String(user.maxRank) : null,
+    /* Codeforces' `maxRank` is not reliable. For tourist it returns the string
+       "tourist" rather than a rank at all - verified against their live API
+       response. It is passed on only when it actually looks like a rank, so no
+       page can end up rendering a handle in the place a rank belongs. Dropping
+       a value is better than showing a wrong one. */
+    maxRank: looksLikeRank(user.maxRank, user.handle) ? String(user.maxRank) : null,
     rating: Number.isFinite(Number(user.rating)) ? Number(user.rating) : null,
     maxRating: Number.isFinite(Number(user.maxRating)) ? Number(user.maxRating) : null,
     contribution: Number.isFinite(Number(user.contribution)) ? Number(user.contribution) : null,
@@ -688,6 +706,7 @@ if (typeof module !== "undefined" && module.exports) {
     RATING_BANDS,
     RATING_FLOOR,
     rankForRating,
+    looksLikeRank,
     normaliseContest,
     classifyContests,
     countdown,
@@ -708,6 +727,7 @@ if (typeof window !== "undefined" && window) {
   window.CONTEST_API = CODEFORCES_API;
   window.contestEngine = {
     rankForRating,
+    looksLikeRank,
     normaliseContest,
     classifyContests,
     countdown,
