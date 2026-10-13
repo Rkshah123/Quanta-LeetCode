@@ -144,11 +144,16 @@ const toItemDto = (row, todayKey) => {
   const dueDate = String(row.due_date || "").slice(0, 10);
   const topics = parseTopics(row.problem_topics);
   const noteTags = parseTopics(row.note_tags);
-  /* The catalog carries a topic column, but it is empty for every problem in
-     this database, so it is never shown unless it is really there. What the
-     user wrote in their own study notes is the topic information that does
-     exist, and it is labelled as theirs. */
-  const topic = topics[0] ?? noteTags[0] ?? null;
+  /* The reader's own tags come first. They are specific to this problem and
+     this reader - "hash map", "sliding window variant" - and they were typed on
+     purpose. A catalog tag is a broad label applied to every problem of that
+     kind, so it is the fallback rather than the answer.
+
+     This was the other way round, because the catalog's topic column was empty
+     for every problem and the question never arose. Now that the column is
+     populated, leaving the order alone silently demoted the reader's own words
+     to second place behind a generic label they had never chosen. */
+  const topic = noteTags[0] ?? topics[0] ?? null;
   return {
     slug: row.slug,
     num: row.lc_num ?? null,
@@ -168,7 +173,10 @@ const toItemDto = (row, todayKey) => {
     topics,
     noteTags,
     topic,
-    topicSource: topics.length ? "catalog" : noteTags.length ? "notes" : null
+    /* Must agree with the precedence above: whichever won is what the label
+       says, so a card can never claim the topic came from the notes when it
+       actually came from the catalog. */
+    topicSource: noteTags.length ? "notes" : topics.length ? "catalog" : null
   };
 };
 

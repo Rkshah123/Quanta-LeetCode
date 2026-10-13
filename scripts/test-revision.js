@@ -194,8 +194,25 @@ const testRepository = async () => {
   const bare = await revision.addItem({ slug: "two-sum", title: "Two Sum", num: 1, difficulty: "Easy", tzOffsetMinutes: 0 });
   check("the catalog topic list is always an array", Array.isArray(bare.topics), JSON.stringify(bare.topics));
   check("it carries the catalog title too", bare.problemTitle === "Two Sum", String(bare.problemTitle));
-  equal("no topic is invented", bare.topic, null);
-  equal("and the card knows there is nothing to show", bare.topicSource, null);
+  /* Two Sum carries real catalog topics now ("Arrays", "Hashing"), so the
+     topic comes from the catalog rather than being invented here. Previously
+     this asserted null, which was only true because the LeetCode rows had no
+     topics at all. */
+  equal("a catalog topic is used when there is one", bare.topic, "Arrays");
+  equal("and is labelled as coming from the catalog", bare.topicSource, "catalog");
+
+  /* The "nothing is invented" check needs a problem that genuinely has no
+     topics, so it uses a slug that is not in the catalog at all. Asserting it
+     against a real problem would only pass while that problem happened to be
+     untagged. */
+  const untagged = await revision.addItem({
+    slug: "quanta-not-a-real-problem",
+    title: "Not A Real Problem",
+    difficulty: "Easy",
+    tzOffsetMinutes: 0
+  });
+  equal("no topic is invented for a problem with none", untagged.topic, null);
+  equal("and the card knows there is nothing to show", untagged.topicSource, null);
 
   await query("DELETE FROM problem_notes WHERE owner_key = ? AND slug = ?", [revision.REVISION_OWNER, "two-sum"]);
   await query(
@@ -204,7 +221,9 @@ const testRepository = async () => {
   );
   const tagged = await revision.getItem("two-sum", revision.toDayKey(new Date(Date.now())));
   same("the user's own tags are available", tagged.noteTags, ["hash map", "arrays"]);
-  equal("they are used as the topic", tagged.topic, "hash map");
+  /* The reader's own tag outranks the catalog's. This is the precedence rule:
+     something the user typed beats something the catalog guessed. */
+  equal("the user's own tags win over the catalog's", tagged.topic, "hash map");
   equal("and are labelled as coming from the notes", tagged.topicSource, "notes");
 
   await query("DELETE FROM revision_items WHERE owner_key = ? AND slug IN (?, ?)", [
