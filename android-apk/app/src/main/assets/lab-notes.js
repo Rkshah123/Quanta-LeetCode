@@ -175,6 +175,15 @@
       if (page === "about") {
         const buildEl = byId("about-build-date");
         if (buildEl && !buildEl.textContent) buildEl.textContent = new Date().toISOString().slice(0, 10);
+        /* Filled from version.js rather than typed into the markup, which is how the
+           About page came to say 1.0.0 while the installed package was 1.2.0 - the one
+           screen whose whole job is saying what you are running.
+        
+           The markup still carries the number as a fallback for the moment before this
+           runs, and android-apk/build.sh rewrites that one line to whatever version it is
+           packaging, so the two cannot drift apart silently a second time. */
+        const versionEl = byId("about-version");
+        if (versionEl && window.QUANTA_VERSION) versionEl.textContent = window.QUANTA_VERSION;
         refreshAboutInfo();
         showPage("about");
         return;
@@ -3970,9 +3979,34 @@
     return revisionView.items.find((entry) => entry.slug === slug) || null;
   };
 
+  /* The external-link button carries the same words for every problem.
+
+     The catalog holds LeetCode rows and Codeforces rows, so a button reading
+     "Open on LeetCode" is simply wrong on the Codeforces ones - the name of the
+     site is the one thing about a link that cannot be true for all of them. Only
+     the wording is generic; each problem's own URL is used exactly as stored and
+     is never rewritten or guessed.
+
+     The rule itself, and the test for a usable URL, live in search.js so they
+     can be checked without a browser. These two names point at that module's
+     copies rather than re-implementing it. */
+  const EXTERNAL_LINK_LABEL = window.EXTERNAL_LINK_LABEL || "Open in Website";
+  const externalUrlOf = (problem) => (window.externalUrlOf ? window.externalUrlOf(problem) : "");
+
+  /* Matching lives in search.js: case-insensitive, partial, across title, slug,
+     topics, note headings and platform, with every typed word required to match
+     somewhere. */
+  /* Everything below delegates to search.js, which is where the matching rules
+     are written and where they are tested. This function only adds the panel's
+     own filters - difficulty, solved, starred, revision - on top of the text
+     match, and then re-sorts by whatever the reader chose.
+
+     The search ranking and the chosen sort deliberately coexist: matching narrows
+     the set, sortLcProblems orders it, and searchProblems only puts a
+     title-and-topic hit ahead of a weaker one within equal sort keys. */
   const visibleLcProblems = () => {
-    const query = lcFilter.query.trim().toLowerCase();
-    return lcState.problems.filter((problem) => {
+    const query = lcFilter.query;
+    const filtered = lcState.problems.filter((problem) => {
       if (lcFilter.difficulty !== "all" && problem.difficulty !== lcFilter.difficulty) return false;
       if (lcFilter.status === "solved" && !problemIsSolved(problem)) return false;
       if (lcFilter.status === "unsolved" && problemIsSolved(problem)) return false;
@@ -3989,16 +4023,10 @@
           if (lcFilter.revision === "overdue" && entry.bucket !== "overdue") return false;
         }
       }
-      if (!query) return true;
-      // Exact program-number search: "51" matches only problem 51, never 151/251/2051.
-      if (/^#?\d+$/.test(query)) return String(problem.num) === query.replace(/^#/, "");
-      if (problem.name.toLowerCase().includes(query)) return true;
-      /* The slug is part of the LeetCode link, so typing words from the URL
-         finds the problem too. */
-      return query.length >= 3 && problem.url.toLowerCase().includes(query);
+      return !window.quantaSearch || window.quantaSearch.matchesQuery(problem, query);
     });
+    return window.quantaSearch ? window.quantaSearch.searchProblems(filtered, query) : filtered;
   };
-
   const sortLcProblems = (problems) => {
     const byNumber = (a, b) =>
       a.num === b.num ? a.name.localeCompare(b.name) : Number(a.num) - Number(b.num);
@@ -4455,6 +4483,19 @@ const ensureRevisionStateForCatalog = () => {
 
   const renderLcProblemList = () => {
     const filtered = sortLcProblems(visibleLcProblems());
+    /* A search shows everything it found.
+
+       The limit used to apply to searches as well as to browsing, so "Arrays"
+       reported 915 matches and drew 60 of them with a button to page through.
+       That is the behaviour the complaint was about: you ask a question, you
+       get a slice and have to keep clicking. Only browsing the whole catalog is
+       paged, because drawing 2,000 rows when nobody filtered anything is slow
+       on a phone for no reason. */
+    const SEARCH_ALL_CEILING = Number.MAX_SAFE_INTEGER;
+    const searching = lcFilter.query.trim().length > 0;
+    if (searching && filtered.length <= SEARCH_ALL_CEILING) {
+      lcVisibleLimit = Math.max(lcVisibleLimit, filtered.length);
+    }
     const problems = filtered.slice(0, lcVisibleLimit);
     const solvedCount = lcState.problems.filter((problem) => problemIsSolved(problem)).length;
     const filtering = !lcFilterIsDefault();
@@ -4477,14 +4518,17 @@ const ensureRevisionStateForCatalog = () => {
          current filters do not actually match. */
       lcProblemList.replaceChildren();
       lcEmpty.hidden = false;
-      /* An empty list means different things: there is nothing here at all, or
-         the filters hid everything that is here. They are told apart. */
-      if (lcEmpty.dataset.mode !== (filtering ? "filtered" : "empty")) {
-        lcEmpty.dataset.mode = filtering ? "filtered" : "empty";
-        lcEmpty.textContent = filtering
-          ? `No problems match ${lcFilter.query.trim() ? `“${lcFilter.query.trim()}”` : "these filters"}.`
-          : "No problems here yet. Use Add problem to start your list.";
-      }
+      /* The text is rewritten every time rather than only when the mode changes.
+         It used to be cached against `dataset.mode`, so deleting one word and
+         typing another left the message naming the word that was already gone -
+         "No problems match “arra”" while the box said something else entirely. */
+      const wanted = filtering
+        ? lcFilter.query.trim()
+          ? `No problems match “${lcFilter.query.trim()}”.`
+          : "No problems match these filters."
+        : "No problems here yet. Use Add problem to start your list.";
+      if (lcEmpty.textContent !== wanted) lcEmpty.textContent = wanted;
+      lcEmpty.dataset.mode = filtering ? "filtered" : "empty";
       return;
     }
     lcEmpty.hidden = true;
@@ -4551,25 +4595,45 @@ const ensureRevisionStateForCatalog = () => {
       starBtn.setAttribute("aria-pressed", String(problem.bookmarked === true));
       metaRow.append(starBtn);
 
-      const openLink = document.createElement("a");
-      openLink.className = "lc-problem-link";
-      openLink.href = problem.url;
-      openLink.target = "_blank";
-      openLink.rel = "noopener noreferrer";
-      openLink.setAttribute("aria-label", `Open ${problem.name} on LeetCode`);
-      openLink.setAttribute("title", "Open on LeetCode");
-      openLink.innerHTML =
+      /* The external link, labelled the same way for every problem. A problem
+         with no usable URL does not get a link at all: an anchor with no
+         destination re-opens this page and reads as a broken button. */
+      const externalUrl = externalUrlOf(problem);
+      if (externalUrl) {
+        const openLink = document.createElement("a");
+        openLink.className = "lc-problem-link";
+        openLink.href = externalUrl;
+        openLink.target = "_blank";
+        openLink.rel = "noopener noreferrer";
+        openLink.setAttribute("aria-label", `${EXTERNAL_LINK_LABEL}: ${problem.name}`);
+        openLink.setAttribute("title", EXTERNAL_LINK_LABEL);
+        openLink.innerHTML =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12ZM8 13h8v-2H8v2Zm9-6h-4v1.9h4a3.1 3.1 0 1 1 0 6.2h-4V17h4a5 5 0 0 0 0-10Z"/></svg>';
-      metaRow.append(openLink);
+        metaRow.append(openLink);
+      }
 
       main.append(nameBtn, metaRow);
       row.append(numEl, main);
       fragment.appendChild(row);
     });
 
-    /* When the list is cut short, say so and offer the rest, rather than
-       silently showing a slice that looks like the whole catalog. */
-    if (filtered.length > problems.length) {
+    /* A search should show what it found, not the first sixty of it.
+       Browsing the whole catalog is still paged, because drawing 2,000 rows when
+       nobody asked for a filter is slow on a phone. The two cases are separated
+       here rather than hidden behind one limit. */
+    if (searching && filtered.length > problems.length) {
+      const showAll = document.createElement("button");
+      showAll.type = "button";
+      showAll.className = "lc-more-btn";
+      showAll.textContent = `Show all ${filtered.length} matching problems`;
+      showAll.addEventListener("click", () => {
+        lcVisibleLimit = filtered.length;
+        renderLcProblemList();
+      });
+      fragment.appendChild(showAll);
+    } else if (filtered.length > problems.length) {
+      /* When the list is cut short, say so and offer the rest, rather than
+         silently showing a slice that looks like the whole catalog. */
       const more = document.createElement("button");
       more.type = "button";
       more.className = "lc-more-btn";
@@ -4598,8 +4662,23 @@ const ensureRevisionStateForCatalog = () => {
     lcDetailTitle.textContent = problem.name;
     const detailSolved = problemIsSolved(problem);
     lcDetailMeta.textContent = `${problem.num ? `#${problem.num} · ` : ""}${problem.difficulty}${detailSolved ? ` · Solved ✓ (${currentLangLabel()})` : ""}`;
-    lcDetailLink.href = problem.url;
-    lcDetailLink.title = `Open ${problem.name} on LeetCode`;
+    /* Same wording as the list, and the same treatment of a missing URL: the
+       button is hidden rather than left pointing nowhere. */
+    const detailExternalUrl = externalUrlOf(problem);
+    const detailLinks = [lcDetailLink, byId("lc-detail-link-desc")].filter(Boolean);
+    detailLinks.forEach((link) => {
+      if (detailExternalUrl) {
+        link.href = detailExternalUrl;
+        link.hidden = false;
+        link.title = `${EXTERNAL_LINK_LABEL}: ${problem.name}`;
+        link.setAttribute("aria-label", `${EXTERNAL_LINK_LABEL}: ${problem.name}`);
+      } else {
+        link.removeAttribute("href");
+        link.hidden = true;
+        link.removeAttribute("title");
+        link.removeAttribute("aria-label");
+      }
+    });
     const langSolvedNow = Boolean(problem.langSolved?.[qlActiveLanguage]);
     lcDetailSolvedBtn.textContent = langSolvedNow ? `Unsolved (${currentLangLabel()})` : `Solved (${currentLangLabel()})`;
     lcDetailSolvedBtn.classList.toggle("is-solved", langSolvedNow);
@@ -5175,10 +5254,17 @@ const ensureRevisionStateForCatalog = () => {
   const describeUnavailable = (offline) =>
     offline
       ? '<p class="ql-desc-empty">You are offline and this statement has not been saved on this device yet. It will load automatically once you are connected.</p>'
-      : '<p class="ql-desc-empty">Description unavailable right now. Check your connection, or open it on LeetCode for the full statement.</p>';
+      : '<p class="ql-desc-empty">Description unavailable right now. Check your connection, or open it on the problem’s website for the full statement.</p>';
 
-  const renderDescHtml = (html) => {
-    if (!qlDescBody) return;
+  /* Sanitises a statement's HTML and puts it in `target`.
+
+     The target is a parameter because the same statement is shown in two
+     places: the problem detail pane, and inside the mock interview. Writing
+     both through one function means the mock page gets exactly the same
+     sanitising - scripts stripped, event handlers and non-https hrefs removed -
+     rather than a second, weaker copy of that work. */
+  const renderDescHtml = (html, target = qlDescBody) => {
+    if (!target) return;
     const holder = document.createElement("div");
     holder.innerHTML = html;
     holder.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => node.remove());
@@ -5195,8 +5281,8 @@ const ensureRevisionStateForCatalog = () => {
         pre.appendChild(code);
       }
     });
-    qlDescBody.innerHTML = "";
-    while (holder.firstChild) qlDescBody.appendChild(holder.firstChild);
+    target.innerHTML = "";
+    while (holder.firstChild) target.appendChild(holder.firstChild);
   };
 
   const loadQlDescription = (problem) => {
@@ -5206,7 +5292,7 @@ const ensureRevisionStateForCatalog = () => {
     const slug = slugKey(problem.url);
     if (!slug) {
       setDescStatus("");
-      qlDescBody.innerHTML = '<p class="ql-desc-empty">No description available for custom problems. Open it on LeetCode for the full statement.</p>';
+      qlDescBody.innerHTML = '<p class="ql-desc-empty">No description available for custom problems. Open it on the problem’s website for the full statement.</p>';
       return;
     }
 
@@ -5535,7 +5621,7 @@ const ensureRevisionStateForCatalog = () => {
     }
     /* The box changed width dramatically: re-apply the split size stored for
        THIS mode (or fall back to the 50/50 default) and re-measure Monaco so
-       every element — including the Open LeetCode button — sits correctly
+       every element — including the Open in Website button — sits correctly
        inside its section after the transition. */
     window.setTimeout(() => {
       if (qlSplits.values[qlSplits.activeKey(qlSplits.handles.find((h) => h.key === "qlDescW"))] !== undefined) {
@@ -9515,9 +9601,13 @@ const refreshStudyForActiveProblem = () => {
     return { values, error: "" };
   };
 
+  /* Accepts a leading minus, because the lists it parses genuinely can contain
+     negative numbers. The scalar parser is the one that rejects negatives by
+     default; a list and a single value must not disagree about what a number
+     looks like. */
   const vizParseInt = (raw, label, { min = 0, max = 99 } = {}) => {
     const text = String(raw || "").trim();
-    if (!/^\d+$/.test(text)) return { value: null, error: `${label} must be a whole number.` };
+    if (!/^-?\d+$/.test(text)) return { value: null, error: `${label} must be a whole number.` };
     const value = Number(text);
     if (value < min || value > max) return { value: null, error: `${label} must be between ${min} and ${max}.` };
     return { value, error: "" };
@@ -9756,7 +9846,12 @@ const refreshStudyForActiveProblem = () => {
         if (values.some((v, i) => v !== sortedCopy[i])) {
           return { error: "Searching needs the values in ascending order." };
         }
-        const target = vizParseInt(state.target, "The value");
+        /* Widened to accept negatives, matching what the array itself accepts.
+           vizParseInt's default is 0..99 and its test rejects a minus sign, so a
+           reader who typed "-5" into the values was then told "The value must be
+           a whole number" about a field they had not touched. The sibling
+           two-pointers group already allows -9999..9999 for the same reason. */
+        const target = vizParseInt(state.target, "The value", { min: -999999, max: 999999 });
         if (target.error) return { error: target.error };
         return algo.run(values, target.value);
       }
@@ -10454,6 +10549,18 @@ const refreshStudyForActiveProblem = () => {
     for (const [key, def] of Object.entries(window.DISCOVERY_STRATEGIES || {})) {
       options.push({ key, label: def.label });
     }
+    /* The module can also emit a strategy that has no chip of its own - "explore"
+       is one. Without a chip those suggestions are reachable only under
+       "Everything" and disappear under every specific filter, with nothing on
+       screen to explain why. A chip is added for any strategy actually present
+       in the current results, so every kind of suggestion can be selected. */
+    for (const key of new Set(discoveryState.recs.map((r) => r.strategy).filter(Boolean))) {
+      if (options.some((option) => option.key === key)) continue;
+      const fromList = discoveryState.recs.find((r) => r.strategy === key);
+      options.push({ key, label: fromList?.strategyLabel || key });
+    }
+    options.sort((a, b) => (a.key === "all" ? -1 : b.key === "all" ? 1 : a.label.localeCompare(b.label)));
+
     for (const option of options) {
       const button = document.createElement("button");
       button.type = "button";
@@ -10463,6 +10570,10 @@ const refreshStudyForActiveProblem = () => {
       button.setAttribute("aria-pressed", discoveryState.strategy === option.key ? "true" : "false");
       button.addEventListener("click", () => {
         discoveryState.strategy = option.key;
+        /* Saved here as well as in the "Show more" handler. Choosing a filter
+           used to be forgotten on every reload unless the reader happened to
+           press a button that did nothing else. */
+        writeJson(DISCOVERY_KEY, { strategy: discoveryState.strategy, limit: discoveryState.limit });
         discoveryRenderFilters();
         discoveryRenderList();
       });
@@ -10488,11 +10599,21 @@ const refreshStudyForActiveProblem = () => {
         : "";
     }
 
+    /* The button is hidden rather than left on screen when there is nothing
+       more to ask for. */
+    const moreBtn = discoveryEl("discovery-more");
+    if (moreBtn) moreBtn.hidden = recs.length < discoveryState.limit;
+
     if (!recs.length) {
       if (empty) {
         empty.hidden = false;
-        empty.textContent =
-          discoveryState.strategy === "all"
+        /* Distinguishes "you have genuinely done everything" from "the module
+           that makes suggestions did not load". Both produced an empty list, so
+           a broken page used to congratulate the reader on having solved
+           everything. */
+        empty.textContent = !window.discoveryRecommend
+          ? "The suggestions module did not load on this device, so there is nothing to suggest. Everything else in Quanta still works."
+          : discoveryState.strategy === "all"
             ? "Nothing to suggest right now — everything unsolved has already been attempted. Solve something new and this will fill up again."
             : "Nothing under this heading. Try another filter.";
       }
@@ -10626,12 +10747,17 @@ const refreshStudyForActiveProblem = () => {
     const solvedSlugs = new Set(problems.filter((p) => p.solved).map((p) => p.slug));
     const attemptedSlugs = new Set(problems.filter((p) => p.lastRunAt).map((p) => p.slug));
 
+    /* `limit` was hard-coded to 60 here while the "Show more" button raised
+       discoveryState.limit and re-called this function. The button therefore
+       asked for the same 60 rows again and the list drew all of them anyway, so
+       it could never change anything: a permanently visible button that did
+       nothing. Both the fetch and the draw now honour the same number. */
     discoveryState.recs = window.discoveryRecommend
       ? window.discoveryRecommend(problems, {
           solvedSlugs,
           attemptedSlugs,
           dueSlugs: discoveryDueSlugs(),
-          limit: 60
+          limit: discoveryState.limit
         })
       : [];
     discoveryState.coverage = window.discoveryCoverage ? window.discoveryCoverage(problems) : [];
@@ -10651,6 +10777,11 @@ const refreshStudyForActiveProblem = () => {
   const initDiscovery = () => {
     const stored = readJson(DISCOVERY_KEY, () => ({}));
     if (stored && stored.strategy) discoveryState.strategy = stored.strategy;
+    /* Guarded: a hand-edited or half-written value must not become a fetch
+       limit of -1 or 1e9. */
+    if (Number.isFinite(stored?.limit) && stored.limit >= 12 && stored.limit <= 600) {
+      discoveryState.limit = stored.limit;
+    }
 
     const more = discoveryEl("discovery-more");
     more?.addEventListener("click", () => {
@@ -10659,7 +10790,6 @@ const refreshStudyForActiveProblem = () => {
       void loadRevisionDashboard().catch(() => {});
       discoveryRefresh();
     });
-
     const refreshBtn = discoveryEl("discovery-refresh");
     refreshBtn?.addEventListener("click", () => {
       renderLcAll();
@@ -10684,6 +10814,20 @@ const refreshStudyForActiveProblem = () => {
      Progress is stored per point, keyed by `topic.sectionIndex.pointIndex`, so
      editing one section never invalidates the rest. */
   (() => {
+    /* Every use of ACADEMY_TOPICS and ACADEMY_QUIZ below assumes they are
+       arrays. They are set by academy.js, and a module that did not load - a
+       blocked file, a cache miss, a syntax error in an edit - left them
+       undefined, so the first of those reads threw. Because this whole block
+       runs from the start-up sequence, that one throw used to take every
+       initialiser after it down as well and leave a blank page.
+
+       Checked once, here, and reported on the Academy page by the caller. The
+       rest of the function can then keep its simpler assumptions. */
+    if (!Array.isArray(window.ACADEMY_TOPICS) || window.ACADEMY_TOPICS.length === 0) {
+      throw new Error("The Academy module (academy.js) did not load.");
+    }
+    if (!Array.isArray(window.ACADEMY_QUIZ)) window.ACADEMY_QUIZ = [];
+
     const ACADEMY_KEY = `quantaAcademyV${window.ACADEMY_VERSION || 1}`;
     const academyState = { topic: null, progress: null, quizAnswers: {} };
 
@@ -10698,8 +10842,15 @@ const refreshStudyForActiveProblem = () => {
       academyState.quizAnswers = saved.answers && typeof saved.answers === "object" ? saved.answers : {};
     };
 
+    /* `topic` is written here as well as `done` and `answers`. It used to be
+       read back on start-up but never written by anything, so a reader who had
+       worked through four topics came back to the first one every time. */
     const saveProgress = () => {
-      writeJson(ACADEMY_KEY, { done: [...academyState.progress], answers: academyState.quizAnswers });
+      writeJson(ACADEMY_KEY, {
+        done: [...academyState.progress],
+        answers: academyState.quizAnswers,
+        topic: academyState.topic
+      });
     };
 
     const totalPoints = () =>
@@ -10725,6 +10876,9 @@ const refreshStudyForActiveProblem = () => {
 
         button.addEventListener("click", () => {
           academyState.topic = topic.key;
+          /* Persisted, so the topic a reader is actually working on is the one
+             they return to. */
+          saveProgress();
           renderNav();
           renderTopic();
         });
@@ -10809,7 +10963,11 @@ const refreshStudyForActiveProblem = () => {
       const host = el("academy-quiz");
       if (!host) return;
       host.innerHTML = "";
-      if (!el("academy-quiz-toggle")) el("academy-quiz-toggle").checked = false;
+      /* This used to set `.checked = false` on #academy-quiz-toggle. That element
+         is a <details>, which has no `checked` property, so the line assigned a
+         meaningless expando, ran on every render, and did nothing. Removed
+         rather than replaced: a <details> is already in the state it should be
+         in unless something deliberately opened it. */
 
       window.ACADEMY_QUIZ.forEach((item, index) => {
         const card = document.createElement("div");
@@ -10969,7 +11127,19 @@ const refreshStudyForActiveProblem = () => {
     if (!host) return;
     host.innerHTML = "";
     const pattern = (window.PATTERNS || []).find((p) => p.key === patternState.key);
-    if (!pattern) return;
+    if (!pattern) {
+      /* The host is emptied on entry, so returning here used to leave the
+         panel blank - no pattern, and nothing saying why. Either patterns.js
+         did not load, or the stored key names a pattern that no longer exists;
+         the two are told apart. */
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = window.PATTERNS && window.PATTERNS.length
+        ? "That pattern is not in the list any more. Pick another from the tabs above."
+        : "The pattern module did not load on this device, so there is nothing to show here. Everything else in Quanta still works.";
+      host.appendChild(p);
+      return;
+    }
 
     const when = document.createElement("p");
     when.className = "viz-about";
@@ -11080,7 +11250,15 @@ const refreshStudyForActiveProblem = () => {
     const host = patternEl("pattern-gaps");
     if (!host) return;
     host.innerHTML = "";
-    if (!window.patternGaps) return;
+    if (!window.patternGaps) {
+      /* Same shape as the practice list: the host has already been emptied, so
+         returning silently rendered an empty section rather than no section. */
+      const missing = document.createElement("p");
+      missing.className = "viz-note--plain";
+      missing.textContent = "Coverage could not be worked out because the pattern module did not load on this device.";
+      host.appendChild(missing);
+      return;
+    }
     const gaps = window.patternGaps(window.PATTERNS, patternCatalog());
     if (!gaps.length) {
       const none = document.createElement("p");
@@ -11162,14 +11340,21 @@ const refreshStudyForActiveProblem = () => {
     const stage = window.MOCK_STAGES[active.stageIndex];
     const clock = mockEl("mock-clock");
     if (clock) {
-      clock.textContent = mockClockText(active.remaining);
-      /* Under a minute left turns the clock red, which is the only visual cue
-         that a stage is about to end. */
-      clock.classList.toggle("is-urgent", active.remaining <= 60);
+      /* The clock counts down the WHOLE interview, not the current stage.
+
+         It used to show the stage's own remaining time, so it started at 2:00,
+         then 5:30, then 2:30 - three different numbers in ten minutes, none of
+         them the ten a reader has actually been given. The number on screen now
+         counts the time they have left to solve the problem, which is the only
+         question the clock is there to answer. The stage label underneath still
+         says which part of the interview they are in. */
+      clock.textContent = mockClockText(active.programRemaining);
+      clock.classList.toggle("is-urgent", active.programRemaining <= 60);
     }
     const bar = mockEl("mock-stage-bar");
     if (bar) {
-      const used = 1 - active.remaining / stage.seconds;
+      const total = window.MOCK_TOTAL_SECONDS || active.programRemaining || 1;
+      const used = 1 - active.programRemaining / total;
       bar.style.width = `${Math.min(100, Math.max(0, used * 100))}%`;
     }
     const stageLabel = mockEl("mock-stage-label");
@@ -11188,10 +11373,21 @@ const refreshStudyForActiveProblem = () => {
     active.remaining = stage.seconds;
     active.stageStartedAt = Date.now();
     mockStopTimer();
+    /* One interval ticks both: the current stage, and the interview as a whole.
+       Keeping them in the same tick is what stops the stage and the program
+       clock drifting apart, which is how they came to disagree before. */
     active.timer = window.setInterval(() => {
       active.remaining -= 1;
+      active.programRemaining = Math.max(0, active.programRemaining - 1);
       if (active.remaining <= 0) {
         active.remaining = 0;
+        if (active.programRemaining > 0 && active.stageIndex < window.MOCK_STAGES.length - 1) {
+          mockNextStage();
+          return;
+        }
+        /* Out of time. The clock reaching zero ends the interview whether that
+           was a stage boundary or the whole ten minutes. */
+        active.programRemaining = 0;
         mockStopTimer();
         mockNextStage();
         return;
@@ -11213,6 +11409,50 @@ const refreshStudyForActiveProblem = () => {
       return;
     }
     mockRenderReview();
+  };
+
+  /* The assigned problem's statement, drawn inside the interview.
+
+     Asked for directly rather than by navigating to the dashboard: the reader
+     needs the problem in front of them for the whole ten minutes, and an
+     interview that has to be left to read the question is not an interview.
+
+     Loading is stated rather than left blank, and a failure says what happened
+     instead of leaving an empty white box where the problem should be. The
+     request is only allowed to paint if it is still the problem on screen, so a
+     slow reply cannot land on top of a later interview. */
+  const mockRenderStatement = async (problem) => {
+    const host = mockEl("mock-problem-statement");
+    if (!host) return;
+    const slug = String(problem?.slug || "");
+    /* Stamped before the request goes out, so a reply for a problem that is no
+       longer on screen can be recognised and dropped. */
+    host.dataset.slug = slug;
+    if (!slug) {
+      host.innerHTML =
+        '<p class="ql-desc-empty">This problem has no statement saved, so there is nothing to read here. Use the link above to open it.</p>';
+      return;
+    }
+
+    host.innerHTML = '<p class="ql-desc-loading">Loading the problem statement…</p>';
+    let result = null;
+    try {
+      result = await requestDescription(slug);
+    } catch {
+      result = null;
+    }
+    /* The reader may have finished, started another interview, or left the page
+       while this was in flight. */
+    if (mockState.active?.problem?.slug !== slug) return;
+    if (host.dataset.slug !== slug) return;
+
+    if (!result?.html) {
+      host.innerHTML = `
+        <p class="ql-desc-empty">The statement for this problem could not be loaded${navigator.onLine ? "" : " — this device is offline and it has not been saved here yet"}.</p>
+        <p class="ql-desc-empty">The problem is still yours to solve: use the link above to read it in a new tab. The clock keeps running either way.</p>`;
+      return;
+    }
+    renderDescHtml(result.html, host);
   };
 
   const mockRenderSetup = () => {
@@ -11275,6 +11515,9 @@ const refreshStudyForActiveProblem = () => {
       reason: picked.reason,
       stageIndex: 0,
       remaining: window.MOCK_STAGES[0].seconds,
+      /* The interview as a whole: ten minutes, counted down on the clock the
+         reader watches while they read and solve. */
+      programRemaining: window.MOCK_TOTAL_SECONDS || window.MOCK_STAGES[0].seconds,
       elapsed: 0,
       answers: {},
       ran: false,
@@ -11302,17 +11545,36 @@ const refreshStudyForActiveProblem = () => {
     const links = mockEl("mock-problem-links");
     if (links) {
       links.innerHTML = "";
-      const open = document.createElement("button");
-      open.type = "button";
-      open.className = "prog-btn";
-      open.textContent = "Open the problem";
-      open.addEventListener("click", () => {
-        showPage("quantalab");
-        selectLcProblem(picked.problem.id);
-      });
-      links.appendChild(open);
+      /* The statement itself is shown right here, below this row, so the
+         interview never has to be left to read the problem.
+
+         This used to be a button reading "Open the problem" that called
+         showPage("quantalab") - switching the whole app to the dashboard and
+         taking the reader out of the interview mid-session, with the countdown
+         running against a page they were no longer looking at. It is now an
+         ordinary external link that opens in a new tab and leaves this page,
+         and its timer, exactly where they were.
+
+         A problem with no usable URL gets no link at all, rather than a link
+         that re-opens this page. */
+      const external = externalUrlOf(picked.problem);
+      if (external) {
+        const open = document.createElement("a");
+        open.className = "prog-btn";
+        open.href = external;
+        open.target = "_blank";
+        open.rel = "noopener noreferrer";
+        open.textContent = EXTERNAL_LINK_LABEL;
+        open.title = `Opens in a new tab. ${EXTERNAL_LINK_LABEL} leaves this interview running.`;
+        links.appendChild(open);
+      }
+      const note = document.createElement("span");
+      note.className = "viz-about";
+      note.textContent = "Opens in a new tab — the interview keeps running.";
+      links.appendChild(note);
     }
 
+    mockRenderStatement(picked.problem);
     mockStartStage();
   };
 
@@ -11477,8 +11739,12 @@ const refreshStudyForActiveProblem = () => {
        coming back would show a stage that ran while nobody was watching. */
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden || !mockState.active?.timer) return;
-      /* Count the time that genuinely passed rather than pausing silently. */
+      /* Count the time that genuinely passed rather than pausing silently. Both
+         clocks move: the stage it was in, and the interview as a whole. Only
+         the stage was moved before, so a page left in the background came back
+         showing ten minutes that had, in fact, partly gone. */
       mockState.active.remaining -= 1;
+      mockState.active.programRemaining = Math.max(0, (mockState.active.programRemaining ?? 0) - 1);
       mockRenderClock();
     });
   };
@@ -11916,13 +12182,11 @@ const refreshStudyForActiveProblem = () => {
 
     companyEl("company-import-btn")?.addEventListener("click", () => void companyImport());
 
-    const toggle = companyEl("company-import-toggle");
-    if (toggle) {
-      toggle.addEventListener("change", () => {
-        const panel = companyEl("company-import-panel");
-        if (panel) panel.hidden = !toggle.checked;
-      });
-    }
+    /* There used to be a "change" listener here on #company-import-toggle. That
+       element is a <details>, which fires "toggle" and has no .checked property
+       - so the handler could never run, and had it run, `panel.hidden =
+       !undefined` evaluates to true and would have hidden the panel. The section
+       is a <details>, which already opens and closes on its own. */
 
     void companyRefresh();
   };
@@ -11970,6 +12234,11 @@ const refreshStudyForActiveProblem = () => {
     error: null,
     loadingContests: false,
     loadingDetail: false,
+    /* Set when a contest fetch failed. Kept separately from `detail` because
+       `detail === null` means two different things: "not asked for yet" and
+       "asked for and it failed". Without this the two were indistinguishable and
+       the failure rendered as an empty panel. */
+    detailError: null,
     loadingProfile: false,
     note: null,
     ticker: null,
@@ -12125,6 +12394,20 @@ const refreshStudyForActiveProblem = () => {
     const { live, upcoming, recent } = arenaState.contests;
     const total = (live || []).length + (upcoming || []).length + (recent || []).length;
 
+    /* Clock entries are kept per contest id so a countdown is not thrown away
+       and rebuilt every second. Nothing ever removed the entries for contests
+       that had left the list, though: each one held a detached <span> that the
+       shared ticker went on repainting once a second, forever. Bounded by the
+       number of distinct contests ever seen, so it grew slowly rather than
+       without limit - but it is a leak, and it is free to fix here by keeping
+       only the ids about to be on screen, plus the open round's own clock. */
+    arenaState.timers = arenaState.timers || {};
+    const stillShown = new Set([...live, ...upcoming, ...recent].map((contest) => String(contest.id)));
+    if (arenaState.selected) stillShown.add(String(arenaState.selected));
+    for (const key of Object.keys(arenaState.timers)) {
+      if (key !== "detail" && !stillShown.has(key)) delete arenaState.timers[key];
+    }
+
     const summary = arenaEl("arena-summary");
     if (summary) {
       summary.textContent = arenaState.loadingContests && !total
@@ -12188,7 +12471,24 @@ const refreshStudyForActiveProblem = () => {
       host.appendChild(p);
       return;
     }
-    if (!detail) return;
+    /* A failed fetch is rendered here too, not only where it was raised, so that
+       any other path which repaints this panel keeps the message and the retry
+       button rather than blanking them. */
+    if (arenaState.detailError && !detail) {
+      arenaErrorBox("arena-detail", arenaState.detailError, "Try again");
+      return;
+    }
+    if (!detail) {
+      /* The markup ships a "pick a round above" placeholder, but this function
+         empties its host on every entry, so after the first repaint the panel
+         was left genuinely blank with nothing in it. Restored here so there is
+         always something explaining what to do next. */
+      const hint = document.createElement("p");
+      hint.className = "pattern-intro";
+      hint.textContent = "Pick a round above to see its problems, standings and what it is worth.";
+      host.appendChild(hint);
+      return;
+    }
 
     const contest = detail.contest || {};
     const head = document.createElement("div");
@@ -12365,7 +12665,16 @@ const refreshStudyForActiveProblem = () => {
          or above you - and `total` is how many entered. Confusing the two
          produced "12th of 12 entrants" for someone who placed 12th out of
          9,709. */
-      note.textContent = `You finished ${ordinal(built.you.rank)} of ${built.total.toLocaleString()} entrants, solving ${built.you.solved} of ${built.you.totalProblems}. That is better than ${built.field.betterThanPercent}% of the field, whose median was ${built.field.medianSolved} problem${built.field.medianSolved === 1 ? "" : "s"}.`;
+      /* betterThanPercent is null when there is nobody to compare against - a
+         round with a single entrant has no field. Rendering the number then
+         printed "better than null% of the field". The comparison sentence is
+         simply left out when there is nothing to compare. */
+      const share = built.field.betterThanPercent;
+      const better =
+        share === null || share === undefined
+          ? ""
+          : ` That is better than ${share}% of the field, whose median was ${built.field.medianSolved} problem${built.field.medianSolved === 1 ? "" : "s"}.`;
+      note.textContent = `You finished ${ordinal(built.you.rank)} of ${built.total.toLocaleString()} entrants, solving ${built.you.solved} of ${built.you.totalProblems}.${better}`;
     } else {
       note.textContent = arenaState.handle
         ? `${arenaState.handle} did not enter this round, so there is no row to point at. Showing the top of the table.`
@@ -12730,6 +13039,10 @@ const refreshStudyForActiveProblem = () => {
     if (!contestId) return;
     arenaState.selected = Number(contestId);
     arenaState.loadingDetail = true;
+    /* Cleared here rather than on success, so that picking a different round
+       after a failed one replaces the old error rather than leaving it on screen
+       beside the new round's loading state. */
+    arenaState.detailError = null;
     renderArenaContests();
     renderArenaDetail();
     try {
@@ -12750,11 +13063,17 @@ const refreshStudyForActiveProblem = () => {
     } catch (error) {
       if (arenaState.selected !== Number(contestId)) return;
       arenaState.detail = null;
+      arenaState.detailError = error;
       arenaErrorBox("arena-detail", error, "Try again");
     } finally {
       if (arenaState.selected === Number(contestId)) {
         arenaState.loadingDetail = false;
-        renderArenaDetail();
+        /* renderArenaDetail() empties its host on entry. Calling it after the
+           catch therefore erased the message and the "Try again" button that
+           arenaErrorBox had just written into that same host, leaving a blank
+           panel with no way to retry. When the fetch failed there is nothing to
+           render but the error, so the error is left standing. */
+        if (!arenaState.detailError) renderArenaDetail();
       }
     }
   };
@@ -13034,11 +13353,18 @@ const refreshStudyForActiveProblem = () => {
     if (saved && typeof saved === "object") {
       if (typeof saved.source === "string" && saved.source.trim()) debugState.source = saved.source;
       if (Array.isArray(saved.breakpoints)) debugState.breakpoints = new Set(saved.breakpoints.filter((n) => Number.isInteger(n)));
+      /* Saved alongside the code. It used to be dropped, so after a reload the
+         dropdown showed "loop" and the caption described the loop example while
+         the editor held the reader's own snippet. Validated against the real
+         example list so a stale value cannot name an example that is gone. */
+      if (typeof saved.example === "string" && (saved.example === "" || DEBUG_EXAMPLES.some((e) => e.key === saved.example))) {
+        debugState.example = saved.example;
+      }
     }
   };
 
   const dbgSaveState = () => {
-    writeJson(DEBUG_KEY, { source: debugState.source, breakpoints: [...debugState.breakpoints] });
+    writeJson(DEBUG_KEY, { source: debugState.source, breakpoints: [...debugState.breakpoints], example: debugState.example });
   };
 
   /* ------------------------------ compiling ------------------------------- */
@@ -13353,7 +13679,7 @@ const refreshStudyForActiveProblem = () => {
     /* With no breakpoints this is the same as running to the end, and the button
        says so rather than pretending to have done something less. */
     if (!debugState.breakpoints.size) {
-      dbgState.session.runToEnd();
+      debugState.session.runToEnd();
     } else {
       debugState.session.runTo(debugState.breakpoints);
     }
@@ -13372,7 +13698,19 @@ const refreshStudyForActiveProblem = () => {
 
   const dbgLoadExample = (key) => {
     const example = DEBUG_EXAMPLES.find((e) => e.key === key);
-    if (!example) return;
+
+    /* "Your own code" is a real choice. It used to return immediately, so the
+       dropdown said "Your own code" while the editor still held the previous
+       example and the caption underneath still described that example's
+       snippet - the control was claiming something untrue. Selecting it keeps
+       what the reader has typed and only drops the example caption. */
+    if (!example) {
+      debugState.example = "";
+      const why = dbgEl("dbg-example-why");
+      if (why) why.textContent = "Your own code. Nothing here is written or sent anywhere - it runs on this device.";
+      dbgSaveState();
+      return;
+    }
     debugState.example = key;
     debugState.source = example.code;
     const editor = dbgEl("dbg-code");
@@ -13493,10 +13831,23 @@ const refreshStudyForActiveProblem = () => {
     }
   ];
 
+  /* reviewState.problem is what the complexity cross-check measures against.
+
+     It used to default to REVIEW_EXAMPLES[0].problem, which carries a hard-coded
+     "1e5" constraint, while the constraints box on screen was empty. So after a
+     reload the panel would state "within range" for a constraint the reader had
+     never typed, on a problem they had not selected - a confident claim about
+     something nobody could see or change.
+
+     It now starts empty. Nothing is asserted until the reader supplies a problem
+     or picks an example, and the cross-check says so when there is nothing to
+     compare against. */
   const reviewState = {
     source: REVIEW_EXAMPLES[0].code,
     example: "two-sum-map",
-    problem: REVIEW_EXAMPLES[0].problem,
+    problem: null,
+    constraintsHint: "",
+    paramHint: "",
     result: null,
     filter: "all",
     expanded: new Set()
@@ -13509,11 +13860,31 @@ const refreshStudyForActiveProblem = () => {
     if (saved && typeof saved === "object") {
       if (typeof saved.source === "string" && saved.source.trim()) reviewState.source = saved.source;
       if (saved.filter && ["all", "serious", "warning", "notice"].includes(saved.filter)) reviewState.filter = saved.filter;
+      /* The example choice is saved too. It used to be dropped on reload, so the
+         dropdown said "Two Sum, linear" while the editor held whatever the
+         reader had typed - the control was describing something other than what
+         was on screen. It is validated against the real example list so a stale
+         or hand-edited value cannot point at an example that no longer exists. */
+      if (typeof saved.example === "string" && REVIEW_EXAMPLES.some((e) => e.key === saved.example)) {
+        reviewState.example = saved.example;
+      }
+      /* The constraints the reader typed are part of what the panel is about:
+         the complexity cross-check compares the estimate against them. Saving
+         only the code meant a reload showed empty constraint boxes while the
+         report below still quoted a constraint nobody could see. */
+      if (typeof saved.constraints === "string") reviewState.constraintsHint = saved.constraints;
+      if (typeof saved.param === "string") reviewState.paramHint = saved.param;
     }
   };
 
   const revSaveState = () => {
-    writeJson(REVIEW_KEY, { source: reviewState.source, filter: reviewState.filter });
+    writeJson(REVIEW_KEY, {
+      source: reviewState.source,
+      filter: reviewState.filter,
+      example: reviewState.example,
+      constraints: reviewState.constraintsHint,
+      param: reviewState.paramHint
+    });
   };
 
   /* ------------------------------ rendering ------------------------------- */
@@ -13525,7 +13896,16 @@ const refreshStudyForActiveProblem = () => {
     if (!host) return;
     host.innerHTML = "";
     const result = reviewState.result;
-    if (!result?.ok) return;
+    /* Used to return silently, leaving this section of the page completely
+       blank with no explanation - three output areas, two of which said nothing
+       at all when the snippet could not be parsed. It now says why. */
+    if (!result?.ok) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = result?.error || "Nothing to estimate until there is code to read.";
+      host.appendChild(p);
+      return;
+    }
 
     const complexity = result.complexity;
 
@@ -13704,7 +14084,13 @@ const refreshStudyForActiveProblem = () => {
     if (!host) return;
     host.innerHTML = "";
     const result = reviewState.result;
-    if (!result?.ok) return;
+    if (!result?.ok) {
+      const p = document.createElement("p");
+      p.className = "pattern-intro";
+      p.textContent = result?.error || "Nothing to cross-check until there is code to read.";
+      host.appendChild(p);
+      return;
+    }
 
     if (!result.cross.checks.length) {
       const p = document.createElement("p");
@@ -13770,15 +14156,54 @@ const refreshStudyForActiveProblem = () => {
     if (editor) reviewState.source = editor.value;
     revSaveState();
 
+    /* Guarded. This runs from initReview(), which runs at start-up, so a
+       review.js that failed to load threw here and - being in the middle of the
+       start-up sequence - took every initialiser after it down with it. The app
+       came up blank rather than showing a broken reviewer. */
+    if (!window.reviewEngine || typeof window.reviewEngine.review !== "function") {
+      reviewState.result = { ok: false, findings: [], issues: [], error: "The code review module did not load on this device." };
+      renderReviewAll();
+      return;
+    }
+
     /* In the page, not over the network. `review` is synchronous and touches
-       nothing else. */
-    reviewState.result = window.reviewEngine.review(reviewState.source, reviewState.problem);
+       nothing else. Wrapped anyway: a parser that throws on some input should
+       cost that one snippet its report, not the whole panel. */
+    try {
+      reviewState.result = window.reviewEngine.review(reviewState.source, reviewState.problem);
+    } catch (error) {
+      reviewState.result = {
+        ok: false,
+        findings: [],
+        issues: [],
+        error: `The reviewer could not read this snippet: ${error?.message || error}`
+      };
+    }
     renderReviewAll();
   };
 
   const loadReviewExample = (key) => {
     const example = REVIEW_EXAMPLES.find((e) => e.key === key);
-    if (!example) return;
+
+    /* "Your own code" is a real choice, not a no-op. Selecting it used to return
+       immediately, so the dropdown said "Your own code" while the editor, the
+       constraints boxes and the previous example's hard-coded limits were all
+       still that example's - the control claimed something that was not true.
+       Choosing it clears the example's problem so the cross-check stops
+       asserting a constraint belonging to a snippet that is no longer loaded. */
+    if (!example) {
+      reviewState.example = "";
+      reviewState.problem = null;
+      reviewState.constraintsHint = "";
+      reviewState.paramHint = "";
+      const box = revEl("rev-constraints");
+      if (box) box.value = "";
+      const nameBox = revEl("rev-param");
+      if (nameBox) nameBox.value = "";
+      revSaveState();
+      runReview();
+      return;
+    }
     reviewState.example = key;
     reviewState.source = example.code;
     reviewState.problem = example.problem;
@@ -13805,6 +14230,8 @@ const refreshStudyForActiveProblem = () => {
   const readProblemFields = () => {
     const constraints = (revEl("rev-constraints")?.value || "").trim();
     const param = (revEl("rev-param")?.value || "").trim();
+    reviewState.constraintsHint = constraints;
+    reviewState.paramHint = param;
     reviewState.problem = constraints || param ? { constraintsHint: constraints, paramHint: param } : null;
   };
 
@@ -13880,6 +14307,17 @@ const refreshStudyForActiveProblem = () => {
         runReview();
       });
     }
+
+    /* The two problem fields are restored from storage too, so the cross-check
+       below is comparing against the constraints the reader can actually see.
+       readProblemFields() then rebuilds reviewState.problem from what is on
+       screen, which is the only place it should come from - a constraint held
+       only in a variable is one the reader cannot see or correct. */
+    const savedConstraints = revEl("rev-constraints");
+    if (savedConstraints) savedConstraints.value = reviewState.constraintsHint || "";
+    const savedParam = revEl("rev-param");
+    if (savedParam) savedParam.value = reviewState.paramHint || "";
+    readProblemFields();
 
     runReview();
   };
@@ -13979,7 +14417,14 @@ const refreshStudyForActiveProblem = () => {
     }
 
     const refresh = arenaEl("arena-refresh");
-    refresh?.addEventListener("click", () => void loadArena());
+    /* Refresh used to reload the contest list and the profile but not the round
+       already open, so the detail stayed stale while everything around it
+       updated - the one thing a reader pressing Refresh is most likely to be
+       asking about. The open round is reloaded too, when there is one. */
+    refresh?.addEventListener("click", () => {
+      void loadArena();
+      if (arenaState.selected) void loadArenaContest(arenaState.selected);
+    });
 
     void loadArena();
   };
@@ -13998,27 +14443,96 @@ const refreshStudyForActiveProblem = () => {
 
   /* -------------------------------- init -------------------------------- */
 
+  /* Start-up used to be a flat list of calls. One throwing initialiser - a
+     module that failed to load, a browser that lacks something the panel
+     assumes - skipped every line after it, including showPage() at the end, and
+     the reader got a blank screen with no error anywhere. Every panel is now
+     started inside this wrapper, so a failure is confined to the panel that
+     caused it and the rest of the app still comes up.
+
+     A failure is reported rather than swallowed: the panel says so on screen,
+     and the reason is logged so it can be diagnosed. */
+  const initFailures = [];
+  /* Maps an initialiser to the page element it owns, so a failure can say so on
+     screen. Keys are the initialiser names used below; the values are the real
+     element ids in index.html, which are not all the name you would guess. */
+  const INIT_PANEL_IDS = {
+    initRevisionReminderSettings: "page-settings",
+    initConnectionDiagnostics: "page-settings",
+    initVisualizer: "page-visualizer",
+    initDiscovery: "page-discovery",
+    initAcademy: "page-academy",
+    initPatterns: "page-patterns",
+    initMock: "page-mock",
+    initDebugger: "page-debugger",
+    initReview: "page-review",
+    initCompanies: "page-companies",
+    initArena: "page-arena",
+    initLcFilters: "page-quantalab",
+    renderTabs: "page-quantalab",
+    renderLcAll: "page-quantalab",
+    renderPersonalNotes: "page-notes"
+  };
+
+  const initSafely = (name, fn, ...args) => {
+    try {
+      fn(...args);
+    } catch (error) {
+      initFailures.push({ name, error });
+      console.error(`Quanta: ${name} failed to start.`, error);
+      try {
+        const host = byId(INIT_PANEL_IDS[name] || "");
+        if (host) {
+          const note = document.createElement("p");
+          /* Reuses an existing class rather than inventing one, so the message
+             is styled like every other error in the app without a new rule. */
+          note.className = "viz-note--error";
+          note.textContent = `${name.replace(/^init/, "")} could not start on this device. The rest of Quanta is unaffected.`;
+          host.appendChild(note);
+        }
+      } catch {
+        /* Nothing to attach the message to; the console entry above stands. */
+      }
+    }
+  };
+
   ensureActiveSession();
   labAutoSaveToggle.checked = labState.autoSave;
-  initRevisionReminderSettings();
+  initSafely("initRevisionReminderSettings", initRevisionReminderSettings);
   /* Connection diagnostics run once in the background and then only when the
      network changes or the user asks. Nothing here blocks start-up. */
-  initConnectionDiagnostics();
-  initVisualizer();
-  initDiscovery();
-  window.initAcademy();
-  initPatterns();
-  initMock();
-  initDebugger();
-  initReview();
-  initCompanies();
-  initArena();
-  initLcFilters();
-  renderTabs();
-  renderLcAll();
-  renderPersonalNotes();
+  initSafely("initConnectionDiagnostics", initConnectionDiagnostics);
+  initSafely("initVisualizer", initVisualizer);
+  initSafely("initDiscovery", initDiscovery);
+  /* window.initAcademy rather than the local name: academy.js publishes it on
+     window, so a module that did not load used to throw here and take the whole
+     app with it. */
+  initSafely("initAcademy", () => {
+    if (typeof window.initAcademy !== "function") {
+      throw new Error("The Academy module (academy.js) did not load.");
+    }
+    window.initAcademy();
+  });
+  initSafely("initPatterns", initPatterns);
+  initSafely("initMock", initMock);
+  initSafely("initDebugger", initDebugger);
+  initSafely("initReview", initReview);
+  initSafely("initCompanies", initCompanies);
+  initSafely("initArena", initArena);
+  initSafely("initLcFilters", initLcFilters);
+  initSafely("renderTabs", renderTabs);
+  initSafely("renderLcAll", renderLcAll);
+  initSafely("renderPersonalNotes", renderPersonalNotes);
+  /* Deliberately outside the wrapper: without this the reader gets a blank
+     page, and that is the one failure worth stopping for. */
   showPage("quantalab", { resetScroll: true });
   void fetchRunCapabilities();
   /* Pull problems marked solved on another device (e.g. the phone). */
   void syncSolvedFromServer();
+
+  if (initFailures.length) {
+    console.warn(
+      `Quanta started with ${initFailures.length} panel(s) unavailable: ${initFailures.map((f) => f.name).join(", ")}.`
+    );
+  }
 })();

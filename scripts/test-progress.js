@@ -281,11 +281,35 @@ const testRepository = async () => {
   equal("runs do not change the solved count", afterRuns.solved.total, 4);
 
   console.log("\n-- database: empty state --");
+  /* How many runs the summary reported before any of this suite's rows went in.
+     Recorded rather than assumed to be zero: a run made in the general Lab has
+     no problem slug, is real usage, and is deliberately never deleted by
+     removeTestRows. Asserting a global zero made this suite fail on any
+     database where somebody had actually used the app - which is the normal
+     case, and which is not a defect. */
+  const runsPreExisting = runsBefore;
   await removeTestRows();
   const empty = await progress.getSummary({});
   equal("no progress: solved 0", empty.solved.total, 0);
   equal("no progress: streak 0", empty.streaks.current, 0);
-  equal("no progress: runs 0", empty.runs.total, 0);
+  equal(
+    "the suite's own runs are gone",
+    empty.runs.total,
+    runsPreExisting,
+    `expected only the ${runsPreExisting} pre-existing run(s) to remain`
+  );
+  /* And they really are the suite's rows that went, rather than something else
+     having been deleted to make the number fit. */
+  const leftBehind = await query(
+    "SELECT slug FROM problem_runs WHERE owner_key = ? AND slug IN (?)",
+    [progress.PROGRESS_OWNER, TEST_SLUGS]
+  );
+  equal("no test run row survives", leftBehind.length, 0, JSON.stringify(leftBehind));
+  const progressLeft = await query(
+    "SELECT slug FROM problem_progress WHERE owner_key = ? AND slug IN (?)",
+    [progress.PROGRESS_OWNER, TEST_SLUGS]
+  );
+  equal("no test progress row survives", progressLeft.length, 0, JSON.stringify(progressLeft));
   equal("no progress: completion 0%", empty.catalog.completionPercent, 0);
   check("no progress: catalog still reported", empty.catalog.total > 0, `catalog=${empty.catalog.total}`);
   check("no progress: no solved_at", empty.streaks.firstSolvedAt === null);

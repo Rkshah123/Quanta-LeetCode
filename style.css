@@ -3810,6 +3810,67 @@ body[data-theme="beige"] .btn-toggle {
   overflow-wrap: anywhere;
 }
 
+/* The assigned problem's statement, shown inside the interview.
+
+   Statements are long and full of code blocks, tables and maths, so this has to
+   read comfortably on a 360px phone as well as a wide desktop: text wraps rather
+   than scrolling sideways, code blocks scroll inside their own box, tables scroll
+   inside theirs, and images never exceed the column. */
+.mock-problem__statement {
+  margin-top: 6px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border);
+  color: var(--text-a);
+  font-size: 0.94rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+.mock-problem__statement:empty { display: none; }
+.mock-problem__statement p { margin: 0 0 11px; }
+.mock-problem__statement h1,
+.mock-problem__statement h2,
+.mock-problem__statement h3,
+.mock-problem__statement h4 { font-size: 1rem; margin: 16px 0 8px; color: var(--text-a); }
+.mock-problem__statement ul,
+.mock-problem__statement ol { margin: 0 0 11px; padding-left: 22px; }
+.mock-problem__statement li { margin-bottom: 5px; }
+.mock-problem__statement table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 12px;
+}
+.mock-problem__statement th,
+.mock-problem__statement td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; white-space: nowrap; }
+.mock-problem__statement pre,
+.mock-problem__statement code {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.88em;
+}
+/* A long line of sample input scrolls within its own block. Without this the
+   whole interview panel scrolls sideways on a phone, which drags the page with it
+   and makes the clock hard to keep in view. */
+.mock-problem__statement pre {
+  background: var(--bg-3, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 11px;
+  overflow-x: auto;
+  max-width: 100%;
+  white-space: pre;
+}
+.mock-problem__statement :not(pre) > code {
+  background: var(--bg-3, rgba(255, 255, 255, 0.05));
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.mock-problem__statement img { max-width: 100%; height: auto; }
+.mock-problem__statement .ql-desc-loading,
+.mock-problem__statement .ql-desc-empty { color: var(--text-b); font-size: 0.9rem; }
+
 .mock-question {
   display: grid;
   gap: 8px;
@@ -3904,6 +3965,32 @@ body[data-theme="beige"] .btn-toggle {
   display: grid;
   gap: 14px;
   padding-bottom: 40px;
+}
+
+/* Grid tracks size to max-content by default, so a single grid column will not
+   shrink below the widest thing inside it. On a phone that meant the Patterns
+   panel laid itself out at 496px whatever the screen width: the code sample and
+   the explanations ran off the right edge and were cut off, because nothing was
+   allowed to scroll.
+
+   `minmax(0, 1fr)` lets the track shrink to the space available, and `min-width:
+   0` on the children stops them holding it open. The code blocks scroll inside
+   their own box (`.viz-code` already sets `overflow-x: auto`), which is what a
+   long line of code should do; the prose wraps as normal.
+
+   Applied to every panel built from `.settings-body` as well, because they share
+   the same shape and the same failure. */
+.settings-body,
+.patterns-body,
+.pattern-body,
+.pattern-mistakes {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-body > *,
+.patterns-body > *,
+.pattern-body > * {
+  min-width: 0;
 }
 
 .patterns-honest {
@@ -5716,6 +5803,72 @@ body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
 
   .page--progress .stat-card:last-child {
     grid-column: auto;
+  }
+}
+
+/* ------------------------------ touch targets ------------------------------
+ *
+ * On a phone these controls were sized for a mouse: a 24px star, a 26px link
+ * icon, a 20px gutter line number, a 17px disclosure triangle. They look fine
+ * and are genuinely hard to hit, and a control that is hard to hit is a control
+ * that does not work.
+ *
+ * They are made bigger by giving them a larger hit area rather than by making
+ * them look bigger - the icon stays the size it is, and the padding around it is
+ * what grows. Nothing about the design changes; only the tappable region does.
+ *
+ * Scoped to coarse pointers as well as narrow screens, so a touchscreen laptop
+ * gets the same treatment and a mouse-driven desktop is left exactly as it was. */
+@media (pointer: coarse), (max-width: 760px) {
+  .lc-search-clear,
+  .lc-row-star,
+  .lc-problem-link {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* The clear button is absolutely positioned inside the field, so it grows
+     around its centre and stays put rather than shifting the text. */
+  .lc-search-clear {
+    right: 2px;
+  }
+
+  /* The problem's name is the main tap target in a row. Its height came from the
+     text alone, which is about 19px. */
+  .lc-problem-name {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Gutter line numbers in the debugger: 20px tall, which lines the breakpoints
+     up with about a fingertip. */
+  .dbg-line {
+    height: 32px;
+    padding: 0 10px;
+  }
+
+  /* The activity heatmap is a dense grid, so cells cannot simply grow without
+     the whole grid falling off the screen. They get a modest bump and their own
+     spacing, which keeps them individually tappable while still fitting. */
+  .hm-cell {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* Checkboxes themselves stay small - that is the design - but their labels
+     become the tap target, which is how checkboxes are meant to work. */
+  .academy-point__box,
+  .academy-point {
+    min-height: 32px;
+  }
+
+  /* A <summary> is a disclosure control, and at 17px it was the hardest thing on
+     the page to hit. */
+  summary {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
   }
 }
 

@@ -19,13 +19,24 @@
 
 const MOCK_KEY = "quantaMockInterviewsV1";
 
-/* How long each stage gets. Deliberately short enough to finish in one sitting
-   and long enough that rushing is visibly worse than thinking. */
+/* How long each stage gets.
+
+   The three stages are guidance about how to spend the time, not three separate
+   allowances - together they make up one ten-minute clock for the program. They
+   used to be 180 + 900 + 300 = 23 minutes, which is not how long an interview
+   problem is normally given and made the countdown on screen disagree with the
+   "10 minutes" people expect when a problem is set.
+
+   The three lengths still add up to exactly MOCK_TOTAL_SECONDS. That is checked
+   by a test rather than left to arithmetic in a comment. */
 const MOCK_STAGES = [
-  { key: "read", label: "Read and plan", seconds: 180, note: "Read the statement twice and say what you are going to do. Interviewers watch this." },
-  { key: "code", label: "Write the solution", seconds: 900, note: "Write it. Narrate as you go - a silent ten minutes reads badly." },
-  { key: "check", label: "Test and edge cases", seconds: 300, note: "Run it. Feed it the empty case, one element, and all-equal values." }
+  { key: "read", label: "Read and plan", seconds: 120, note: "Read the statement twice and say what you are going to do. Interviewers watch this." },
+  { key: "code", label: "Write the solution", seconds: 330, note: "Write it. Narrate as you go - a silent five minutes reads badly." },
+  { key: "check", label: "Test and edge cases", seconds: 150, note: "Run it. Feed it the empty case, one element, and all-equal values." }
 ];
+
+/* The whole interview, and the answer to "how long have I got". Ten minutes. */
+const MOCK_TOTAL_SECONDS = MOCK_STAGES.reduce((sum, stage) => sum + stage.seconds, 0);
 
 const MOCK_DIFFICULTIES = ["Easy", "Medium", "Hard"];
 
@@ -191,6 +202,7 @@ const mockClock = (seconds) => {
    and the page reads it from `window`. */
 const MOCK_API = {
   MOCK_STAGES,
+  MOCK_TOTAL_SECONDS,
   MOCK_DIFFICULTIES,
   MOCK_KEY,
   mockPickProblem,
@@ -202,6 +214,7 @@ const MOCK_API = {
 
 if (typeof window !== "undefined" && window) {
   window.MOCK_STAGES = MOCK_STAGES;
+  window.MOCK_TOTAL_SECONDS = MOCK_TOTAL_SECONDS;
   window.MOCK_DIFFICULTIES = MOCK_DIFFICULTIES;
   window.MOCK_KEY = MOCK_KEY;
   window.mockPickProblem = mockPickProblem;

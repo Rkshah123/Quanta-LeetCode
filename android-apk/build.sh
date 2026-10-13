@@ -133,6 +133,30 @@ else
   echo "    bootstrap already present"
 fi
 
+echo "==> Stamping the version into the packaged app"
+# version.js is the single source of truth for the number the About page shows,
+# and that number has to be the version actually being packaged. The page used to
+# carry a hard-coded "1.0.0" and drifted silently, so the About panel reported
+# 1.0.0 while the installed package was 1.2.0.
+node -e "
+  const fs = require('fs');
+  const p = '$ASSETS/version.js';
+  const wanted = '$VERSION_NAME';
+  let src = fs.readFileSync(p, 'utf8');
+  const line = 'window.QUANTA_VERSION = \"' + wanted + '\";';
+  if (/window\.QUANTA_VERSION\s*=/.test(src)) {
+    src = src.replace(/window\.QUANTA_VERSION\s*=\s*\"[^\"]*\"\s*;/, line);
+  } else {
+    src += '\n' + line + '\n';
+  }
+  fs.writeFileSync(p, src);
+  /* Read it back rather than trusting the write: an About page that lies about
+     its own version is exactly the failure this step exists to prevent. */
+  const check = require('fs').readFileSync(p, 'utf8');
+  if (!check.includes(wanted)) { console.error('version stamp failed'); process.exit(1); }
+  console.log('    About page will report ' + wanted);
+"
+
 echo "==> Verifying every asset the page needs is packaged"
 # The check above proves the source files exist. This proves they are IN the
 # packaged asset directory, which is a different thing and the one that has

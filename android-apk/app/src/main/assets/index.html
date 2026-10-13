@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=43" />
+  <link rel="stylesheet" href="style.css?v=46" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -164,8 +164,8 @@
               <div class="lc-detail-actions">
                 <a id="lc-detail-link" class="lc-link-btn" href="#" target="_blank" rel="noopener noreferrer">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12ZM8 13h8v-2H8v2Zm9-6h-4v1.9h4a3.1 3.1 0 1 1 0 6.2h-4V17h4a5 5 0 0 0 0-10Z"/></svg>
-                  <span class="lc-link-btn__text lc-link-btn__text--full">Open on LeetCode</span>
-                  <span class="lc-link-btn__text lc-link-btn__text--short" aria-hidden="true">Open LeetCode</span>
+                  <span class="lc-link-btn__text lc-link-btn__text--full">Open in Website</span>
+                  <span class="lc-link-btn__text lc-link-btn__text--short" aria-hidden="true">Open</span>
                 </a>
                 <span id="lc-detail-saved" class="lc-detail-saved" hidden title="Everything is saved on this device">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 16.2-3.5-3.5L4 14.2 9 19 20 8l-1.4-1.4L9 16.2Z"/></svg>
@@ -295,7 +295,7 @@
                     <span id="ql-desc-diff" class="lc-detail-meta"></span>
                     <span id="ql-desc-sync" class="ql-desc-sync" hidden></span>
                     <a id="lc-detail-link-desc" class="lc-link-btn" href="#" target="_blank" rel="noopener noreferrer">
-                      <span class="lc-link-btn__text lc-link-btn__text--full">Open on LeetCode</span>
+                  <span class="lc-link-btn__text lc-link-btn__text--full">Open in Website</span>
                       <span class="lc-link-btn__text lc-link-btn__text--short" aria-hidden="true">Open</span>
                     </a>
                   </div>
@@ -855,7 +855,7 @@
             </label>
             <button id="rev-run" class="prog-btn" type="button">Review it</button>
           </div>
-          <textarea id="rev-code" class="dbg-code rev-code" rows="12" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="JavaScript to review"></textarea>
+          <textarea id="rev-code" class="dbg-code rev-code" rows="12" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" maxlength="200000" aria-label="JavaScript to review"></textarea>
         </section>
 
         <section class="settings-group" aria-labelledby="rev-problem-title">
@@ -921,7 +921,7 @@
           </div>
           <div class="dbg-editor">
             <div id="dbg-gutter" class="dbg-gutter" aria-label="Line numbers and breakpoints"></div>
-            <textarea id="dbg-code" class="dbg-code" rows="14" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="JavaScript to step through"></textarea>
+            <textarea id="dbg-code" class="dbg-code" rows="14" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" maxlength="200000" aria-label="JavaScript to step through"></textarea>
           </div>
           <p class="dbg-help">Click a line number to set or clear a breakpoint &mdash; the dot fills in.</p>
         </section>
@@ -1059,7 +1059,11 @@
           <h3 id="company-import-title">Bring your own list</h3>
           <details id="company-import-toggle">
             <summary class="quiz-summary">Import a company list</summary>
-            <div id="company-import-panel" class="company-import" hidden>
+            <!-- No `hidden` attribute here. This sits inside a <details>, which
+                 already shows and hides its contents; adding `hidden` as well
+                 meant the author rule `.company-import { display: grid }` beat
+                 the user-agent `[hidden]` rule and the two silently disagreed. -->
+            <div id="company-import-panel" class="company-import">
               <p class="viz-note--plain">
                 Quanta will not scrape company question lists: none is published as an API, and scraping one
                 would mean copying content you have no right to redistribute. If you already hold a list — your
@@ -1072,11 +1076,11 @@
               </p>
               <label class="viz-field">
                 <span>Where this list came from</span>
-                <input id="company-import-source" class="settings-input" type="text" value="my team's list" autocomplete="off" />
+                <input id="company-import-source" class="settings-input" type="text" value="my team's list" autocomplete="off" maxlength="120" />
               </label>
               <label class="viz-field">
                 <span>The list</span>
-                <textarea id="company-import-data" class="settings-input" rows="8" spellcheck="false" placeholder="slug,company&#10;two-sum,Amazon&#10;valid-parentheses,Amazon"></textarea>
+                <textarea id="company-import-data" class="settings-input" rows="8" spellcheck="false" maxlength="500000" placeholder="slug,company&#10;two-sum,Amazon&#10;valid-parentheses,Amazon"></textarea>
               </label>
               <button id="company-import-btn" class="prog-btn" type="button">Import it</button>
               <p id="company-import-report" class="company-import__ok" role="status" aria-live="polite" hidden></p>
@@ -1118,6 +1122,10 @@
             <h4 id="mock-problem-title" class="mock-problem__title"></h4>
             <p id="mock-problem-reason" class="viz-note--plain"></p>
             <div id="mock-problem-links" class="mock-actions"></div>
+            <!-- The assigned problem is read here, inside the interview. It used
+                 to be reachable only by a button that switched the whole app to
+                 Quanta Lab, which ended the interview the reader was sitting in. -->
+            <div id="mock-problem-statement" class="mock-problem__statement" aria-live="polite"></div>
           </div>
         </section>
 
@@ -1501,7 +1509,7 @@
         <section class="settings-group">
           <h3>App</h3>
           <div class="about-facts">
-            <div class="about-fact"><span>Version</span><strong>1.0.0</strong></div>
+            <div class="about-fact"><span>Version</span><strong id="about-version">1.2.0</strong></div>
             <div class="about-fact"><span>Build</span><strong id="about-build-date"></strong></div>
             <div class="about-fact"><span>Offline storage</span><strong id="about-storage-usage">Checking…</strong></div>
             <div class="about-fact"><span>Statements</span><strong id="about-statements-source">Checking…</strong></div>
@@ -1618,11 +1626,13 @@
   <script src="discovery.js?v=1"></script>
   <script src="academy.js?v=1"></script>
   <script src="patterns.js?v=1"></script>
-  <script src="mock.js?v=1"></script>
+  <script src="mock.js?v=2"></script>
   <script src="solutions.js?v=1"></script>
 <script src="debugger.js?v=1"></script>
 <script src="review.js?v=1"></script>
 <script src="contests.js?v=1"></script>
-  <script src="lab-notes.js?v=78"></script>
+  <script src="version.js?v=1"></script>
+  <script src="search.js?v=1"></script>
+  <script src="lab-notes.js?v=79"></script>
 </body>
 </html>

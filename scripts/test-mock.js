@@ -100,10 +100,21 @@ const main = () => {
   check("there are three stages", M.MOCK_STAGES.length === 3, M.MOCK_STAGES.map((s) => s.key).join(","));
   check("every stage has a time and a note", M.MOCK_STAGES.every((s) => s.seconds > 0 && s.note && s.note.length > 25));
   check("the stages cover read, code and check", ["read", "code", "check"].every((k) => M.MOCK_STAGES.some((s) => s.key === k)));
-  check("the total time is a sane interview length", (() => {
-    const total = M.MOCK_STAGES.reduce((sum, s) => sum + s.seconds, 0);
-    return total >= 900 && total <= 2400;
-  })(), `${M.MOCK_STAGES.reduce((sum, s) => sum + s.seconds, 0)}s`);
+  /* Pinned to ten minutes. The stages used to total 23 minutes, which is not
+     how long an interview problem is normally given, and made the countdown
+     disagree with the ten minutes a reader is told they have. */
+  check("the whole interview is ten minutes", M.MOCK_TOTAL_SECONDS === 600, `${M.MOCK_TOTAL_SECONDS}s`);
+  check(
+    "the stages add up to exactly that total",
+    M.MOCK_STAGES.reduce((sum, s) => sum + s.seconds, 0) === M.MOCK_TOTAL_SECONDS
+  );
+  check("the exported total matches the stages", M.MOCK_TOTAL_SECONDS === M.MOCK_STAGES.reduce((sum, s) => sum + s.seconds, 0));
+  check("writing phase gets the largest share", (() => {
+    const code = M.MOCK_STAGES.find((s) => s.key === "code").seconds;
+    return M.MOCK_STAGES.every((s) => s.key === "code" || code >= s.seconds);
+  })());
+  check("no stage runs past the whole interview", M.MOCK_STAGES.every((s) => s.seconds < M.MOCK_TOTAL_SECONDS));
+  check("the ten minutes reads as 10:00", M.mockClock(M.MOCK_TOTAL_SECONDS) === "10:00", M.mockClock(M.MOCK_TOTAL_SECONDS));
 
   console.log("\n== self-assessment feeds revision ==");
   const questions = M.mockSelfAssessment();

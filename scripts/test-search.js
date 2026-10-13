@@ -1,4 +1,4 @@
-/* ------------------------- scripts / test-search --------------------------- */
+﻿/* ------------------------- scripts / test-search --------------------------- */
 /* Tests for the advanced problem search, filtering and sorting.
    Usage:
      npm run test:search
