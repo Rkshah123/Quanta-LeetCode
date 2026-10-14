@@ -6194,31 +6194,42 @@ body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
   .mock-q-popup { animation: none; }
 }
 
-/* An aria-disabled button: unavailable, announced as unavailable, and styled to
-   match the dead ones - but still taking a press, because that press is how it
-   explains itself. */
-.prog-btn.is-blocked,
-.prog-btn[aria-disabled="true"]:not(:disabled) {
-  opacity: 0.5;
-  cursor: not-allowed;
-  filter: grayscale(0.35);
-}
-
-/* The brief acknowledgement of a press that is being refused, so the button
-   does not look as though it failed to notice. */
-.prog-btn.is-refused {
-  animation: mock-refused 400ms ease-out;
-}
-
-@keyframes mock-refused {
-  0%, 100% { transform: none; }
-  25% { transform: translateX(-4px); }
-  60% { transform: translateX(3px); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .prog-btn.is-refused { animation: none; }
 }
+
+/* The button underneath is genuinely disabled, so the browser dims it and
+   nothing can press it. The guard is the pressable surface laid over it:
+   invisible, the same size, and carrying the reason the button cannot be
+   used. Its position is measured from the button in JS, because the button
+   is a small pill on a desktop and full width on a phone. */
+.mock-q-actions { position: relative; }
+
+.mock-q-guard {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  font: inherit;
+  cursor: not-allowed;
+  /* Nothing of the button shows through, but it still takes the press. */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.mock-q-guard:focus-visible {
+  /* Focused so a keyboard reaches it, with an outline on the button it is
+     standing in for - the reader needs to see what they are on. */
+  outline: 2px solid var(--accent-line, var(--border));
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+
+
+
 
 /* ----------------------------- submit validation ----------------------------
  *

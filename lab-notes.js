@@ -11663,6 +11663,23 @@ const refreshStudyForActiveProblem = () => {
     }, MOCK_POPUP_MS);
   };
 
+  /* Keeps the guard exactly on top of the button it stands in for.
+
+     Measured from the button's own box rather than written as a CSS offset:
+     the button is a small pill on a desktop and spans the screen on a phone,
+     so any fixed number would be wrong on one of them. */
+  const mockSyncGuard = (blocked) => {
+    const guard = mockEl("mock-q-guard");
+    const btn = mockEl("mock-submit-btn");
+    if (!guard || !btn) return;
+    mockShow("mock-q-guard", blocked);
+    if (!blocked) return;
+    guard.style.left = btn.offsetLeft + "px";
+    guard.style.top = btn.offsetTop + "px";
+    guard.style.width = btn.offsetWidth + "px";
+    guard.style.height = btn.offsetHeight + "px";
+  };
+
   const mockRefreshSubmit = () => {
     const engine = MOCK_TEST_ENGINE();
     const question = currentQuestion();
@@ -11675,9 +11692,12 @@ const refreshStudyForActiveProblem = () => {
        choosing enables it on the spot rather than on the next thing typed. */
     if (!question || question.kind !== "coding") {
       const nothingChosen = Boolean(question) && mockState.chosenOption === null;
-      submitBtn.disabled = false;
+      /* Really disabled - the property, not an imitation of it. A button only
+         marked unavailable can still be submitted by anything that reads the
+         DOM rather than the pixels. */
+      submitBtn.disabled = nothingChosen;
       submitBtn.setAttribute("aria-disabled", nothingChosen ? "true" : "false");
-      submitBtn.classList.toggle("is-blocked", nothingChosen);
+      mockSyncGuard(nothingChosen);
       mockShow("mock-q-validation", false);
       return;
     }
@@ -11685,14 +11705,14 @@ const refreshStudyForActiveProblem = () => {
     /* The coding path keeps a genuinely dead button: its reason is already on
        screen, so there is nothing a press could usefully add. */
     submitBtn.setAttribute("aria-disabled", "false");
-    submitBtn.classList.remove("is-blocked");
+    mockSyncGuard(false);
 
     /* Closed questions cannot be submitted to. An expired one says so, because a
        button that is merely dead looks exactly like a fault. */
     if (mockState.final || mockState.submitted) {
       submitBtn.disabled = true;
       submitBtn.setAttribute("aria-disabled", "true");
-      submitBtn.classList.remove("is-blocked");
+      mockSyncGuard(false);
       if (mockTimeLeft() <= 0) {
         if (note) {
           note.textContent = "Time is up. This question is closed.";
@@ -13037,6 +13057,10 @@ const refreshStudyForActiveProblem = () => {
     mockRenderPoolNote();
     mockEl("mock-start-btn")?.addEventListener("click", () => mockStartTest());
     mockEl("mock-submit-btn")?.addEventListener("click", () => void mockSubmit());
+    mockEl("mock-q-guard")?.addEventListener("click", () => mockSubmit());
+    /* The guard is measured from the button, and the button's box changes with
+       the window - so the guard has to be measured again when it does. */
+    window.addEventListener("resize", () => mockRefreshSubmit());
     mockEl("mock-edit-btn")?.addEventListener("click", () => mockEditResubmit());
     mockEl("mock-next-btn")?.addEventListener("click", () => mockNext());
     /* Retake: straight into a fresh test, not back to the start panel. */
