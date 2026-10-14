@@ -391,6 +391,18 @@ const markObjective = (question, chosenIndex) => {
   };
 };
 
+/* Whether an answer was judged wrong, as opposed to right or unjudged.
+
+   Being unjudged is not being wrong. "Unable to evaluate automatically" means
+   Quanta had nothing to check the answer against, and inviting the reader to
+   rewrite a solution that may well be correct would be telling them their work
+   is broken when the app's evidence is what's missing. */
+const INCORRECT_VERDICTS = [VERDICT.WRONG, VERDICT.COMPILE_ERROR, VERDICT.RUNTIME_ERROR];
+const isIncorrect = (mark) => Boolean(mark) && INCORRECT_VERDICTS.includes(mark.verdict);
+
+/* Whether the question can be marked done on the strength of this answer. */
+const isAccepted = (mark) => Boolean(mark) && mark.verdict === VERDICT.CORRECT;
+
 /* ---------------------------- worked examples ---------------------------- */
 
 /* Reads the problem's own worked examples out of its statement.
@@ -883,7 +895,10 @@ const API = {
   pythonLiteral,
   compareOutput,
   runExampleTest,
-  summarise
+  summarise,
+  isIncorrect,
+  isAccepted,
+  INCORRECT_VERDICTS
 };
 
 /* Assigned to window FIRST, and each export guarded on its own.

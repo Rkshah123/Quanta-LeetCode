@@ -11393,11 +11393,18 @@ const refreshStudyForActiveProblem = () => {
     remaining: null,
     timer: null,
     submitted: false,
+    /* The question is closed: accepted, expired, or moved on from. A closed
+       question takes no further submissions, which is also what stops a clock
+       that fires more than once producing two results. */
+    final: false,
     chosenOption: null,
     submitting: false,
     history: [],
     /* Whether the current catalog has any problem the app could mark. */
-    poolIsEvaluable: false
+    poolIsEvaluable: false,
+    /* The results screen has been built and the test recorded, so neither can
+       happen twice for one sitting. */
+    finished: false
   };
 
   const mockStopTimer = () => {
@@ -11500,9 +11507,12 @@ const refreshStudyForActiveProblem = () => {
     mockState.index = 0;
     mockState.remaining = null;
     mockState.submitted = false;
+    mockState.final = false;
+    mockState.finished = false;
     mockState.chosenOption = null;
     mockState.submitting = false;
     mockDraftsClear();
+    if (mockEditor) mockLockEditor(false);
     /* The editor is emptied here as well as in mockOpenQuestion, so a retake
        cannot leave the previous attempt's code on screen even for the moment
        before the first question renders. */
@@ -11638,6 +11648,21 @@ const refreshStudyForActiveProblem = () => {
       return;
     }
 
+    /* Closed questions cannot be submitted to. An expired one says so, because a
+       button that is merely dead looks exactly like a fault. */
+    if (mockState.final || mockState.submitted) {
+      submitBtn.disabled = true;
+      if (mockTimeLeft() <= 0) {
+        if (note) {
+          note.textContent = "Time is up. This question is closed.";
+          mockShow("mock-q-validation", true);
+        }
+      } else {
+        mockShow("mock-q-validation", false);
+      }
+      return;
+    }
+
     const code = mockEditor ? mockEditor.getValue() : "";
     const usable = engine ? engine.hasCode(code) : /\S/.test(code);
     submitBtn.disabled = !usable;
@@ -11665,6 +11690,7 @@ const refreshStudyForActiveProblem = () => {
 
     mockStopTimer();
     mockState.submitted = false;
+    mockState.final = false;
     mockState.chosenOption = null;
     mockState.submitting = false;
 
@@ -11770,6 +11796,8 @@ const refreshStudyForActiveProblem = () => {
          changes between questions is only what it holds, and that is this
          question's own draft - which on a first pass is empty. */
       await ensureMockEditor().catch(() => {});
+      /* Thawed per question. The previous one was frozen when it closed. */
+      mockLockEditor(false);
       const language = normalizeLanguage(mockLanguageSelect?.value);
       mockEditorShowCode(language);
       /* Output and any run error belong to the previous question's attempt. */
@@ -11789,6 +11817,10 @@ const refreshStudyForActiveProblem = () => {
     }
     mockShow("mock-submit-btn", true);
     mockShow("mock-next-btn", false);
+    mockShow("mock-edit-btn", false);
+    /* Labelled for where this question sits: the last one offers the results
+       rather than another question that does not exist. */
+    mockSetNextLabel();
     /* Last, so it reads the editor state this question actually left behind. */
     mockRefreshSubmit();
     mockStartTimer();
@@ -11929,17 +11961,128 @@ const refreshStudyForActiveProblem = () => {
     };
   };
 
+/* Whether the question still has time on the clock. A question with no clock
+     - an objective one - is never out of time. */
+  const mockTimeLeft = () =>
+    typeof mockState.remaining === "number" ? mockState.remaining : Infinity;
+
+  /* Freezes the editor.
+
+     Read-only rather than hidden: the reader can still read what they wrote,
+     which is exactly what they need when a runtime error is on screen. A
+     disabled-looking but still editable box would let them change an answer
+     after it has been judged, and the judged answer would no longer be the
+     answer on screen. */
+  const mockLockEditor = (locked) => {
+    if (!mockEditor) return;
+    mockEditor.updateOptions({ readOnly: locked });
+    mockEditorNode?.classList.toggle("is-locked", locked);
+  };
+
+  /* The button that leaves a question. The last one in a test is not "next" -
+     there is nothing after it - so it asks for the results instead. */
+  const mockSetNextLabel = () => {
+    const btn = mockEl("mock-next-btn");
+    if (!btn) return;
+    const last = mockState.index >= mockState.questions.length - 1;
+    btn.textContent = last ? "Check All Answers" : "Next question";
+  };
+
+  /* Decides what happens after a submission.
+
+     A wrong answer is not the end of the question while the clock is still
+     running: the reader is given the editor back and another go, and the panel
+     does not move them on by itself. An accepted answer, an expired clock, or a
+     question that was never going to be marked closes it.
+
+     "Unable to evaluate automatically" deliberately does not close a coding
+     question. Quanta had nothing to check against, so the answer may well be
+     right, and telling the reader to go back and rewrite it would be claiming
+     their solution is broken when the missing thing is evidence. */
+  const mockAfterSubmit = (mark, { expired }) => {
+    const question = currentQuestion();
+    const engine = MOCK_TEST_ENGINE();
+    const coding = question?.kind === "coding";
+    const outOfTime = mockTimeLeft() <= 0;
+
+    /* Closed once the clock has gone, whatever the verdict. */
+    const closed = expired || outOfTime || !coding || engine.isAccepted(mark);
+
+    mockState.final = closed;
+    /* Frozen after EVERY submission, not only after the question closes.
+
+       The code on screen has to be the code that was judged. If it stayed
+       editable while the verdict was showing, the reader could change it, see
+       "Incorrect Answer" still sitting there, and leave with a result that
+       described something they had already replaced. Edit & Resubmit is the way
+       back, and it unfreezes deliberately. */
+    if (coding) mockLockEditor(true);
+    if (closed) mockStopTimer();
+
+    mockEl("mock-q-body")?.querySelector(".mock-q-options")?.classList.add("is-answered");
+
+    mockRenderResult(question, mark, { expired, final: closed, canRetry: !closed });
+
+    mockShow("mock-q-validation", false);
+    mockShow("mock-submit-btn", false);
+    mockShow("mock-edit-btn", !closed);
+    mockShow("mock-next-btn", true);
+    mockSetNextLabel();
+  };
+
+  /* Hands the editor back after a wrong answer.
+
+     The code stays exactly as it was - it is still in results[] and in the
+     draft, so nothing is re-typed - and the clock keeps running, because the
+     whole point is that there is time left to use. */
+  const mockEditResubmit = () => {
+    const question = currentQuestion();
+    if (!question || mockState.final || mockState.submitting) return;
+    /* No second go after the clock has gone, whatever the button says. */
+    if (mockTimeLeft() <= 0) return;
+
+    mockState.submitted = false;
+    mockState.submitting = false;
+    mockLockEditor(false);
+
+    /* Cleared so the previous attempt's verdict is not still on screen while the
+       reader edits - it would describe code they are in the middle of changing. */
+    const result = mockEl("mock-q-result");
+    if (result) result.replaceChildren();
+
+    mockShow("mock-edit-btn", false);
+    mockShow("mock-submit-btn", true);
+    mockShow("mock-next-btn", false);
+    mockShow("mock-q-validation", false);
+
+    const submitBtn = mockEl("mock-submit-btn");
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit answer";
+    }
+    /* The editor still holds the previous answer, so Submit is available at once
+       - and stays available if they delete it, which the validation catches. */
+    mockRefreshSubmit();
+    mockEditor?.focus();
+    mockEl("mock-q-lock")?.scrollIntoView?.({ block: "nearest" });
+  };
+
   const mockSubmit = async ({ expired = false } = {}) => {
     const engine = MOCK_TEST_ENGINE();
     const question = currentQuestion();
     if (!engine || !question) return;
-    if (mockState.submitted || mockState.submitting) return;
+    /* One submission at a time. */
+    if (mockState.submitting) return;
+    /* A closed question takes no more answers - which is also what stops the
+       clock running out twice producing two results. */
+    if (mockState.final && !expired) return;
+    /* Already judged and not being reopened, so the next thing to do is edit. */
+    if (mockState.submitted && !expired) return;
 
     /* The same check the button enforces, run again here. The button can be
-       disabled, but a keypress, a timer running out, or a screen reader can all
-       reach this function without going through it - and expiry in particular
-       has to be allowed through, so that an empty editor becomes "not answered"
-       rather than an error. */
+       disabled, but a keypress or a screen reader can reach this function
+       without going through it - and expiry has to be allowed through, so that
+       an empty editor becomes "not answered" rather than an error. */
     if (question.kind === "coding") {
       const code = mockEditor ? mockEditor.getValue() : "";
       if (!engine.hasCode(code) && !expired) {
@@ -11954,11 +12097,14 @@ const refreshStudyForActiveProblem = () => {
       submitBtn.disabled = true;
       submitBtn.textContent = expired ? "Time is up" : "Marking…";
     }
+    if (mockEl("mock-edit-btn")) mockEl("mock-edit-btn").disabled = true;
 
     let mark;
     let submittedCode = "";
 
     if (question.kind === "coding") {
+      /* Whatever is in the editor right now. On expiry that is whatever was
+         half-written when the clock went, and it is judged as it stands. */
       submittedCode = mockEditor ? mockEditor.getValue() : "";
       const language = normalizeLanguage(mockLanguageSelect?.value);
       /* Kept against the question, not against the language, so switching
@@ -11966,6 +12112,8 @@ const refreshStudyForActiveProblem = () => {
       mockDraftSet(question, language, submittedCode);
 
       if (!engine.hasCode(submittedCode)) {
+        /* Nothing to run. Recorded as unanswered rather than handed to a runner
+           to produce a compile error about an empty program. */
         mark = {
           ...engine.markCoding({ compiled: false, tests: [], code: "" }),
           verdict: engine.VERDICT.UNANSWERED,
@@ -11984,22 +12132,26 @@ const refreshStudyForActiveProblem = () => {
       mark = engine.markObjective(question, mockState.chosenOption);
     }
 
-    mockStopTimer();
     mockState.submitted = true;
     mockState.submitting = false;
-    /* The draft is cleared on submission. It has been kept, not thrown away -
-       it is in results[] from here on, and that is what Review reads - but an
-       abandoned draft must not reappear if the question were somehow reopened. */
-    mockState.results[mockState.index] = { question, mark, code: submittedCode, expired };
+    if (mockEl("mock-edit-btn")) mockEl("mock-edit-btn").disabled = false;
 
-    mockEl("mock-q-body")?.querySelector(".mock-q-options")?.classList.add("is-answered");
+    /* The previous attempt is kept alongside the new one rather than replaced,
+       so the results screen can say how many goes it took and Review can show
+       what changed. Only the last one counts: it is the final answer. */
+    const previous = mockState.results[mockState.index];
+    const attempt = (previous?.attempts || 0) + 1;
+    mockState.results[mockState.index] = {
+      question,
+      mark,
+      code: submittedCode,
+      expired,
+      attempts: attempt,
+      previous: previous ? { mark: previous.mark, code: previous.code } : null
+    };
 
-    mockRenderResult(question, mark, { expired });
-    mockShow("mock-q-validation", false);
-    mockShow("mock-submit-btn", false);
-    mockShow("mock-next-btn", true);
+    mockAfterSubmit(mark, { expired });
   };
-
   /* -------------------------------------------------------------- result */
 
   /* A short status line with a shape, not just a colour: a tick for a right
@@ -12066,7 +12218,7 @@ const refreshStudyForActiveProblem = () => {
     return wrap;
   };
 
-  const mockRenderResult = (question, mark, { expired = false } = {}) => {
+  const mockRenderResult = (question, mark, { expired = false, final = false, canRetry = false } = {}) => {
     const engine = MOCK_TEST_ENGINE();
     const host = mockEl("mock-q-result");
     if (!host) return;
@@ -12076,6 +12228,18 @@ const refreshStudyForActiveProblem = () => {
     card.className = `mock-result is-${mark.tone || "unknown"}`;
 
     card.appendChild(mockStatusLine(mark, { expired }));
+
+    /* How many goes it took. One is the ordinary case; saying so is worth
+       nothing, so it only appears when there was more than one - at which point
+       the reader is looking at the answer that was judged, not the first one
+       they tried. */
+    const attempt = mockState.results[mockState.index]?.attempts || 1;
+    if (attempt > 1) {
+      const tried = document.createElement("p");
+      tried.className = "mock-result__attempts";
+      tried.textContent = `Attempt ${attempt} - this is the answer that was judged.`;
+      card.appendChild(tried);
+    }
 
     if (mark.detail) {
       const d = document.createElement("p");
@@ -12164,6 +12328,27 @@ const refreshStudyForActiveProblem = () => {
       }
     }
 
+    /* Whether another go is possible, said plainly. A reader who has been marked
+       wrong and sees nothing else has no way of telling whether that is the end
+       of the question or just this attempt. */
+    if (final) {
+      const done = document.createElement("p");
+      done.className = "mock-result__closed";
+      const left = mockTimeLeft();
+      done.textContent = expired || left <= 0
+        ? "Time is up. This question is closed."
+        : mark.kind === "coding" && MOCK_TEST_ENGINE()?.isAccepted(mark)
+          ? "Accepted - this question is closed."
+          : "This question is closed.";
+      card.appendChild(done);
+    } else if (canRetry) {
+      const again = document.createElement("p");
+      again.className = "mock-result__retry";
+      const left = Math.max(0, Math.round(mockTimeLeft()));
+      again.textContent = `There is still time. Edit your answer and submit again - ${Math.floor(left / 60)}m ${String(left % 60).padStart(2, "0")}s left.`;
+      card.appendChild(again);
+    }
+
     host.appendChild(card);
   };
 
@@ -12210,6 +12395,7 @@ const refreshStudyForActiveProblem = () => {
 
   const mockNext = () => {
     mockStopTimer();
+    mockState.final = true;
     if (mockState.index >= mockState.questions.length - 1) {
       mockFinishTest();
       return;
@@ -12258,6 +12444,11 @@ const refreshStudyForActiveProblem = () => {
       add("Your answer", tested
         ? `Code submitted — ${passed} of ${tested} worked example${tested === 1 ? "" : "s"} passed`
         : "Code submitted");
+      /* Shown only when it happened: the final answer is what counts, and saying
+         so stops it looking like the only thing tried. */
+      if ((entry.attempts || 1) > 1) {
+        add("Attempts", `${entry.attempts} — the last one is the answer that was judged`);
+      }
     }
     return line;
   };
@@ -12289,6 +12480,15 @@ const refreshStudyForActiveProblem = () => {
         panel.appendChild(out);
       }
       if (entry.code) panel.appendChild(mockCodeBlock(entry.code, "The code you submitted"));
+
+      if (entry.previous) {
+        const was = document.createElement("p");
+        was.className = "mock-res__previous";
+        const previousVerdict = entry.previous.mark?.label || "an earlier result";
+        was.textContent = `The first attempt was marked "${previousVerdict}". Only the last attempt counts towards the score.`;
+        panel.appendChild(was);
+        if (entry.previous.code) panel.appendChild(mockCodeBlock(entry.previous.code, "Your first attempt"));
+      }
 
       const explanation = engine.explanationFor(entry.question, window.PATTERNS || []);
       if (explanation.pattern) {
@@ -12446,8 +12646,11 @@ const refreshStudyForActiveProblem = () => {
   };
 
   const mockFinishTest = () => {
-    const engine = MOCK_TEST_ENGINE();
     mockStopTimer();
+    if (mockState.finished) return;
+    if (!mockState.results.filter(Boolean).length) return;
+    mockState.finished = true;
+
     mockShow("mock-run", false);
     mockShow("mock-summary", true);
 
@@ -12471,8 +12674,13 @@ const refreshStudyForActiveProblem = () => {
     mockState.results = [];
     mockState.questions = [];
     mockState.index = 0;
+    mockState.finished = false;
+    mockState.final = false;
     mockDraftsClear();
-    if (mockEditor) mockEditor.setValue("");
+    if (mockEditor) {
+      mockEditor.setValue("");
+      mockLockEditor(false);
+    }
     mockSetOutput("");
 
     mockEl("mock-summary")?.scrollIntoView?.({ block: "nearest" });
@@ -12743,6 +12951,7 @@ const refreshStudyForActiveProblem = () => {
     mockRenderPoolNote();
     mockEl("mock-start-btn")?.addEventListener("click", () => mockStartTest());
     mockEl("mock-submit-btn")?.addEventListener("click", () => void mockSubmit());
+    mockEl("mock-edit-btn")?.addEventListener("click", () => mockEditResubmit());
     mockEl("mock-next-btn")?.addEventListener("click", () => mockNext());
     /* Retake: straight into a fresh test, not back to the start panel. */
     mockEl("mock-again-btn")?.addEventListener("click", () => mockStartTest());

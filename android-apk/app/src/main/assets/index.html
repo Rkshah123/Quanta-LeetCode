@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=54" />
+  <link rel="stylesheet" href="style.css?v=56" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -1164,8 +1164,15 @@
                guessed at. -->
           <p id="mock-q-validation" class="mock-q-validation" role="status" aria-live="polite" hidden></p>
 
+          <!-- Offered after a wrong answer while the clock is still running. The
+               question stays open, the code stays on screen, and the panel does
+               not move the reader on - another go is theirs to take or not. -->
+          <button id="mock-edit-btn" class="prog-btn mock-edit-btn" type="button" hidden>Edit &amp; Resubmit</button>
+
           <div class="mock-q-actions">
             <button id="mock-submit-btn" class="prog-btn" type="button">Submit answer</button>
+            <!-- Reads "Next question" until the last one, where there is nothing
+                 after it and the button asks for the results instead. -->
             <button id="mock-next-btn" class="prog-btn prog-btn--primary" type="button" hidden>Next question</button>
           </div>
 
@@ -1693,13 +1700,13 @@
   <script src="academy.js?v=1"></script>
   <script src="patterns.js?v=1"></script>
   <script src="mock.js?v=2"></script>
-  <script src="mocktest.js?v=3"></script>
+  <script src="mocktest.js?v=4"></script>
   <script src="solutions.js?v=1"></script>
 <script src="debugger.js?v=1"></script>
 <script src="review.js?v=1"></script>
 <script src="contests.js?v=1"></script>
   <script src="version.js?v=1"></script>
   <script src="search.js?v=1"></script>
-  <script src="lab-notes.js?v=90"></script>
+  <script src="lab-notes.js?v=93"></script>
 </body>
 </html>

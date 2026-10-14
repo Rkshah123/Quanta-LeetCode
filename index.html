@@ -1204,7 +1204,12 @@
           </div>
         </section>
 
-        <section class="settings-group" aria-labelledby="mock-history-title">
+        <!-- Kept out of the way while a test is running. It sits beside the
+             start screen and the results screen, and during a test the reader
+             has their own last score sitting under the Submit button - which is
+             neither useful in the middle of an interview nor the result of the
+             test they are taking. -->
+        <section id="mock-history-panel" class="settings-group" aria-labelledby="mock-history-title">
           <h3 id="mock-history-title">Previous interviews</h3>
           <div id="mock-history"></div>
         </section>
@@ -1692,6 +1697,6 @@
 <script src="contests.js?v=1"></script>
   <script src="version.js?v=1"></script>
   <script src="search.js?v=1"></script>
-  <script src="lab-notes.js?v=93"></script>
+  <script src="lab-notes.js?v=95"></script>
 </body>
 </html>
