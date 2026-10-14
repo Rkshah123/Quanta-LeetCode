@@ -11636,6 +11636,33 @@ const refreshStudyForActiveProblem = () => {
    *
    * Objective questions never go through this: they are answered by choosing,
    * and they have no editor. */
+  /* How long the "no option chosen" message stays up. Long enough to be read,
+     short enough that it is not still there when the reader picks an answer. */
+  const MOCK_POPUP_MS = 2000;
+  let mockPopupTimer = null;
+
+  /* Takes the message down at once. */
+  const mockHidePopup = () => {
+    if (mockPopupTimer) { clearTimeout(mockPopupTimer); mockPopupTimer = null; }
+    mockShow("mock-q-popup", false);
+  };
+
+  /* Says what went wrong, and says nothing else. Called only from the failed
+     attempt, so no verdict has been produced and none can be leaked. */
+  const mockShowPopup = (message) => {
+    const popup = mockEl("mock-q-popup");
+    if (!popup) return;
+    if (mockPopupTimer) clearTimeout(mockPopupTimer);
+    popup.textContent = message;
+    mockShow("mock-q-popup", true);
+    /* Restarted on every call, so two quick attempts get a full two seconds each
+       rather than the second being cut short by the first one's timer. */
+    mockPopupTimer = setTimeout(() => {
+      mockPopupTimer = null;
+      mockShow("mock-q-popup", false);
+    }, MOCK_POPUP_MS);
+  };
+
   const mockRefreshSubmit = () => {
     const engine = MOCK_TEST_ENGINE();
     const question = currentQuestion();
@@ -11643,16 +11670,29 @@ const refreshStudyForActiveProblem = () => {
     const note = mockEl("mock-q-validation");
     if (!submitBtn) return;
 
+    /* A multiple-choice question has nothing to type, so the only thing that
+       can make it submittable is a choice. Until then the button is dead, and
+       choosing enables it on the spot rather than on the next thing typed. */
     if (!question || question.kind !== "coding") {
+      const nothingChosen = Boolean(question) && mockState.chosenOption === null;
       submitBtn.disabled = false;
+      submitBtn.setAttribute("aria-disabled", nothingChosen ? "true" : "false");
+      submitBtn.classList.toggle("is-blocked", nothingChosen);
       mockShow("mock-q-validation", false);
       return;
     }
+
+    /* The coding path keeps a genuinely dead button: its reason is already on
+       screen, so there is nothing a press could usefully add. */
+    submitBtn.setAttribute("aria-disabled", "false");
+    submitBtn.classList.remove("is-blocked");
 
     /* Closed questions cannot be submitted to. An expired one says so, because a
        button that is merely dead looks exactly like a fault. */
     if (mockState.final || mockState.submitted) {
       submitBtn.disabled = true;
+      submitBtn.setAttribute("aria-disabled", "true");
+      submitBtn.classList.remove("is-blocked");
       if (mockTimeLeft() <= 0) {
         if (note) {
           note.textContent = "Time is up. This question is closed.";
@@ -11778,12 +11818,17 @@ const refreshStudyForActiveProblem = () => {
           button.dataset.index = String(i);
           button.textContent = text;
           button.addEventListener("click", () => {
-            if (mockState.submitted) return;
+            /* A judged question is closed to further answers. */
+            if (mockState.submitted || mockState.final) return;
             mockState.chosenOption = i;
             for (const other of options.querySelectorAll(".mock-q-option")) {
               other.classList.toggle("is-chosen", other === button);
               other.setAttribute("aria-pressed", other === button ? "true" : "false");
             }
+            /* The complaint was about not having chosen; that is now untrue, so
+               it comes down rather than being left to time out. */
+            mockHidePopup();
+            mockRefreshSubmit();
           });
           options.appendChild(button);
         });
@@ -11819,6 +11864,7 @@ const refreshStudyForActiveProblem = () => {
     mockShow("mock-submit-btn", true);
     mockShow("mock-next-btn", false);
     mockShow("mock-edit-btn", false);
+    mockHidePopup();
     /* Labelled for where this question sits: the last one offers the results
        rather than another question that does not exist. */
     mockSetNextLabel();
@@ -12080,6 +12126,35 @@ const refreshStudyForActiveProblem = () => {
     /* Already judged and not being reopened, so the next thing to do is edit. */
     if (mockState.submitted && !expired) return;
 
+    if (question.kind === "objective") {
+      if (mockState.chosenOption === null && !expired) {
+        mockShowPopup("Please select your answer.");
+        /* Visually pressed, so the button acknowledges the tap it is refusing
+           rather than appearing not to have noticed it. */
+        const btn = mockEl("mock-submit-btn");
+        if (btn) {
+          btn.classList.add("is-refused");
+          setTimeout(() => btn.classList.remove("is-refused"), 400);
+        }
+        /* Put the reader's attention where the problem is: the options, not the
+           button they have just been told will not work. Queried from the
+           document rather than closed over - `options` belongs to the question
+           that drew them and does not exist here. */
+        mockEl("mock-q-body")?.querySelector(".mock-q-option")?.focus?.();
+        return;
+      }
+      /* Nothing chosen and nothing to run: a question the reader skipped past,
+         recorded as unanswered rather than guessed at. */
+      if (mockState.chosenOption === null) {
+        mark = {
+          ...engine.markObjective(question, null),
+          answered: false,
+          correct: false,
+          detail: "No option was selected."
+        };
+      }
+    }
+
     /* The same check the button enforces, run again here. The button can be
        disabled, but a keypress or a screen reader can reach this function
        without going through it - and expiry has to be allowed through, so that
@@ -12129,7 +12204,7 @@ const refreshStudyForActiveProblem = () => {
       } else {
         mark = await mockEvaluateCoding(question, submittedCode);
       }
-    } else {
+    } else if (mark === undefined) {
       mark = engine.markObjective(question, mockState.chosenOption);
     }
 
