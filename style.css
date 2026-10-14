@@ -6070,6 +6070,99 @@ body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
 
 /* -------------------------------- summary ------------------------------- */
 
+/* ---------------------------- resubmission -----------------------------
+ *
+ * A wrong answer with time left is not the end of a question. The reader is
+ * told so in words, given the button that takes them back to the editor, and the
+ * clock keeps running while they do - because an offer to try again with the
+ * timer stopped would not be an offer at all.
+ */
+.mock-edit-btn {
+  justify-self: start;
+  min-height: 44px;
+  padding: 11px 20px;
+}
+
+/* How many goes it took, and which one was judged. */
+.mock-result__attempts {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-c);
+}
+
+/* Whether the question is still open, and what to do about it. */
+.mock-result__retry {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 0.85rem;
+}
+.mock-result__closed {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-shade), 0.5);
+  color: var(--text-b);
+  font-size: 0.85rem;
+}
+
+/* A frozen editor still reads - the reader needs to see what they wrote when a
+   runtime error is on screen - so it is dimmed rather than hidden. */
+.mock-monaco-editor.is-locked { opacity: 0.72; }
+.mock-monaco-editor.is-locked .monaco-editor,
+.mock-monaco-editor.is-locked .monaco-editor-background,
+.mock-monaco-editor.is-locked .monaco-editor .inputarea.ime-input {
+  cursor: default;
+}
+
+/* The earlier attempt, on the results screen. */
+.mock-res__previous {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-c);
+  font-style: italic;
+}
+
+/* On a phone the leave button and the retry button each take a full row, so
+   neither is squeezed into a thumb-sized strip beside the other. */
+@media (max-width: 560px) {
+  .mock-edit-btn { width: 100%; text-align: center; }
+  .mock-q-actions button { flex: 1 1 100%; }
+}
+/* Grid children must be allowed to be narrower than their content.
+
+   Every one of these is a one-column grid holding text of unknown length. A
+   grid item's default `min-width` is `auto`, which means it refuses to shrink
+   below its content - so a problem statement containing a long line of sample
+   code pushed the whole panel wider than the screen: measured on a 412px phone,
+   the run panel's children came out 511px wide inside a 388px container, with
+   the clock and the question running off the right edge. The page did not
+   scroll, so nothing looked broken except everything being unreadable.
+
+   `minmax(0, 1fr)` says the track may be narrower than its contents, which is
+   what lets the existing `overflow-wrap` and the scrollable `pre` blocks inside
+   do the work they were written to do. */
+.mock-start,
+.mock-run,
+.mock-q-body,
+.mock-result,
+.mock-res__item,
+.mock-res__detail {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The same for the flex row that holds the clock. */
+.mock-run__head > * { min-width: 0; }
+
+/* The statement is the widest thing in the panel and the only thing likely to
+   contain a long unbroken run of characters. */
+.mock-q-statement { min-width: 0; }
+
 /* ----------------------------- submit validation ----------------------------
  *
  * The message sits with the editor it is about and is announced, because a

@@ -255,7 +255,6 @@ const runWith = (stdout) => async () => ({ ok: true, stdout, stderr: "", phase: 
   check("an empty test does not divide by zero", T.summarise([]).percent === 0 && T.summarise(null).total === 0);
   check("a hole in the results is ignored", T.summarise([null, { verdict: T.VERDICT.CORRECT, answered: true }, undefined]).total === 1);
   check("a perfect test is 100%", T.summarise([{ verdict: T.VERDICT.CORRECT, answered: true }, { verdict: T.VERDICT.CORRECT, answered: true }]).percent === 100);
-
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();console.log("\n== explanation for a coding answer ==");
@@ -267,6 +266,44 @@ check("and says plainly what that is", /not a verified reference solution/i.test
 check("a problem with no matching pattern says so rather than inventing", /no worked explanation/i.test(T.explanationFor({ topics: ["Nonsense Topic"] }, PATTERNS).note));
 check("a problem with no topics at all is survivable", T.explanationFor({}, PATTERNS).pattern === null);
 check("an empty pattern list is survivable", T.explanationFor(binary, []).pattern === null);
+
+  console.log("\n== was it wrong, and may the question close ==");
+
+  /* Each verdict, reached the way the panel reaches one. */
+  const marked = (verdict) => (verdict === T.VERDICT.UNANSWERED
+    ? { verdict, answered: false, correct: false }
+    : { verdict, answered: true, correct: verdict === T.VERDICT.CORRECT });
+
+  check("a wrong answer is incorrect", T.isIncorrect(marked(T.VERDICT.WRONG)));
+  check("a compile error is incorrect", T.isIncorrect(marked(T.VERDICT.COMPILE_ERROR)));
+  check("a runtime error is incorrect", T.isIncorrect(marked(T.VERDICT.RUNTIME_ERROR)));
+
+  /* The one that must not be mistaken for a failure. */
+  check("an answer Quanta could not evaluate is NOT incorrect", T.isIncorrect(marked(T.VERDICT.UNVERIFIED)) === false);
+  check("nor is an unanswered question", T.isIncorrect(marked(T.VERDICT.UNANSWERED)) === false);
+  check("and certainly not an accepted one", T.isIncorrect(marked(T.VERDICT.CORRECT)) === false);
+
+  check("only an accepted answer closes the question", T.isAccepted(marked(T.VERDICT.CORRECT)));
+  check("being wrong does not close it - that is what a second go is for",
+    Object.values(T.VERDICT).filter((v) => v !== T.VERDICT.CORRECT).every((v) => T.isAccepted(marked(v)) === false));
+  check("being unevaluable does not close it either",
+    T.isAccepted(marked(T.VERDICT.UNVERIFIED)) === false);
+
+  /* Nothing is a verdict, and must not be treated as one. */
+  check("no mark at all is neither wrong nor accepted", T.isIncorrect(null) === false && T.isAccepted(null) === false);
+  check("neither is an undefined mark", T.isIncorrect(undefined) === false && T.isAccepted(undefined) === false);
+  check("nor one with no verdict on it", T.isIncorrect({}) === false && T.isAccepted({}) === false);
+
+  /* Objective answers are marked by the same two questions. */
+  const objective = T.markObjective({ options: ["a", "b"], correctIndex: 0 }, 1);
+  check("a wrong option is incorrect", T.isIncorrect(objective));
+  check("and does not close the question", T.isAccepted(objective) === false);
+  const rightObjective = T.markObjective({ options: ["a", "b"], correctIndex: 0 }, 0);
+  check("the right option closes it", T.isAccepted(rightObjective) && T.isIncorrect(rightObjective) === false);
+
+  /* The list is exported so the panel and the tests cannot drift apart. */
+  check("every listed verdict is a real verdict", T.INCORRECT_VERDICTS.every((v) => Object.values(T.VERDICT).includes(v)));
+  check("and it is exactly the three failures", T.INCORRECT_VERDICTS.length === 3);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
