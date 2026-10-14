@@ -57,6 +57,8 @@ body[data-theme="dark"] {
   --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.5);
   --shadow-lift: 0 20px 44px rgba(0, 0, 0, 0.58);
   --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.13);
+  --danger-line: rgba(248, 113, 113, 0.42);
   --success: #34d399;
   color-scheme: dark;
 }
@@ -82,6 +84,8 @@ body[data-theme="beige"] {
   --shadow-soft: 0 9px 24px rgba(0, 106, 78, 0.1);
   --shadow-lift: 0 16px 30px rgba(0, 106, 78, 0.16);
   --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.09);
+  --danger-line: rgba(220, 38, 38, 0.34);
   --success: #059669;
   --accent-text: #059669;
   color-scheme: light;
@@ -110,6 +114,8 @@ body[data-theme="ember"] {
   --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.55);
   --shadow-lift: 0 20px 44px rgba(0, 0, 0, 0.62);
   --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.13);
+  --danger-line: rgba(248, 113, 113, 0.42);
   --success: #34d399;
   --emerald-glow: rgba(249, 115, 22, 0.3);
   --tint-bright: 249, 115, 22;
@@ -6162,6 +6168,57 @@ body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
 /* The statement is the widest thing in the panel and the only thing likely to
    contain a long unbroken run of characters. */
 .mock-q-statement { min-width: 0; }
+
+/* ----------------------------- no answer chosen --------------------------- */
+
+.mock-q-popup {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--danger-line, var(--border));
+  background: var(--danger-soft, rgba(var(--tint-shade), 0.5));
+  color: var(--danger, var(--text-a));
+  font-size: 0.85rem;
+  line-height: 1.4;
+  /* A little lift and a quick settle, so it arrives without taking attention
+     from the options the reader is being sent back to. */
+  animation: mock-popup-in 160ms ease-out;
+}
+
+@keyframes mock-popup-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mock-q-popup { animation: none; }
+}
+
+/* An aria-disabled button: unavailable, announced as unavailable, and styled to
+   match the dead ones - but still taking a press, because that press is how it
+   explains itself. */
+.prog-btn.is-blocked,
+.prog-btn[aria-disabled="true"]:not(:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.35);
+}
+
+/* The brief acknowledgement of a press that is being refused, so the button
+   does not look as though it failed to notice. */
+.prog-btn.is-refused {
+  animation: mock-refused 400ms ease-out;
+}
+
+@keyframes mock-refused {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prog-btn.is-refused { animation: none; }
+}
 
 /* ----------------------------- submit validation ----------------------------
  *

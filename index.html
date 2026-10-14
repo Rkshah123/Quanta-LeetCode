@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=56" />
+  <link rel="stylesheet" href="style.css?v=58" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -1169,6 +1169,12 @@
                not move the reader on - another go is theirs to take or not. -->
           <button id="mock-edit-btn" class="prog-btn mock-edit-btn" type="button" hidden>Edit &amp; Resubmit</button>
 
+          <!-- An attempt to submit a multiple-choice question with nothing
+               chosen. Sits directly above the button that was pressed, says only
+               what went wrong, and never mentions the right answer - a reader who
+               has not chosen yet must not be handed it. -->
+          <p id="mock-q-popup" class="mock-q-popup" role="alert" aria-live="assertive" hidden></p>
+
           <div class="mock-q-actions">
             <button id="mock-submit-btn" class="prog-btn" type="button">Submit answer</button>
             <!-- Reads "Next question" until the last one, where there is nothing
@@ -1697,6 +1703,6 @@
 <script src="contests.js?v=1"></script>
   <script src="version.js?v=1"></script>
   <script src="search.js?v=1"></script>
-  <script src="lab-notes.js?v=95"></script>
+  <script src="lab-notes.js?v=97"></script>
 </body>
 </html>
