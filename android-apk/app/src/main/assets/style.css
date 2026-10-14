@@ -5921,6 +5921,16 @@ body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
 
 .mock-start { display: grid; gap: 12px; justify-items: start; }
 .mock-start__btn { min-height: 44px; padding: 12px 22px; font-size: 0.95rem; }
+/* Why the coding questions come from where they do. Quiet enough to read and
+   specific enough to answer the question it is there to answer. */
+.mock-start__pool {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-c);
+}
+
 
 /* ------------------------------ one question ---------------------------- */
 
@@ -6060,30 +6070,292 @@ body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
 
 /* -------------------------------- summary ------------------------------- */
 
-.mock-summary { display: grid; gap: 12px; }
-.mock-score { margin: 0; font-size: 1rem; color: var(--text-a); font-weight: 700; }
-.mock-summary__list { display: grid; gap: 10px; }
-.mock-summary__item {
+/* ----------------------------- submit validation ----------------------------
+ *
+ * The message sits with the editor it is about and is announced, because a
+ * disabled button on its own tells a reader only that something is wrong, not
+ * what. Two different sentences, because an untouched editor and an editor full
+ * of blank lines are two different problems.
+ */
+.mock-q-validation {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--warn-line, var(--border));
+  background: var(--warn-soft, rgba(255, 193, 7, 0.09));
+  color: var(--warn-text, var(--text-a));
+  font-size: 0.85rem;
+}
+
+/* -------------------------------- status line --------------------------------
+ *
+ * A glyph as well as a colour. Four outcomes have to be told apart - right,
+ * wrong, could not be judged, not answered - and four colours alone would leave
+ * that to be guessed at, which fails the moment a theme makes two of them close.
+ */
+.mock-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 700;
+  color: var(--text-a);
+  min-width: 0;
+}
+.mock-status__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  line-height: 1;
+  border: 1px solid var(--border);
+  color: var(--text-a);
+}
+.mock-status__text { min-width: 0; overflow-wrap: anywhere; }
+
+.mock-status.is-correct .mock-status__mark { border-color: var(--ok-line, var(--border)); color: var(--ok-text, var(--text-a)); }
+.mock-status.is-wrong .mock-status__mark,
+.mock-status.is-error .mock-status__mark { border-color: var(--bad-line, var(--border)); color: var(--bad-text, var(--text-a)); }
+.mock-status.is-unknown .mock-status__mark { border-style: dashed; }
+.mock-status.is-unanswered .mock-status__mark { color: var(--text-c); }
+
+/* ------------------------------- test results -------------------------------
+ *
+ * One row per worked example that was really run. This is the evidence behind
+ * the verdict, so it is shown whether the verdict was right or wrong - a reader
+ * who was marked wrong deserves to see which case disagreed.
+ */
+.mock-tests {
   display: grid;
-  gap: 5px;
-  padding: 11px 13px;
+  gap: 4px;
+  padding: 9px 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-shade), 0.55);
+}
+.mock-tests__head {
+  margin: 0 0 2px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-b);
+}
+.mock-tests__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-b);
+  /* Long values wrap rather than pushing the card sideways on a phone. */
+  min-width: 0;
+}
+.mock-tests__name { font-weight: 700; color: var(--text-a); }
+.mock-tests__detail { overflow-wrap: anywhere; min-width: 0; }
+.mock-tests__verdict { font-weight: 700; white-space: nowrap; }
+.mock-tests__row.is-pass .mock-tests__verdict { color: var(--ok-text, var(--text-a)); }
+.mock-tests__row.is-fail .mock-tests__verdict { color: var(--bad-text, var(--text-a)); }
+
+/* --------------------------------- code --------------------------------- */
+
+.mock-code { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.mock-code > summary {
+  cursor: pointer;
+  padding: 8px 11px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-b);
+  background: rgba(var(--tint-shade), 0.5);
+}
+.mock-code[open] > summary { border-bottom: 1px solid var(--border); }
+.mock-code > .mock-result__code { border: 0; border-radius: 0; background: none; }
+
+/* ------------------------------ results screen ----------------------------- */
+
+.mock-summary { display: grid; gap: 14px; }
+
+.mock-results__head { display: grid; gap: 3px; }
+.mock-results__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-c);
+}
+.mock-results__score {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--text-a);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+/* Four tiles, wrapping onto as many rows as the width allows. A single sentence
+   carrying the same four numbers is read; four numbers are looked at. */
+.mock-results__tally {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+.mock-tile {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: rgba(var(--tint-pop), 0.7);
+  min-width: 0;
 }
-.mock-summary__head { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
-.mock-summary__n { font-weight: 700; color: var(--text-a); font-size: 0.8rem; }
-.mock-summary__kind {
+.mock-tile__value {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-a);
+}
+.mock-tile__label {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-c);
+  overflow-wrap: anywhere;
+}
+.mock-tile.is-correct { border-color: var(--ok-line, var(--border)); }
+.mock-tile.is-correct .mock-tile__value { color: var(--ok-text, var(--text-a)); }
+.mock-tile.is-wrong,
+.mock-tile.is-unanswered { border-color: var(--bad-line, var(--border)); }
+.mock-tile.is-wrong .mock-tile__value,
+.mock-tile.is-unanswered .mock-tile__value { color: var(--bad-text, var(--text-a)); }
+.mock-tile.is-unknown { border-style: dashed; }
+
+.mock-results__list { display: grid; gap: 10px; }
+
+/* One card per question. The colour is the verdict, the glyph beside it is the
+   verdict again, and the heading says which question this is - three ways of
+   finding the same thing, so none of them has to be trusted alone. */
+.mock-res__item {
+  display: grid;
+  gap: 8px;
+  padding: 12px 13px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-pop), 0.7);
+  min-width: 0;
+}
+.mock-res__item.is-correct { border-left: 3px solid var(--ok-line, var(--border)); }
+.mock-res__item.is-wrong,
+.mock-res__item.is-error { border-left: 3px solid var(--bad-line, var(--border)); }
+.mock-res__item.is-unknown { border-left: 3px dashed var(--accent-line); }
+.mock-res__item.is-unanswered { border-left: 3px solid var(--border); }
+
+.mock-res__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.mock-res__n { font-weight: 800; color: var(--text-a); font-size: 0.8rem; }
+.mock-res__kind {
   font-size: 0.7rem;
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
   color: var(--text-c);
+  white-space: nowrap;
 }
-.mock-summary__verdict { margin-left: auto; font-size: 0.8rem; color: var(--text-b); }
-.mock-summary__title { margin: 0; font-size: 0.92rem; color: var(--text-a); overflow-wrap: anywhere; }
-.mock-summary__given { margin: 0; font-size: 0.85rem; color: var(--text-b); }
-.mock-summary__correct { color: var(--text-a); }
+.mock-res__head .mock-status { margin-left: auto; font-size: 0.84rem; }
+
+.mock-res__title {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+}
+
+/* What was given, and what the right thing was. Two labelled rows rather than a
+   run-on line, so they can be compared without re-reading. */
+.mock-res__meta {
+  margin: 0;
+  display: grid;
+  gap: 5px;
+}
+.mock-res__meta > div {
+  display: grid;
+  grid-template-columns: minmax(88px, auto) 1fr;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+.mock-res__meta dt {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-c);
+  white-space: nowrap;
+}
+.mock-res__meta dd {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-a);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* Review opens the saved answer. It is a button rather than a link only so it
+   can carry aria-expanded; it submits nothing, and there is no control on this
+   screen that could change a recorded answer. */
+.mock-res__toggle {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-shade), 0.5);
+  color: var(--text-b);
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mock-res__toggle:hover { border-color: var(--accent-line); color: var(--text-a); }
+.mock-res__chevron { transition: transform 0.15s ease; }
+.mock-res__toggle.is-open .mock-res__chevron { transform: rotate(180deg); }
+
+.mock-res__detail {
+  display: grid;
+  gap: 9px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+.mock-res__detail p { overflow-wrap: anywhere; }
+.mock-res__answer { margin: 0; font-size: 0.9rem; color: var(--text-a); }
+.mock-res__why { color: var(--text-b); font-size: 0.88rem; }
+.mock-res__why p { margin: 0 0 7px; }
+.mock-res__why ul { margin: 0; padding-left: 20px; }
+.mock-res__why li { margin-bottom: 4px; }
+
+.mock-results__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.mock-results__actions button { min-height: 44px; }
+
+/* A phone gets one column throughout: the tally wraps, the meta rows stack their
+   labels above their values, and the status line wraps under the badges rather
+   than squeezing them off the edge. */
+@media (max-width: 560px) {
+  .mock-results__score { font-size: 1.25rem; }
+  .mock-results__tally { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mock-res__head .mock-status { margin-left: 0; flex: 1 1 100%; }
+  .mock-res__meta > div { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+  .mock-tests__row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .mock-tests__verdict { white-space: normal; }
+  .mock-results__actions button { flex: 1 1 auto; }
+}
 
 /* A phone gets one readable column and a shorter editor, rather than the
    desktop's two panes squeezed into 360px. */

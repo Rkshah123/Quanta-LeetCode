@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=52" />
+  <link rel="stylesheet" href="style.css?v=54" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -1108,6 +1108,12 @@
             a multiple-choice question has no clock. Nothing is timed until you press Start.
           </p>
           <button id="mock-start-btn" class="prog-btn mock-start__btn" type="button">Start the test</button>
+          <!-- Said out loud rather than left to be inferred. Coding questions
+               are drawn from the problems this device holds the full statement
+               for, because those are the ones whose worked examples can be run
+               against an answer. That skews the mix towards one platform, and a
+               reader who noticed would rightly ask why. -->
+          <p id="mock-start-pool" class="mock-start__pool"></p>
           <p id="mock-start-note" class="viz-about" role="status" aria-live="polite"></p>
         </section>
 
@@ -1153,6 +1159,11 @@
             </section>
           </div>
 
+          <!-- Why Submit is unavailable. Lives with the editor it is about, and
+               is announced, so the reason a button is dead is never left to be
+               guessed at. -->
+          <p id="mock-q-validation" class="mock-q-validation" role="status" aria-live="polite" hidden></p>
+
           <div class="mock-q-actions">
             <button id="mock-submit-btn" class="prog-btn" type="button">Submit answer</button>
             <button id="mock-next-btn" class="prog-btn prog-btn--primary" type="button" hidden>Next question</button>
@@ -1163,13 +1174,26 @@
           <div id="mock-q-result" class="mock-q-result" aria-live="polite"></div>
         </section>
 
-        <!-- =========================== summary =========================== -->
+        <!-- =========================== results =========================== -->
+        <!-- A screen rather than a sentence. Three answers have to be compared
+             against each other, and a paragraph makes that a reading task while
+             cards make it a looking one. -->
         <section id="mock-summary" class="settings-group mock-summary" aria-labelledby="mock-summary-title" hidden>
-          <h3 id="mock-summary-title">Your test</h3>
-          <p id="mock-score" class="mock-score"></p>
-          <div id="mock-summary-list" class="mock-summary__list"></div>
-          <div class="study-actions">
-            <button id="mock-again-btn" class="prog-btn" type="button">Another test</button>
+          <header class="mock-results__head">
+            <p class="mock-results__eyebrow">Test complete</p>
+            <h3 id="mock-summary-title">Mock test results</h3>
+            <p id="mock-score" class="mock-results__score"></p>
+          </header>
+
+          <!-- Correct / incorrect / not answered / unable to evaluate, as tiles.
+               "Unable to evaluate" is kept apart from incorrect on purpose: the
+               reader may well have solved those, and Quanta cannot say. -->
+          <div id="mock-results-tally" class="mock-results__tally"></div>
+
+          <div id="mock-summary-list" class="mock-results__list"></div>
+
+          <div class="mock-results__actions">
+            <button id="mock-again-btn" class="prog-btn prog-btn--primary" type="button">Retake mock test</button>
           </div>
         </section>
 
@@ -1669,13 +1693,13 @@
   <script src="academy.js?v=1"></script>
   <script src="patterns.js?v=1"></script>
   <script src="mock.js?v=2"></script>
-  <script src="mocktest.js?v=1"></script>
+  <script src="mocktest.js?v=3"></script>
   <script src="solutions.js?v=1"></script>
 <script src="debugger.js?v=1"></script>
 <script src="review.js?v=1"></script>
 <script src="contests.js?v=1"></script>
   <script src="version.js?v=1"></script>
   <script src="search.js?v=1"></script>
-  <script src="lab-notes.js?v=82"></script>
+  <script src="lab-notes.js?v=90"></script>
 </body>
 </html>

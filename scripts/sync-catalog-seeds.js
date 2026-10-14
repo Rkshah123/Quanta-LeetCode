@@ -57,7 +57,60 @@ const readEmbedded = () => {
      `p(num, slug, title, difficulty, platform, url)` for anything else. The
      trailing group is optional so both forms parse with one pattern; a row that
      matches neither is a real problem and is reported rather than skipped. */
-  const ROW = /^p\((-?\d+),\s*(".*?"),\s*(".*?"),\s*("(?:Easy|Medium|Hard)")(?:,\s*("[a-z]+")?,\s*(".*?"))?(?:,\s*\[([\d,\s]*)\])?\)/;
+  /* The trailing hasDescription is optional so a row written before this
+     argument existed still parses - it reads as false, which is what it was. */
+  /* The four fixed arguments, then everything else captured whole. Which format a
+     row is in is decided by inspecting each remaining token rather than by a
+     second regex - otherwise a format change makes the generator unable to read
+     the very rows it is meant to be replacing. */
+  const ROW = /^p\((-?\d+),\s*(".*?"),\s*(".*?"),\s*("(?:Easy|Medium|Hard)")(?:,\s*([\s\S]*))?\)[,]?$/;
+  const PLATFORM_RE = /^"([a-z]+)"$/;
+
+  /* Splits a tail like `[0, 2], true, "codeforces", "https://..."` into its
+     top-level tokens, respecting brackets and quotes. */
+  const splitTop = (body) => {
+    const out = [];
+    let depth = 0;
+    let quote = null;
+    let cur = "";
+    for (const ch of body) {
+      if (quote) {
+        cur += ch;
+        if (ch === quote) quote = null;
+        continue;
+      }
+      if (ch === '"' || ch === "'") { quote = ch; cur += ch; continue; }
+      if ("[[{(".includes(ch)) depth += 1;
+      if ("]})".includes(ch)) depth -= 1;
+      if (ch === "," && depth === 0) { out.push(cur.trim()); cur = ""; continue; }
+      cur += ch;
+    }
+    if (cur.trim()) out.push(cur.trim());
+    return out;
+  };
+
+  /* Reads a row in either order: the arguments after difficulty are classified
+     by what they are, not by where they sit. */
+  const readTail = (body) => {
+    const parsed = { platform: "leetcode", url: "", topicIndices: [], hasDescription: false };
+    for (const token of splitTop(body)) {
+      if (token === "null") continue;
+      if (token === "true") { parsed.hasDescription = true; continue; }
+      if (token === "false") { parsed.hasDescription = false; continue; }
+      if (token.startsWith("[")) {
+        parsed.topicIndices = token
+          .replace(/^\[|\]$/g, "")
+          .split(",")
+          .map((n) => Number(n.trim()))
+          .filter(Number.isFinite);
+        continue;
+      }
+      const asPlatform = token.match(PLATFORM_RE);
+      if (asPlatform) { parsed.platform = JSON.parse(token); continue; }
+      if (token.startsWith('"')) { parsed.url = JSON.parse(token); continue; }
+    }
+    return parsed;
+  };
 
   const entries = [];
   const unparsed = [];
@@ -69,16 +122,20 @@ const readEmbedded = () => {
       unparsed.push(`${i + 1}: ${text.slice(0, 90)}`);
       continue;
     }
-    entries.push({
-      line: i,
-      num: Number(match[1]),
-      slug: JSON.parse(match[2]),
-      title: JSON.parse(match[3]),
-      difficulty: JSON.parse(match[4]),
-      platform: match[5] ? JSON.parse(match[5]) : "leetcode",
-      url: match[6] ? JSON.parse(match[6]) : "",
-      topicIndices: match[7] ? match[7].split(",").map((n) => Number(n.trim())).filter(Number.isFinite) : []
-    });
+    let num = Number(match[1]);
+    if (!Number.isFinite(num)) { unparsed.push(`${i + 1}: ${text.slice(0, 90)}`); continue; }
+    let slug;
+    let title;
+    let difficulty;
+    try {
+      slug = JSON.parse(match[2]);
+      title = JSON.parse(match[3]);
+      difficulty = JSON.parse(match[4]);
+    } catch {
+      unparsed.push(`${i + 1}: ${text.slice(0, 90)}`);
+      continue;
+    }
+    entries.push({ line: i, num, slug, title, difficulty, ...readTail(match[5] || "") });
   }
   return { source, lines, retIndex, end, entries, unparsed };
 };
@@ -140,7 +197,14 @@ const main = async () => {
        rather than anything the app chose. Carrying the embedded values forward
        would keep a stale "leetcode" on a problem the curator has since
        recorded as coming from another platform. */
-    const identity = { platform: match.platform || "leetcode", url: match.url || "", topics: match.topics || [] };
+    const identity = {
+      platform: match.platform || "leetcode",
+      url: match.url || "",
+      topics: match.topics || [],
+      /* Whether this device holds the problem's statement, which is what decides
+         whether a mock answer can be marked rather than merely run. */
+      hasDescription: match.hasDescription === true
+    };
 
     if (normaliseTitle(match.title) !== normaliseTitle(entry.title)) {
       adopt.push({ ...entry, ...identity, title: String(match.title).trim().replace(/\s+/g, " "), difficulty: match.difficulty });
@@ -167,6 +231,7 @@ const main = async () => {
       difficulty: p.difficulty,
       platform: p.platform || "leetcode",
       url: p.url || "",
+      hasDescription: p.hasDescription === true,
       topics: p.topics || []
     });
   }
@@ -196,15 +261,17 @@ const main = async () => {
      lab-notes.js, never as full labels: ~2,000 rows averaging five topics would
      otherwise add about 200 KB of repeated strings to the file that ships with
      the app. */
-  const renderRow = (p) => {
+    const renderRow = (p) => {
     const base = `      p(${Number(p.num) || 0}, ${jsString(p.slug)}, ${jsString(p.title)}, ${jsString(p.difficulty)}`;
     const isLeetCode = !p.platform || p.platform === "leetcode";
-    const url = isLeetCode ? "" : `, ${jsString(p.platform)}, ${jsString(p.url || "")}`;
+    const platformArg = isLeetCode ? "" : `, ${jsString(p.platform)}, ${jsString(p.url || "")}`;
     const topics = topicIndices(p.topics);
-    const topicArg = topics.length ? `, [${topics.join(", ")}]` : "";
-    return `${base}${url}${topicArg}),`;
+    const topicArg = `, [${topics.join(", ")}]`;
+    /* Always written: true or false. A flag that only appears when set cannot
+       be told apart from the argument that follows it. */
+    const statementArg = p.hasDescription === true ? "true" : "false";
+    return `${base}${topicArg}, ${statementArg}${platformArg}),`;
   };
-
   /* The label list, mirroring SEED_TOPICS in lab-notes.js. If the two ever drift
      the app would label topics with the wrong words, so the script verifies its
      own copy against the file it is writing to. */
