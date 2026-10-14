@@ -11571,6 +11571,7 @@ const refreshStudyForActiveProblem = () => {
     mockShow("mock-start", false);
     mockShow("mock-summary", false);
     mockShow("mock-run", true);
+    mockSyncHistoryPanel();
     void mockOpenQuestion();
   };
 
@@ -12152,6 +12153,15 @@ const refreshStudyForActiveProblem = () => {
 
     mockAfterSubmit(mark, { expired });
   };
+  /* A past sitting belongs beside the start screen and the results screen, and
+     nowhere else. Shown and hidden alongside the run panel so the two can never
+     disagree about whether a test is in progress. */
+  const mockSyncHistoryPanel = () => {
+    /* Shown only while the run panel is out of the way - that is, on the start
+       screen and on the results screen, and never during a test. */
+    mockShow("mock-history-panel", Boolean(mockEl("mock-run")?.hasAttribute("hidden")));
+  };
+
   /* -------------------------------------------------------------- result */
 
   /* A short status line with a shape, not just a colour: a tick for a right
@@ -12652,6 +12662,7 @@ const refreshStudyForActiveProblem = () => {
     mockState.finished = true;
 
     mockShow("mock-run", false);
+    mockSyncHistoryPanel();
     mockShow("mock-summary", true);
 
     const tally = mockRenderResults();

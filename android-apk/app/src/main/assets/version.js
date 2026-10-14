@@ -8,4 +8,4 @@
    VERSION_NAME it is given, so the number here and the number in the APK cannot
    drift apart. The build fails if it cannot find the line to rewrite. */
 
-window.QUANTA_VERSION = "1.6.0";
+window.QUANTA_VERSION = "1.6.1";
