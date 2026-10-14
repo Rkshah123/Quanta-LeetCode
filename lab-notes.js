@@ -68,6 +68,10 @@
   const labSaveBtn = byId("save-java-file-btn");
   const labCloseBtn = null; // page, not modal
   const labLayout = byId("java-lab-layout");
+  /* The mock interview's editor/output split. It has its own editor and its own
+     output box, but it is driven by the same resizer machinery as the Lab's -
+     see the handles in qlSplits - so the divider behaves identically. */
+  const mockWorkspace = byId("mock-workspace");
   const labMobileEditorTab = byId("lab-mobile-editor-tab");
   const labMobileOutputTab = byId("lab-mobile-output-tab");
   const labMobileSwitch = byId("lab-mobile-switch");
@@ -114,6 +118,18 @@
        what a good suggestion is, so a cached list would go stale the moment
        the user solved anything. */
     if (pageId === "discovery") discoveryRefresh();
+  /* The mock interview's editor is built on the first visit, not at start-up.
+     A second Monaco instance is a real memory cost and most sessions never open
+     the interview, so nobody should pay for it before asking. Safe to call on
+     every visit: ensureMockEditor() returns immediately once it exists. */
+  if (pageId === "mock") {
+    void ensureMockEditor().catch(() => {
+      if (mockEditorNode && !mockEditor) {
+        mockEditorNode.innerHTML =
+          '<p class="ql-desc-empty">The code editor could not start on this device, so code cannot be typed here. The problem and the clock are unaffected.</p>';
+      }
+    });
+  }
     /* The arena's clock starts on show and stops on leave, and its contest list
        is refetched each visit - a countdown you have to reload to trust is not
        worth having. */
@@ -4751,7 +4767,7 @@ const ensureRevisionStateForCatalog = () => {
   const confirmAddLcProblem = async () => {
     const value = String(lcAddUrlInput?.value || "").trim();
     if (!value) {
-      showLcAddError("Paste a LeetCode problem link first.");
+      showLcAddError("Paste a problem link first.");
       return;
     }
     const info = extractLcProblemInfo(value);
@@ -6861,6 +6877,31 @@ const ensureRevisionStateForCatalog = () => {
         key: "labRowH",
         layout: () => labLayout,
         start: () => byId("java-editor-pane"),
+        minStart: 160,
+        minEnd: 140,
+        trackExtra: 34
+      },
+      /* Mock interview: editor | output width, and the same pair stacked on a
+         narrow screen. The same resizer drives these as the Lab's, so the
+         divider is styled and dragged identically and remembers its position;
+         the keys are separate so the two panels never overwrite each other's
+         sizes. */
+      {
+        el: byId("mock-col-resizer"),
+        mode: "x",
+        key: "mockColW",
+        layout: () => mockWorkspace,
+        start: () => mockWorkspace?.querySelector(".mock-editor-pane"),
+        minStart: 240,
+        minEnd: 240,
+        trackExtra: 34
+      },
+      {
+        el: byId("mock-row-resizer"),
+        mode: "y",
+        key: "mockRowH",
+        layout: () => mockWorkspace,
+        start: () => mockWorkspace?.querySelector(".mock-editor-pane"),
         minStart: 160,
         minEnd: 140,
         trackExtra: 34
@@ -11731,10 +11772,184 @@ const refreshStudyForActiveProblem = () => {
     host.appendChild(list);
   };
 
+  /* ------------------------------ mock editor -----------------------------
+   *
+   * The interview's editor and its Run button.
+   *
+   * Reuses the Lab's pieces rather than reimplementing them: the same Monaco
+   * setup, the same language list and the same executeCode() runner, so a
+   * snippet written during an interview is compiled and run by exactly the code
+   * that runs it in the Lab - same languages, same fallbacks, same offline
+   * behaviour.
+   *
+   * What it deliberately does NOT bring over: sessions, tabs, New/Rename/Delete,
+   * Save, zoom and auto-save. Those belong to the Lab's file management. An
+   * interview needs somewhere to type and somewhere to read the result; adding
+   * the rest would be the Lab's whole interface pasted into a panel that is not
+   * the Lab.
+   *
+   * The editor is built the first time the page is opened rather than at
+   * start-up, because a second Monaco instance costs real memory and nobody
+   * should pay for it before asking for it. */
+  const mockEditorNode = byId("mock-monaco-editor");
+  const mockLanguageSelect = byId("mock-language-select");
+  const mockOutput = byId("mock-output");
+  const mockRunBtn = byId("mock-run-btn");
+  const MOCK_CODE_KEY = "quantaMockCodeV1";
+  let mockEditor = null;
+  let mockRunning = false;
+
+  const mockSetOutput = (text) => {
+    if (!mockOutput) return;
+    mockOutput.textContent = String(text == null ? "" : text);
+    mockOutput.scrollTop = mockOutput.scrollHeight;
+  };
+
+  /* Held per language, so switching to look something up in another language and
+     back does not destroy the answer being written. */
+  const mockCodeState = { code: {}, language: DEFAULT_LANGUAGE };
+
+  const mockLoadCodeState = () => {
+    try {
+      const saved = readJson(MOCK_CODE_KEY, () => ({}));
+      if (saved && typeof saved === "object") {
+        if (saved.code && typeof saved.code === "object") mockCodeState.code = saved.code;
+        mockCodeState.language = normalizeLanguage(saved.language);
+      }
+    } catch {
+      /* A corrupt stored value must not stop the interview starting. */
+    }
+  };
+
+  const mockSaveCodeState = () => {
+    try {
+      writeJson(MOCK_CODE_KEY, { code: mockCodeState.code, language: mockCodeState.language });
+    } catch {
+      /* Storage full or unavailable. The code is still on screen. */
+    }
+  };
+
+  const mockRenderLanguages = () => {
+    if (!mockLanguageSelect || mockLanguageSelect.options.length) return;
+    for (const id of LANGUAGE_IDS) {
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = getLanguageDef(id).label;
+      mockLanguageSelect.appendChild(option);
+    }
+    mockLanguageSelect.value = mockCodeState.language;
+  };
+
+  const mockApplyModel = () => {
+    if (!mockEditor || !window.monaco?.editor) return;
+    const language = normalizeLanguage(mockLanguageSelect?.value);
+    mockCodeState.language = language;
+    mockEditor.setModel(
+      window.monaco.editor.createModel(mockCodeState.code[language] || "", getLanguageDef(language).monaco)
+    );
+    syncMonacoTheme();
+    mockSaveCodeState();
+  };
+
+  const ensureMockEditor = async () => {
+    mockRenderLanguages();
+    if (!mockEditorNode) return null;
+    if (mockEditor) {
+      /* Monaco measures its container on demand. After the divider moves, or
+         after the page was hidden while the interview ran, that measurement is
+         stale and the editor draws at the wrong size. */
+      mockEditor.layout();
+      return mockEditor;
+    }
+    const monaco = await ensureMonaco();
+    mockCodeState.language = normalizeLanguage(mockLanguageSelect?.value || mockCodeState.language);
+    mockEditor = monaco.editor.create(mockEditorNode, {
+      value: mockCodeState.code[mockCodeState.language] || "",
+      language: getLanguageDef(mockCodeState.language).monaco,
+      automaticLayout: true,
+      tabSize: 4,
+      insertSpaces: true,
+      bracketPairColorization: { enabled: true },
+      autoClosingBrackets: "always",
+      autoClosingQuotes: "always",
+      autoIndent: "full",
+      formatOnPaste: true,
+      formatOnType: true,
+      minimap: { enabled: false },
+      fontSize: labState.editorFontSize,
+      lineHeight: 1.6,
+      fontFamily: "Consolas, 'Courier New', monospace",
+      wordWrap: labState.wordWrap !== false ? "on" : "off",
+      lineNumbers: labState.lineNumbers !== false ? "on" : "off",
+      scrollBeyondLastLine: false,
+      renderValidationDecorations: "on",
+      padding: { top: 10, bottom: 10 },
+      scrollbar: { alwaysConsumeMouseWheel: false, verticalScrollbarSize: 10, horizontalScrollbarSize: 10 }
+    });
+    mockEditor.onDidChangeModelContent(() => {
+      mockCodeState.code[mockCodeState.language] = mockEditor.getValue();
+      mockSaveCodeState();
+    });
+    syncMonacoTheme();
+    return mockEditor;
+  };
+
+  const mockRun = async () => {
+    if (mockRunning) return;
+    const editor = await ensureMockEditor();
+    if (!editor) return;
+    mockRunning = true;
+    if (mockRunBtn) {
+      mockRunBtn.disabled = true;
+      mockRunBtn.classList.add("is-running");
+      const label = mockRunBtn.querySelector("span");
+      if (label) label.textContent = "Running…";
+    }
+    mockSetOutput("Running…");
+    mockOutput?.classList.remove("is-error");
+    const language = normalizeLanguage(mockLanguageSelect?.value);
+    const code = editor.getValue();
+    try {
+      const result = await executeCode(language, code, "");
+      const parts = [];
+      if (result.stdout) parts.push(result.stdout.replace(/\n$/, ""));
+      if (result.stderr) parts.push(result.stderr.replace(/\n$/, ""));
+      mockSetOutput(parts.length ? parts.join("\n") : "(no output)");
+      if (result.timedOut || !result.ok) mockOutput?.classList.add("is-error");
+    } catch (error) {
+      mockSetOutput("Unexpected error: " + (error?.message || error));
+      mockOutput?.classList.add("is-error");
+    } finally {
+      mockRunning = false;
+      if (mockRunBtn) {
+        mockRunBtn.disabled = false;
+        mockRunBtn.classList.remove("is-running");
+        const label = mockRunBtn.querySelector("span");
+        if (label) label.textContent = "Run";
+      }
+    }
+  };
+
+  /* Wiring only. The editor itself is built when the page is first opened,
+     from showPage(), so a session that never runs a mock interview never pays
+     for a second Monaco instance. */
+  const initMockWorkspace = () => {
+    mockLoadCodeState();
+    mockRenderLanguages();
+    mockLanguageSelect?.addEventListener("change", () => {
+      /* Save what is in the editor under the language it belongs to before
+         switching away from it, or the text is lost on every change. */
+      if (mockEditor) mockCodeState.code[mockCodeState.language] = mockEditor.getValue();
+      mockApplyModel();
+    });
+    mockRunBtn?.addEventListener("click", () => void mockRun());
+  };
+
   const initMock = () => {
     mockLoadHistory();
     mockRenderSetup();
     mockRenderHistory();
+    initMockWorkspace();
     /* A page left open in the background would otherwise keep counting, and
        coming back would show a stage that ran while nobody was watching. */
     document.addEventListener("visibilitychange", () => {

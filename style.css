@@ -3871,6 +3871,164 @@ body[data-theme="beige"] .btn-toggle {
 .mock-problem__statement .ql-desc-loading,
 .mock-problem__statement .ql-desc-empty { color: var(--text-b); font-size: 0.9rem; }
 
+/* ----------------------------- mock workspace -----------------------------
+ *
+ * The editor on the left, the output on the right, and the Lab's own resizer
+ * between them.
+ *
+ * Written as its own rules rather than reusing `.java-lab-layout`, because that
+ * class carries roughly fifteen page-scoped responsive overrides. Borrowing the
+ * name would have inherited only the desktop base and missed every one of them,
+ * which is how this sort of panel ends up with a 496px-wide editor on a phone.
+ * The values here mirror the Lab's proven desktop proportions; the mobile
+ * behaviour is stated outright instead of inherited.
+ *
+ * The dividers keep the real `.ql-col-resizer` / `.ql-row-resizer` classes, so
+ * they are styled and dragged by exactly the same code that moves the Lab's.
+ */
+.mock-workspace {
+  display: grid;
+  /* --split-a is the one variable the shared resizer writes: the editor's share
+     of the width. The output takes the remainder with 1fr, so BOTH panes grow
+     and shrink as the divider moves.
+
+     The Lab's template floors the output with minmax(260px, 380px) instead,
+     which pins it near 380px and means dragging only ever resizes the editor.
+     That is fine for a page where the editor is the point; here the requirement is
+     that dragging resizes both, so the output flexes and is only given a floor. */
+  grid-template-columns: var(--split-a, 50%) 10px minmax(180px, 1fr);
+  gap: 12px;
+  min-height: 0;
+  margin-top: 16px;
+}
+
+.mock-editor-pane {
+  display: grid;
+  /* The language bar is a fixed strip, the editor takes the rest. */
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.mock-workspace__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mock-lang { display: inline-flex; }
+.mock-lang select {
+  background: var(--field, rgba(255, 255, 255, 0.06));
+  color: var(--text-a);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.86rem;
+  min-height: 40px;
+}
+
+.mock-monaco-editor {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--tint-light), 0.25);
+  /* Without an explicit height the editor collapses and Monaco reports a zero
+     layout, which shows up as an invisible or blank editor. */
+  height: clamp(260px, 46vh, 620px);
+  min-height: 0;
+}
+
+.mock-output-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
+  min-height: 0;
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--tint-light), 0.22);
+  background: rgba(var(--tint-pop), 0.92);
+  overflow: hidden;
+  padding-bottom: 10px;
+}
+
+.mock-output-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px 0;
+}
+.mock-output-head h3 { margin: 0; font-size: 0.95rem; color: var(--text-a); }
+
+/* Visually hidden, still announced - used for the language label. */
+.mock-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Below 1100px the two columns stop being usable, so the panes stack and the
+   divider turns horizontal. The row split is stored as a height in
+   --split-row-a, which is the variable the shared resizer writes for a "y"
+   split. 760px is where even that stops being worth the space, and the Lab
+   drops both dividers there; the same cut-off is used so the two panels behave
+   the same way on the same phone. */
+@media (max-width: 1100px) {
+  .mock-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--split-row-a, minmax(240px, 1fr)) 10px minmax(180px, 34dvh);
+    /* A definite height is what makes the horizontal divider mean anything.
+
+       Stacked, the workspace is otherwise only as tall as its own content, so
+       there is no track to measure a split against and dragging the divider
+       moves nothing - the panes are already at the size the content asks for.
+       Giving the block a real height turns it into a track the resizer can
+       divide, and dvh keeps it inside the visible area when the on-screen
+       keyboard is up. */
+    height: clamp(420px, 62dvh, 720px);
+  }
+  .mock-workspace > .ql-col-resizer { display: none; }
+  .mock-workspace > .ql-row-resizer {
+    display: block;
+    justify-self: stretch;
+    width: auto;
+  }
+  /* The panes now divide a fixed-height track rather than growing with their
+     content, so the editor's own height is set by the track, not by its
+     min-height. */
+  .mock-monaco-editor { height: auto; min-height: 0; }
+  .mock-output-pane { min-height: 0; }
+}
+
+@media (max-width: 760px) {
+  /* The Lab drops both dividers below this width. Here the panes are stacked,
+     which is exactly the case a horizontal divider is for, and it is the only
+     way to give back the height the on-screen keyboard takes. So the divider
+     stays; only the column template collapses. */
+  .mock-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--split-row-a, minmax(240px, 1fr)) 10px minmax(180px, 34dvh);
+  }
+}
+
+@media (min-width: 1101px) {
+  .mock-workspace > .ql-row-resizer { display: none; }
+}
+
+/* Touch: the divider needs a wider grab area than a mouse pointer, and the page
+   must not scroll sideways while a finger is dragging it. */
+@media (pointer: coarse) {
+  .mock-workspace > .ql-col-resizer,
+  .mock-workspace > .ql-row-resizer { touch-action: none; }
+}
+
+
 .mock-question {
   display: grid;
   gap: 8px;

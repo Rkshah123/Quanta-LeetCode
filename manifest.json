@@ -1,7 +1,7 @@
 {
-  "name": "LeetCode Dashboard",
-  "short_name": "LeetCode",
-  "description": "Quanta — your personal coding workspace: Quanta Lab problem dashboard with per-problem notes and code, personal language notes, and a multi-language programming lab.",
+  "name": "Quanta",
+  "short_name": "Quanta",
+  "description": "Quanta - your personal coding workspace: problem dashboard with per-problem notes and code, personal language notes, and a multi-language programming lab.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

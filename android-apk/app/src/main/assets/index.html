@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=46" />
+  <link rel="stylesheet" href="style.css?v=49" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -1127,6 +1127,37 @@
                  Quanta Lab, which ended the interview the reader was sitting in. -->
             <div id="mock-problem-statement" class="mock-problem__statement" aria-live="polite"></div>
           </div>
+
+          <!-- The workspace. Same editor and the same execution path as the Code
+               Lab, with no Lab headings, instructions or file management: the
+               interview needs somewhere to type and somewhere to see the result,
+               and nothing else.
+
+               The divider is the same resizer the Lab uses, so dragging it
+               behaves identically and remembers where it was put. -->
+          <div id="mock-workspace" class="mock-workspace">
+            <section class="mock-editor-pane">
+              <div class="mock-workspace__bar">
+                <label class="mock-lang">
+                  <span class="mock-sr-only">Language</span>
+                  <select id="mock-language-select" aria-label="Language"></select>
+                </label>
+              </div>
+              <div id="mock-monaco-editor" class="mock-monaco-editor" aria-label="Code editor"></div>
+            </section>
+            <div class="ql-col-resizer" id="mock-col-resizer" role="separator" aria-orientation="vertical" aria-label="Drag to resize the code editor and the output" tabindex="0"></div>
+            <div class="ql-row-resizer" id="mock-row-resizer" role="separator" aria-orientation="horizontal" aria-label="Drag to resize the code editor and the output" tabindex="0"></div>
+            <section class="mock-output-pane" aria-label="Program output">
+              <div class="mock-output-head">
+                <h3>Output</h3>
+                <button id="mock-run-btn" class="run-btn run-btn--head" type="button" aria-label="Run program">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7L8 5Z"/></svg>
+                  <span>Run</span>
+                </button>
+              </div>
+              <pre id="mock-output" class="java-output"></pre>
+            </section>
+          </div>
         </section>
 
         <section id="mock-review" class="settings-group" aria-labelledby="mock-review-title" hidden>
@@ -1552,7 +1583,11 @@
           <ul class="about-features about-links">
             <li><a href="https://github.com/Rkshah123" target="_blank" rel="noopener noreferrer">GitHub — source code and updates</a></li>
             <li><a href="https://shaharukh-khan-premium-portfolio.vercel.app/" target="_blank" rel="noopener noreferrer">Portfolio — other projects</a></li>
-            <li><a href="https://leetcode.com/problemset/" target="_blank" rel="noopener noreferrer">LeetCode problem set</a></li>
+            <!-- The third entry here used to be a link out to another platform's
+                 problem set. It was not needed to open a problem - Quanta already
+                 carries an external link on every one - and it was the only place
+                 in the product that advertised somewhere else. Removed rather than
+                 relabelled; the two above are the author's own work. -->
           </ul>
         </section>
         <section class="settings-group">
@@ -1576,7 +1611,7 @@
   <div id="lc-add-overlay" class="lc-add-overlay" hidden>
     <div class="lc-add-dialog" role="dialog" aria-modal="true" aria-labelledby="lc-add-title">
       <h3 id="lc-add-title">Add problem</h3>
-      <p class="lc-add-sub">Paste the LeetCode link, then the number and name so it lands in the right place.</p>
+      <p class="lc-add-sub">Paste the problem link, then the number and name so it lands in the right place.</p>
       <div class="lc-add-field">
         <label for="lc-add-url-input">Link</label>
         <input id="lc-add-url-input" type="url" inputmode="url" placeholder="https://leetcode.com/problems/median-of-two-sorted-arrays/description/" autocomplete="off" />
@@ -1633,6 +1668,6 @@
 <script src="contests.js?v=1"></script>
   <script src="version.js?v=1"></script>
   <script src="search.js?v=1"></script>
-  <script src="lab-notes.js?v=79"></script>
+  <script src="lab-notes.js?v=80"></script>
 </body>
 </html>
