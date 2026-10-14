@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=58" />
+  <link rel="stylesheet" href="style.css?v=59" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -1177,6 +1177,10 @@
 
           <div class="mock-q-actions">
             <button id="mock-submit-btn" class="prog-btn" type="button">Submit answer</button>
+            <!-- Laid over the button while it is disabled, so that pressing it
+                 says why instead of doing nothing. The button underneath is
+                 really disabled; this is what receives the press. -->
+            <button id="mock-q-guard" class="mock-q-guard" type="button" hidden>Submit answer</button>
             <!-- Reads "Next question" until the last one, where there is nothing
                  after it and the button asks for the results instead. -->
             <button id="mock-next-btn" class="prog-btn prog-btn--primary" type="button" hidden>Next question</button>
@@ -1718,6 +1722,6 @@
 <script src="contests.js?v=1"></script>
   <script src="version.js?v=1"></script>
   <script src="search.js?v=1"></script>
-  <script src="lab-notes.js?v=97"></script>
+  <script src="lab-notes.js?v=98"></script>
 </body>
 </html>
