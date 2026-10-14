@@ -12089,6 +12089,9 @@ const refreshStudyForActiveProblem = () => {
   const mockRunBtn = byId("mock-run-btn");
   const MOCK_CODE_KEY = "quantaMockCodeV1";
   let mockEditor = null;
+  /* Set while an editor is being built, so a second caller waits for that build
+     instead of starting one of its own. */
+  let mockEditorPromise = null;
   let mockRunning = false;
 
   const mockSetOutput = (text) => {
@@ -12153,6 +12156,24 @@ const refreshStudyForActiveProblem = () => {
       mockEditor.layout();
       return mockEditor;
     }
+    /* A build is already under way - from the other caller. Waiting on that same
+       promise is what keeps this to one editor. */
+    if (mockEditorPromise) return mockEditorPromise;
+    mockEditorPromise = buildMockEditor();
+    try {
+      return await mockEditorPromise;
+    } finally {
+      /* Cleared so a later failure does not leave a rejected promise behind for
+         every future caller to inherit. The editor itself is kept. */
+      mockEditorPromise = null;
+    }
+  };
+
+  const buildMockEditor = async () => {
+    /* Re-checked inside the build as well, because a caller that arrives while
+       this one is awaiting Monaco will have been given this promise, not its
+       own. */
+    if (mockEditor) return mockEditor;
     const monaco = await ensureMonaco();
     mockCodeState.language = normalizeLanguage(mockLanguageSelect?.value || mockCodeState.language);
     mockEditor = monaco.editor.create(mockEditorNode, {
