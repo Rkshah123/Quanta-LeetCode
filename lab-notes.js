@@ -11334,31 +11334,684 @@ const refreshStudyForActiveProblem = () => {
   };
 
 
-  /* -------------------------- mock interview --------------------------- */
-  /* Selection, timing and the self-assessment come from mock.js, checked by
-     scripts/test-mock.js. This half drives the clock and, at the end, writes
-     the real outcome into the revision schedule. */
+  /* ============================ mock test =============================
+     A three-question test: press Start, then one question at a time. Coding
+     problems are timed at ten minutes each and answered with code; multiple
+     choice questions have no clock and are answered by choosing.
 
-  /* ========================= mock interview UI ==========================
-     Drives mock.js: choose a difficulty, get a problem with its reason shown,
-     work through three timed stages, then answer the self-assessment. The
-     result is written into the real revision schedule, so an interview changes
-     what comes next rather than just recording a number. */
+     The rules live in mocktest.js, which is pure and is checked by
+     scripts/test-mock-test.js - picking the questions, the timing, the marking,
+     the worked-example check. This half is the screen.
+
+     Two things this screen will not do:
+       - show any part of an answer before the question is submitted or its clock
+         runs out. The result region is emptied when a question opens and only
+         filled afterwards, so there is nothing to scroll back to.
+       - call a coding answer correct unless something was actually checked. A
+         run that compiles and prints something is reported as UNVERIFIED rather
+         than as a pass, because Quanta has no hidden tests and a green tick it
+         cannot justify would be worse than an honest "could not check this". */
+
+  const mockEl = (id) => document.getElementById(id);
+  const MOCK_TEST_ENGINE = () => window.mockTestEngine;
 
   const mockState = {
-    active: null,      // { problem, reason, stageIndex, remaining, timer, startedAt, answers, elapsed }
+    /* questions: the three chosen for this test, each carrying its own kind. */
+    questions: [],
+    index: 0,
+    results: [],
+    remaining: null,
+    timer: null,
+    submitted: false,
+    chosenOption: null,
+    submitting: false,
+    starting: false,
     history: []
   };
 
-  const mockEl = (id) => document.getElementById(id);
-
-  const mockCatalog = () => {
-    const list = Array.isArray(lcState?.problems) ? lcState.problems : [];
-    return list.length ? list : normalizeLcProblems(seedProblems());
+  const mockStopTimer = () => {
+    if (mockState.timer) {
+      window.clearInterval(mockState.timer);
+      mockState.timer = null;
+    }
   };
 
-  const mockScheduled = () => discoveryDueSlugs();
+  /* ---------------------------------------------------------------- start */
 
+  /* Questions come from the app's own material: coding problems out of the
+     catalog, multiple choice out of the Academy quiz and the pattern trainer.
+     Nothing is written by hand to pad either pool. */
+  const mockQuestionPools = () => {
+    const engine = MOCK_TEST_ENGINE();
+    const patterns = window.PATTERNS || [];
+    const bank = engine ? engine.buildObjectiveBank({ quiz: window.ACADEMY_QUIZ, patterns }) : [];
+
+    /* The catalog as it is on this device. A problem needs a slug, a name and a
+       statement, or there is nothing to ask. */
+    const coding = (Array.isArray(lcState?.problems) ? lcState.problems : [])
+      .filter((p) => p && p.slug && p.name)
+      .map((p) => ({
+        id: `code-${p.slug}`,
+        kind: engine?.KIND?.CODING || "coding",
+        slug: p.slug,
+        prompt: p.name,
+        difficulty: p.difficulty,
+        platform: p.platform,
+        url: p.url,
+        num: p.num,
+        topics: Array.isArray(p.topics) ? p.topics : [],
+        /* Carried, not fetched here: the statement is needed only once the
+           reader has answered, and fetching it for all three questions up front
+           would load three large documents nobody is going to read yet. */
+        source: "catalog"
+      }));
+
+    return { coding, objective: bank };
+  };
+
+  const mockStartTest = () => {
+    const engine = MOCK_TEST_ENGINE();
+    const note = mockEl("mock-start-note");
+    if (!engine) {
+      if (note) note.textContent = "The mock test module did not load, so a test cannot be started.";
+      return;
+    }
+    const pools = mockQuestionPools();
+    if (!pools.coding.length) {
+      if (note) note.textContent = "There are no problems in this catalog yet, so there is nothing to ask. Add a problem first.";
+      return;
+    }
+    const questions = engine.buildTest({ ...pools, seed: Date.now() });
+    if (!questions.length) {
+      if (note) note.textContent = "There was nothing to build a test from.";
+      return;
+    }
+
+    mockStopTimer();
+    mockState.questions = questions;
+    mockState.index = 0;
+    mockState.results = [];
+    mockState.submitted = false;
+    mockState.chosenOption = null;
+
+    if (note) note.textContent = "";
+    mockEl("mock-start")?.setAttribute("hidden", "");
+    mockEl("mock-summary")?.setAttribute("hidden", "");
+    mockEl("mock-run")?.removeAttribute("hidden");
+    mockOpenQuestion();
+  };
+
+  /* ------------------------------------------------------------- question */
+
+  const currentQuestion = () => mockState.questions[mockState.index] || null;
+
+  const mockRenderClock = () => {
+    const engine = MOCK_TEST_ENGINE();
+    const clock = mockEl("mock-clock");
+    const seconds = mockState.remaining;
+    /* An objective question has no clock. It is hidden outright rather than
+       shown at zero, so nothing on screen suggests a timer is running. */
+    if (seconds === null || seconds === undefined) {
+      if (clock) clock.hidden = true;
+    } else {
+      if (clock) {
+        clock.hidden = false;
+        clock.textContent = engine ? engine.clockText(seconds) : String(seconds);
+        clock.classList.toggle("is-urgent", seconds <= 60);
+      }
+    }
+    const bar = mockEl("mock-stage-bar");
+    const total = engine ? engine.CODING_SECONDS : 600;
+    if (bar) {
+      const used = seconds === null || seconds === undefined ? 0 : 1 - seconds / total;
+      bar.style.width = `${Math.min(100, Math.max(0, used * 100))}%`;
+    }
+  };
+
+  const mockStartTimer = () => {
+    const engine = MOCK_TEST_ENGINE();
+    const question = currentQuestion();
+    const seconds = engine ? engine.secondsFor(question?.kind) : null;
+    mockStopTimer();
+    mockState.remaining = seconds;
+    if (seconds === null || seconds === undefined) {
+      mockRenderClock();
+      return;
+    }
+    mockState.timer = window.setInterval(() => {
+      mockState.remaining = engine.tick(mockState.remaining);
+      if (mockState.remaining <= 0) {
+        mockStopTimer();
+        mockRenderClock();
+        /* Time is up. The answer is closed off and the result is shown without
+           waiting for the reader to do anything, and Next becomes available. */
+        mockSubmit({ expired: true });
+        return;
+      }
+      mockRenderClock();
+    }, 1000);
+    mockRenderClock();
+  };
+
+  const mockShow = (id, on) => {
+    const el = mockEl(id);
+    if (!el) return;
+    if (on) el.removeAttribute("hidden");
+    else el.setAttribute("hidden", "");
+  };
+
+  /* Draws one question: the prompt, and either a statement with an editor or a
+     set of options. The two are never on screen together. */
+  const mockOpenQuestion = async () => {
+    const engine = MOCK_TEST_ENGINE();
+    const question = currentQuestion();
+    if (!engine || !question) return;
+
+    mockStopTimer();
+    mockState.submitted = false;
+    mockState.chosenOption = null;
+    mockState.submitting = false;
+
+    const progress = mockEl("mock-run-progress");
+    if (progress) {
+      progress.textContent = `Question ${mockState.index + 1} of ${mockState.questions.length} · ${question.kind === "coding" ? "Coding" : "Multiple choice"}`;
+    }
+    const title = mockEl("mock-run-title");
+    if (title) title.textContent = question.kind === "coding" ? "Coding problem" : "Multiple choice";
+
+    /* Cleared, so a previous question's answer cannot be read on this one. */
+    const result = mockEl("mock-q-result");
+    if (result) result.replaceChildren();
+
+    const body = mockEl("mock-q-body");
+    if (body) {
+      body.replaceChildren();
+      body.hidden = false;
+      /* Cleared because body.replaceChildren() only removes children, and a
+         stale "answered" class on a reused container would leave the new
+         question's options looking dead. */
+
+      const badge = document.createElement("p");
+      badge.className = "mock-q-kind";
+      const bits = [];
+      if (question.difficulty) bits.push(question.difficulty);
+      if (question.num) bits.push(`#${question.num}`);
+      if (question.platform && question.platform !== "leetcode") bits.push(question.platform);
+      if (question.topic) bits.push(question.topic);
+      badge.textContent = bits.join(" · ");
+      body.appendChild(badge);
+
+      const prompt = document.createElement("h4");
+      prompt.className = "mock-q-title";
+      prompt.textContent = question.prompt;
+      body.appendChild(prompt);
+
+      if (question.kind === "coding") {
+        /* The statement is fetched here, for this question only. A problem
+           whose statement is not stored says so and points at the external
+           link rather than showing an empty white box. */
+        const statement = document.createElement("div");
+        statement.className = "mock-q-statement";
+        statement.innerHTML = '<p class="ql-desc-loading">Loading the problem statement…</p>';
+        body.appendChild(statement);
+
+        if (question.url) {
+          const link = document.createElement("a");
+          link.className = "prog-btn mock-q-link";
+          link.href = question.url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = window.EXTERNAL_LINK_LABEL || "Open in Website";
+          body.appendChild(link);
+        }
+
+        void (async () => {
+          let html = "";
+          try {
+            const result2 = await requestDescription(question.slug);
+            html = result2?.html || "";
+          } catch {
+            html = "";
+          }
+          if (currentQuestion()?.slug !== question.slug) return;
+          if (html) {
+            renderDescHtml(html, statement);
+          } else {
+            statement.innerHTML = "";
+            const p = document.createElement("p");
+            p.className = "ql-desc-empty";
+            p.textContent = navigator.onLine
+              ? "This problem's statement is not stored on this device, so it cannot be shown here. Use the link above to read it."
+              : "You are offline and this statement has not been saved on this device yet.";
+            statement.appendChild(p);
+          }
+        })();
+      } else {
+        /* Multiple choice. Options are buttons, not radios, so the whole target
+           is tappable and the chosen one is visibly marked. */
+        const options = document.createElement("div");
+        options.className = "mock-q-options";
+        options.setAttribute("role", "group");
+        options.setAttribute("aria-label", "Answer options");
+        question.options.forEach((text, i) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "mock-q-option";
+          button.dataset.index = String(i);
+          button.textContent = text;
+          button.addEventListener("click", () => {
+            if (mockState.submitted) return;
+            mockState.chosenOption = i;
+            for (const other of options.querySelectorAll(".mock-q-option")) {
+              other.classList.toggle("is-chosen", other === button);
+              other.setAttribute("aria-pressed", other === button ? "true" : "false");
+            }
+          });
+          options.appendChild(button);
+        });
+        body.appendChild(options);
+      }
+    }
+
+    mockShow("mock-q-editor", question.kind === "coding");
+    if (question.kind === "coding") {
+      await ensureMockEditor().catch(() => {});
+      mockSetOutput("");
+      mockRenderClock();
+    }
+
+    /* Re-enabled and relabelled here, not just shown.
+
+       Submit is disabled for the duration of a coding submit so that a second
+       press cannot mark the same answer twice. Showing it again on the next
+       question without clearing that flag left it disabled - so every question
+       after the first coding one had a Submit button that did nothing when
+       clicked, with no visible reason why. */
+    const submitBtn = mockEl("mock-submit-btn");
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit answer";
+    }
+    mockShow("mock-submit-btn", true);
+    mockShow("mock-next-btn", false);
+    mockStartTimer();
+    mockEl("mock-run")?.scrollIntoView?.({ block: "nearest" });
+  };
+
+  /* ------------------------------------------------------------- submit */
+
+  /* Marks a coding answer by really running it, then - where the problem's own
+     statement gives an unambiguous worked example - calling the submitted
+     function with those exact arguments and comparing the result.
+
+     Every step that is not certain ends as UNVERIFIED. In particular, if the
+     generated check itself throws, the answer is reported as unverified rather
+     than wrong: a check that is unsure must never cost somebody a mark. */
+  const mockEvaluateCoding = async (question, code) => {
+    const engine = MOCK_TEST_ENGINE();
+    const language = normalizeLanguage(mockLanguageSelect?.value);
+
+    let statementHtml = "";
+    try {
+      const res = await requestDescription(question.slug);
+      statementHtml = res?.html || "";
+    } catch {
+      statementHtml = "";
+    }
+    const examples = engine ? engine.parseExamples(statementHtml) : [];
+
+    /* The automatic check is only offered for JavaScript. Every other language
+       would need a generated harness in that language, and a harness that does
+       not compile would report every answer wrong - which is worse than not
+       checking. So those are reported honestly as unverified. */
+    let example = null;
+    if (examples.length && language === "javascript") {
+      const first = examples[0];
+      const harness = engine.buildJsHarness(code, first);
+      if (harness) {
+        let outcome = null;
+        try {
+          outcome = await executeCode("javascript", harness, "");
+        } catch {
+          outcome = null;
+        }
+        if (outcome && outcome.ok !== false) {
+          const compared = engine.compareOutput(outcome.stdout || "", first.expected);
+          example = { ...compared, label: first.label, expected: first.expected };
+        }
+      }
+    }
+
+    const result = await executeCode(language, code, "");
+    return {
+      ...engine.markCoding({
+        compiled: result.phase !== "compile",
+        ran: result.ok !== false,
+        timedOut: Boolean(result.timedOut),
+        stdout: result.stdout || "",
+        stderr: result.stderr || "",
+        example
+      }),
+      ranExample: examples.length > 0,
+      exampleAvailable: examples.length > 0 && language === "javascript",
+      language
+    };
+  };
+
+  const mockSubmit = async ({ expired = false } = {}) => {
+    const engine = MOCK_TEST_ENGINE();
+    const question = currentQuestion();
+    if (!engine || !question) return;
+    if (mockState.submitted || mockState.submitting) return;
+
+    /* Closed the moment the question is answered, so a second press - or a
+       clock that reaches zero while the first press is still running the code -
+       cannot produce a second result or a second mark. */
+    mockState.submitting = true;
+    const submitBtn = mockEl("mock-submit-btn");
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = expired ? "Time is up" : "Marking…";
+    }
+
+    let mark;
+    let submittedCode = "";
+    let note = "";
+
+    if (question.kind === "coding") {
+      const code = mockEditor ? mockEditor.getValue() : "";
+      submittedCode = code;
+      if (!code.trim()) {
+        mark = {
+          ...engine.markCoding({ compiled: false, stderr: "" }),
+          verdict: "unanswered",
+          correct: false,
+          detail: "The clock ran out before any code was submitted." ,
+        };
+        mark.answered = false;
+        note = "Nothing was submitted.";
+      } else {
+        mark = await mockEvaluateCoding(question, code);
+      }
+    } else {
+      mark = engine.markObjective(question, mockState.chosenOption);
+    }
+
+    mockStopTimer();
+    mockState.submitted = true;
+    mockState.submitting = false;
+    mockState.results[mockState.index] = { question, mark, code: submittedCode, expired };
+
+    /* Once a question is answered its options are history, not a control:
+       this marks them so they stop looking tappable and stop being tappable.
+       The guard is in the click handler too, so the visual state and the actual
+       behaviour cannot drift apart. */
+    mockEl("mock-q-body")?.querySelector(".mock-q-options")?.classList.add("is-answered");
+
+    mockRenderResult(question, mark, { expired, note });
+    mockShow("mock-submit-btn", false);
+    mockShow("mock-next-btn", true);
+  };
+
+  /* -------------------------------------------------------------- result */
+
+  const mockRenderResult = (question, mark, { expired = false, note = "" } = {}) => {
+    const engine = MOCK_TEST_ENGINE();
+    const host = mockEl("mock-q-result");
+    if (!host) return;
+    host.replaceChildren();
+
+    const card = document.createElement("div");
+    card.className = `mock-result is-${mark.verdict || (mark.correct ? "correct" : "wrong")}`;
+
+    const verdict = document.createElement("p");
+    verdict.className = "mock-result__verdict";
+    if (expired) verdict.textContent = "Time is up";
+    else if (mark.kind === "objective") verdict.textContent = mark.correct ? "Correct" : mark.answered ? "Not quite" : "Not answered";
+    else verdict.textContent = mark.verdict === "correct" ? "Correct" : mark.verdict === "wrong" ? "Not correct" : "Could not be checked";
+    card.appendChild(verdict);
+
+    if (note) {
+      const n = document.createElement("p");
+      n.className = "mock-result__detail";
+      n.textContent = note;
+      card.appendChild(n);
+    }
+    if (mark.detail) {
+      const d = document.createElement("p");
+      d.className = "mock-result__detail";
+      d.textContent = mark.detail;
+      card.appendChild(d);
+    }
+
+    /* What the program actually printed. Real output, shown as it came. */
+    if (mark.kind === "coding" && (mark.stdout || mark.stderr)) {
+      const out = document.createElement("pre");
+      out.className = "mock-result__output";
+      out.textContent = (mark.stdout || "") + (mark.stderr ? (mark.stdout ? "\n" : "") + mark.stderr : "");
+      card.appendChild(out);
+    }
+
+    if (mark.kind === "objective") {
+      const answer = document.createElement("p");
+      answer.className = "mock-result__answer";
+      answer.innerHTML = `<strong>The correct answer:</strong> ${escapeHtml(mark.correctText || "")}`;
+      card.appendChild(answer);
+      if (mark.explanation) {
+        const why = document.createElement("div");
+        why.className = "mock-result__why";
+        why.innerHTML = renderExplanationHtml(mark.explanation);
+        card.appendChild(why);
+      }
+    } else {
+      /* Coding: the approach, its complexity, and an honest label for what that
+         approach is. Quanta stores no reference solutions, so it does not claim
+         to be showing "the optimal solution" for this problem. */
+      const explanation = engine.explanationFor(question, window.PATTERNS || []);
+      if (explanation.pattern) {
+        const head = document.createElement("p");
+        head.className = "mock-result__answer";
+        head.innerHTML = `<strong>How this class of problem is solved — ${escapeHtml(explanation.pattern.title)}:</strong>`;
+        card.appendChild(head);
+
+        if (explanation.shape) {
+          const shape = document.createElement("div");
+          shape.className = "mock-result__why";
+          shape.innerHTML = renderExplanationHtml(explanation.shape);
+          card.appendChild(shape);
+        }
+        if (explanation.approach) {
+          const code = document.createElement("pre");
+          code.className = "mock-result__code";
+          code.textContent = explanation.approach;
+          card.appendChild(code);
+        }
+        if (explanation.checklist && explanation.checklist.length) {
+          const list = document.createElement("ul");
+          list.className = "mock-result__checks";
+          for (const item of explanation.checklist) {
+            const li = document.createElement("li");
+            li.textContent = item;
+            list.appendChild(li);
+          }
+          card.appendChild(list);
+        }
+        /* Complexity measured from the approach shown, by the app's own
+           analyser - not a stored figure, and not a claim about the reader's
+           code. */
+        const complexity = estimateComplexityLabel(explanation.approach);
+        if (complexity) {
+          const c = document.createElement("p");
+          c.className = "mock-result__complexity";
+          c.innerHTML = `<strong>${escapeHtml(complexity.label)}</strong> — measured on the approach above, not on your code.`;
+          card.appendChild(c);
+        }
+        const note2 = document.createElement("p");
+        note2.className = "mock-result__note";
+        note2.textContent = explanation.note;
+        card.appendChild(note2);
+      } else {
+        const none = document.createElement("p");
+        none.className = "mock-result__note";
+        none.textContent = explanation.note;
+        card.appendChild(none);
+      }
+    }
+
+    host.appendChild(card);
+  };
+
+  /* Runs the app's own complexity analyser over a piece of code and turns the
+     result into a sentence. Returns null when it cannot say anything useful,
+     rather than printing an empty or invented figure. */
+  const estimateComplexityLabel = (code) => {
+    const engine = window.solutionAnalysis;
+    if (!engine || typeof engine.estimateComplexity !== "function") return null;
+    try {
+      const time = engine.estimateComplexity(code);
+      const space = typeof engine.estimateSpace === "function" ? engine.estimateSpace(code) : null;
+      const timeLabel = time?.time;
+      const spaceLabel = space?.space;
+      if (!timeLabel && !spaceLabel) return null;
+      const parts = [];
+      if (timeLabel) parts.push(`Time ${timeLabel}`);
+      if (spaceLabel) parts.push(`Space ${spaceLabel}`);
+      return { label: parts.join(" · "), reason: [time?.reason, space?.reason].filter(Boolean).join(" ") };
+    } catch {
+      /* The analyser refusing to say is fine. Nothing is shown, rather than a
+         guess being presented as a measurement. */
+      return null;
+    }
+  };
+
+  /* Objective explanations are written by the Academy and the pattern trainer,
+     with newlines meaning separate points. Rendered as paragraphs and lists
+     rather than injected as markup. */
+  const renderExplanationHtml = (text) => {
+    const blocks = String(text || "").split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+    return blocks
+      .map((block) => {
+        const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+        if (lines.length > 1 && lines.every((l) => /^[-\u2022*]/.test(l))) {
+          return `<ul>${lines.map((l) => `<li>${escapeHtml(l.replace(/^[-\u2022*]\s*/, ""))}</li>`).join("")}</ul>`;
+        }
+        return `<p>${escapeHtml(lines.join(" "))}</p>`;
+      })
+      .join("");
+  };
+
+  /* --------------------------------------------------------------- next */
+
+  const mockNext = () => {
+    mockStopTimer();
+    if (mockState.index >= mockState.questions.length - 1) {
+      mockFinishTest();
+      return;
+    }
+    mockState.index += 1;
+    void mockOpenQuestion();
+  };
+
+  /* ------------------------------------------------------------ summary */
+
+  const mockFinishTest = () => {
+    const engine = MOCK_TEST_ENGINE();
+    mockStopTimer();
+    mockShow("mock-run", false);
+
+    const results = mockState.results.filter(Boolean);
+    const total = results.length;
+    const right = results.filter((r) => r.mark.correct).length;
+    const unchecked = results.filter((r) => r.mark.verdict === "unverified").length;
+    const skipped = results.filter((r) => !r.mark.answered).length;
+
+    const score = mockEl("mock-score");
+    if (score) {
+      score.textContent =
+        `${right} of ${total} correct.` +
+        (unchecked ? ` ${unchecked} could not be checked.` : "") +
+        (skipped ? ` ${skipped} not answered.` : "");
+    }
+
+    const list = mockEl("mock-summary-list");
+    if (list) {
+      list.replaceChildren();
+      results.forEach((entry, i) => {
+        const item = document.createElement("article");
+        item.className = `mock-summary__item is-${entry.mark.verdict || (entry.mark.correct ? "correct" : "wrong")}`;
+
+        const head = document.createElement("div");
+        head.className = "mock-summary__head";
+        const n = document.createElement("span");
+        n.className = "mock-summary__n";
+        n.textContent = `Q${i + 1}`;
+        const kind = document.createElement("span");
+        kind.className = "mock-summary__kind";
+        kind.textContent = entry.question.kind === "coding" ? "Coding" : "Multiple choice";
+        const verdict = document.createElement("span");
+        verdict.className = "mock-summary__verdict";
+        verdict.textContent = entry.mark.correct
+          ? "Correct"
+          : entry.mark.verdict === "unverified"
+            ? "Could not be checked"
+            : entry.mark.answered
+              ? "Not correct"
+              : "Not answered";
+        head.append(n, kind, verdict);
+        item.appendChild(head);
+
+        const title = document.createElement("p");
+        title.className = "mock-summary__title";
+        title.textContent = entry.question.prompt;
+        item.appendChild(title);
+
+        const given = document.createElement("p");
+        given.className = "mock-summary__given";
+        if (entry.question.kind === "objective") {
+          given.textContent = entry.mark.chosenText ? `You chose: ${entry.mark.chosenText}` : "You chose nothing.";
+          const correctText = document.createElement("span");
+          correctText.className = "mock-summary__correct";
+          correctText.textContent = ` Correct: ${entry.mark.correctText || ""}`;
+          given.appendChild(correctText);
+        } else {
+          given.textContent = entry.code && entry.code.trim() ? "You submitted code." : entry.expired ? "Time ran out before anything was submitted." : "You submitted nothing.";
+          if (entry.mark.detail) {
+            const why = document.createElement("span");
+            why.className = "mock-summary__correct";
+            why.textContent = ` ${entry.mark.detail}`;
+            given.appendChild(why);
+          }
+        }
+        item.appendChild(given);
+
+        list.appendChild(item);
+      });
+    }
+
+    /* Kept before the state is cleared, because it is built from it. */
+    mockState.history.unshift({
+      questions: results.map((r) => r.question.prompt),
+      right,
+      total,
+      unchecked,
+      at: new Date().toISOString()
+    });
+    mockSaveHistory();
+    mockRenderHistory();
+
+    mockShow("mock-summary", true);
+    mockState.questions = [];
+    mockState.results = [];
+    mockState.index = 0;
+    mockEl("mock-summary")?.scrollIntoView?.({ block: "nearest" });
+  };
+
+  /* ------------------------------- history -------------------------------
+   *
+   * Finished tests are kept so the reader can see how the last few went. It
+   * reuses the same storage key the old single-problem interview used, so a
+   * reader who has used Quanta before does not lose their record when this panel
+   * changes shape - old entries simply render without a score. */
   const mockLoadHistory = () => {
     const raw = readJson(window.MOCK_KEY || "quantaMockInterviewsV1", () => ({}));
     mockState.history = Array.isArray(raw?.history) ? raw.history : [];
@@ -11368,390 +12021,19 @@ const refreshStudyForActiveProblem = () => {
     writeJson(window.MOCK_KEY || "quantaMockInterviewsV1", { history: mockState.history.slice(0, 20) });
   };
 
-  const mockStopTimer = () => {
-    if (mockState.active?.timer) {
-      window.clearInterval(mockState.active.timer);
-      mockState.active.timer = null;
-    }
-  };
-
-  const mockRenderClock = () => {
-    const active = mockState.active;
-    if (!active) return;
-    const stage = window.MOCK_STAGES[active.stageIndex];
-    const clock = mockEl("mock-clock");
-    if (clock) {
-      /* The clock counts down the WHOLE interview, not the current stage.
-
-         It used to show the stage's own remaining time, so it started at 2:00,
-         then 5:30, then 2:30 - three different numbers in ten minutes, none of
-         them the ten a reader has actually been given. The number on screen now
-         counts the time they have left to solve the problem, which is the only
-         question the clock is there to answer. The stage label underneath still
-         says which part of the interview they are in. */
-      clock.textContent = mockClockText(active.programRemaining);
-      clock.classList.toggle("is-urgent", active.programRemaining <= 60);
-    }
-    const bar = mockEl("mock-stage-bar");
-    if (bar) {
-      const total = window.MOCK_TOTAL_SECONDS || active.programRemaining || 1;
-      const used = 1 - active.programRemaining / total;
-      bar.style.width = `${Math.min(100, Math.max(0, used * 100))}%`;
-    }
-    const stageLabel = mockEl("mock-stage-label");
-    if (stageLabel) stageLabel.textContent = `${active.stageIndex + 1} of ${window.MOCK_STAGES.length} · ${stage.label}`;
-  };
-
   const mockClockText = (seconds) => {
-    const total = Math.max(0, Math.round(seconds));
+    const total = Math.max(0, Math.round(Number(seconds) || 0));
     return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
   };
 
-  const mockStartStage = () => {
-    const active = mockState.active;
-    if (!active) return;
-    const stage = window.MOCK_STAGES[active.stageIndex];
-    active.remaining = stage.seconds;
-    active.stageStartedAt = Date.now();
-    mockStopTimer();
-    /* One interval ticks both: the current stage, and the interview as a whole.
-       Keeping them in the same tick is what stops the stage and the program
-       clock drifting apart, which is how they came to disagree before. */
-    active.timer = window.setInterval(() => {
-      active.remaining -= 1;
-      active.programRemaining = Math.max(0, active.programRemaining - 1);
-      if (active.remaining <= 0) {
-        active.remaining = 0;
-        if (active.programRemaining > 0 && active.stageIndex < window.MOCK_STAGES.length - 1) {
-          mockNextStage();
-          return;
-        }
-        /* Out of time. The clock reaching zero ends the interview whether that
-           was a stage boundary or the whole ten minutes. */
-        active.programRemaining = 0;
-        mockStopTimer();
-        mockNextStage();
-        return;
-      }
-      mockRenderClock();
-    }, 1000);
-    mockRenderClock();
-  };
-
-  const mockNextStage = () => {
-    const active = mockState.active;
-    if (!active) return;
-    active.elapsed += window.MOCK_STAGES[active.stageIndex].seconds - active.remaining;
-    if (active.stageIndex < window.MOCK_STAGES.length - 1) {
-      active.stageIndex += 1;
-      const next = window.MOCK_STAGES[active.stageIndex];
-      mockEl("mock-stage-note") && (mockEl("mock-stage-note").textContent = next.note);
-      mockStartStage();
-      return;
-    }
-    mockRenderReview();
-  };
-
-  /* The assigned problem's statement, drawn inside the interview.
-
-     Asked for directly rather than by navigating to the dashboard: the reader
-     needs the problem in front of them for the whole ten minutes, and an
-     interview that has to be left to read the question is not an interview.
-
-     Loading is stated rather than left blank, and a failure says what happened
-     instead of leaving an empty white box where the problem should be. The
-     request is only allowed to paint if it is still the problem on screen, so a
-     slow reply cannot land on top of a later interview. */
-  const mockRenderStatement = async (problem) => {
-    const host = mockEl("mock-problem-statement");
-    if (!host) return;
-    const slug = String(problem?.slug || "");
-    /* Stamped before the request goes out, so a reply for a problem that is no
-       longer on screen can be recognised and dropped. */
-    host.dataset.slug = slug;
-    if (!slug) {
-      host.innerHTML =
-        '<p class="ql-desc-empty">This problem has no statement saved, so there is nothing to read here. Use the link above to open it.</p>';
-      return;
-    }
-
-    host.innerHTML = '<p class="ql-desc-loading">Loading the problem statement…</p>';
-    let result = null;
-    try {
-      result = await requestDescription(slug);
-    } catch {
-      result = null;
-    }
-    /* The reader may have finished, started another interview, or left the page
-       while this was in flight. */
-    if (mockState.active?.problem?.slug !== slug) return;
-    if (host.dataset.slug !== slug) return;
-
-    if (!result?.html) {
-      host.innerHTML = `
-        <p class="ql-desc-empty">The statement for this problem could not be loaded${navigator.onLine ? "" : " — this device is offline and it has not been saved here yet"}.</p>
-        <p class="ql-desc-empty">The problem is still yours to solve: use the link above to read it in a new tab. The clock keeps running either way.</p>`;
-      return;
-    }
-    renderDescHtml(result.html, host);
-  };
-
-  const mockRenderSetup = () => {
-    const section = mockEl("mock-setup");
-    const host = mockEl("mock-difficulty-host");
-    if (!section || !host) return;
-    host.innerHTML = "";
-    section.hidden = false;
-    mockEl("mock-stage") && (mockEl("mock-stage").hidden = true);
-    mockEl("mock-review") && (mockEl("mock-review").hidden = true);
-    mockEl("mock-outcome") && (mockEl("mock-outcome").hidden = true);
-
-    const row = document.createElement("div");
-    row.className = "mock-difficulty";
-    row.setAttribute("role", "group");
-    row.setAttribute("aria-label", "Interview difficulty");
-
-    for (const difficulty of window.MOCK_DIFFICULTIES) {
-      const count = mockCatalog().filter((p) => p.difficulty === difficulty).length;
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = `viz-chip${difficulty === "Easy" ? " is-active" : ""}`;
-      button.dataset.difficulty = difficulty;
-      button.textContent = `${difficulty} (${count})`;
-      button.title = count ? `${count} ${difficulty} problems in your catalog` : `No ${difficulty} problems in your catalog`;
-      if (!count) button.disabled = true;
-      button.addEventListener("click", () => {
-        row.querySelectorAll(".viz-chip").forEach((b) => b.classList.toggle("is-active", b === button));
-        mockStart(difficulty);
-      });
-      row.appendChild(button);
-    }
-
-    const note = document.createElement("p");
-    note.className = "viz-about";
-    note.textContent = "Pick a difficulty to start. The problem comes from your catalog, and Quanta tells you why it chose it.";
-
-    const honest = document.createElement("p");
-    honest.className = "viz-note--plain";
-    honest.textContent =
-      "Quanta cannot tell you whether your solution was correct — the runner has no access to a problem's hidden tests. This measures time, whether you ran anything, and how you rate yourself afterwards, and it schedules the problem from that.";
-
-    host.append(row, note, honest);
-  };
-
-  const mockStart = (difficulty) => {
-    const solvedSlugs = new Set(mockCatalog().filter((p) => p.solved).map((p) => p.slug));
-    const picked = window.mockPickProblem
-      ? window.mockPickProblem(mockCatalog(), { difficulty, solvedSlugs, scheduledSlugs: mockScheduled(), seed: Date.now() })
-      : { error: "The mock interview module did not load." };
-
-    if (picked.error) {
-      showLabToast(picked.error);
-      mockEl("mock-setup-note") && (mockEl("mock-setup-note").textContent = picked.error);
-      return;
-    }
-
-    mockState.active = {
-      problem: picked.problem,
-      reason: picked.reason,
-      stageIndex: 0,
-      remaining: window.MOCK_STAGES[0].seconds,
-      /* The interview as a whole: ten minutes, counted down on the clock the
-         reader watches while they read and solve. */
-      programRemaining: window.MOCK_TOTAL_SECONDS || window.MOCK_STAGES[0].seconds,
-      elapsed: 0,
-      answers: {},
-      ran: false,
-      timer: null
-    };
-
-    mockEl("mock-setup") && (mockEl("mock-setup").hidden = true);
-    mockEl("mock-stage") && (mockEl("mock-stage").hidden = false);
-    mockEl("mock-review") && (mockEl("mock-review").hidden = true);
-    mockEl("mock-outcome") && (mockEl("mock-outcome").hidden = true);
-
-    const title = mockEl("mock-problem-title");
-    if (title) title.textContent = picked.problem.name || picked.problem.title || picked.problem.slug;
-    const meta = mockEl("mock-problem-meta");
-    if (meta) {
-      const bits = [picked.problem.difficulty];
-      if (picked.problem.num) bits.push(`#${picked.problem.num}`);
-      if (picked.problem.platform !== "leetcode") bits.push(picked.problem.platform);
-      meta.textContent = bits.join(" · ");
-    }
-    const reason = mockEl("mock-problem-reason");
-    if (reason) reason.textContent = picked.reason;
-    const note = mockEl("mock-stage-note");
-    if (note) note.textContent = window.MOCK_STAGES[0].note;
-    const links = mockEl("mock-problem-links");
-    if (links) {
-      links.innerHTML = "";
-      /* The statement itself is shown right here, below this row, so the
-         interview never has to be left to read the problem.
-
-         This used to be a button reading "Open the problem" that called
-         showPage("quantalab") - switching the whole app to the dashboard and
-         taking the reader out of the interview mid-session, with the countdown
-         running against a page they were no longer looking at. It is now an
-         ordinary external link that opens in a new tab and leaves this page,
-         and its timer, exactly where they were.
-
-         A problem with no usable URL gets no link at all, rather than a link
-         that re-opens this page. */
-      const external = externalUrlOf(picked.problem);
-      if (external) {
-        const open = document.createElement("a");
-        open.className = "prog-btn";
-        open.href = external;
-        open.target = "_blank";
-        open.rel = "noopener noreferrer";
-        open.textContent = EXTERNAL_LINK_LABEL;
-        open.title = `Opens in a new tab. ${EXTERNAL_LINK_LABEL} leaves this interview running.`;
-        links.appendChild(open);
-      }
-      const note = document.createElement("span");
-      note.className = "viz-about";
-      note.textContent = "Opens in a new tab — the interview keeps running.";
-      links.appendChild(note);
-    }
-
-    mockRenderStatement(picked.problem);
-    mockStartStage();
-  };
-
-  const mockRenderReview = () => {
-    const active = mockState.active;
-    if (!active) return;
-    mockStopTimer();
-    mockEl("mock-stage") && (mockEl("mock-stage").hidden = true);
-    const review = mockEl("mock-review");
-    if (!review) return;
-    review.hidden = false;
-    review.innerHTML = "";
-
-    const summary = document.createElement("p");
-    summary.className = "viz-about";
-    summary.textContent = `You spent ${mockClockText(active.elapsed)} of ${mockClockText(
-      window.MOCK_STAGES.reduce((sum, s) => sum + s.seconds, 0)
-    )} on "${active.problem.name || active.problem.title}".`;
-    review.appendChild(summary);
-
-    const questions = window.mockSelfAssessment();
-    for (const question of questions) {
-      const block = document.createElement("div");
-      block.className = "mock-question";
-
-      const title = document.createElement("p");
-      title.className = "mock-question__title";
-      title.textContent = question.question;
-      const note = document.createElement("p");
-      note.className = "mock-question__note";
-      note.textContent = question.note;
-      block.append(title, note);
-
-      const options = document.createElement("div");
-      options.className = "mock-question__options";
-      question.options.forEach((option, index) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = `viz-alg${active.answers[question.key] === index ? " is-selected" : ""}`;
-        button.textContent = option.label;
-        button.addEventListener("click", () => {
-          active.answers[question.key] = index;
-          mockRenderReview();
-        });
-        options.appendChild(button);
-      });
-      block.appendChild(options);
-      review.appendChild(block);
-    }
-
-    const actions = document.createElement("div");
-    actions.className = "mock-actions";
-
-    const finish = document.createElement("button");
-    finish.type = "button";
-    finish.className = "prog-btn";
-    const answered = Object.keys(active.answers).length;
-    finish.textContent = answered === questions.length ? "Finish and schedule it" : `Finish (${answered} of ${questions.length} answered)`;
-    finish.addEventListener("click", () => mockFinish());
-    actions.appendChild(finish);
-
-    const abandon = document.createElement("button");
-    abandon.type = "button";
-    abandon.className = "prog-btn prog-btn--ghost";
-    abandon.textContent = "Discard this one";
-    abandon.addEventListener("click", () => {
-      mockState.active = null;
-      mockRenderSetup();
-    });
-    actions.appendChild(abandon);
-
-    review.appendChild(actions);
-  };
-
-  /* Ends the interview: records it, and - this is the part that matters - puts
-     the problem on the revision schedule at the rung the self-assessment earned.
-     Missing the schedule would make this a timer with extra steps. */
-  const mockFinish = async () => {
-    const active = mockState.active;
-    if (!active) return;
-    const confidence = window.mockOverallConfidence(active.answers);
-    const slug = active.problem.slug;
-
-    let scheduled = false;
-    let scheduleMessage = "";
-    try {
-      const added = await discoveryAddToRevision(active.problem);
-      if (added.ok) {
-        const reviewed = await revisionRequest(
-          `/api/revision/${encodeURIComponent(slug)}/review`,
-          revisionJson("POST", { confidence })
-        );
-        scheduled = reviewed.ok;
-        scheduleMessage = reviewed.ok
-          ? ""
-          : reviewed.payload?.error || "It is on your list but could not be scheduled.";
-      } else {
-        scheduleMessage = added.message;
-      }
-    } catch {
-      scheduleMessage = "The revision server could not be reached.";
-    }
-
-    mockState.history.unshift({
-      slug,
-      title: active.problem.name || active.problem.title || slug,
-      difficulty: active.problem.difficulty,
-      elapsed: active.elapsed,
-      confidence,
-      answered: Object.keys(active.answers).length,
-      at: Date.now()
-    });
-    mockState.history = mockState.history.slice(0, 20);
-    mockSaveHistory();
-
-    const outcome = mockEl("mock-outcome");
-    if (outcome) {
-      outcome.hidden = false;
-      outcome.className = scheduleMessage ? "viz-note--error" : "mock-outcome";
-      outcome.textContent = window.mockOutcomeText(confidence) + (scheduleMessage ? ` (${scheduleMessage})` : "");
-    }
-
-    mockState.active = null;
-    mockRenderSetup();
-    mockRenderHistory();
-    showLabToast(scheduled ? "Interview recorded and scheduled" : "Interview recorded");
-    void loadRevisionDashboard();
-  };
   const mockRenderHistory = () => {
     const host = mockEl("mock-history");
     if (!host) return;
-    host.innerHTML = "";
+    host.replaceChildren();
     if (!mockState.history.length) {
       const none = document.createElement("p");
       none.className = "viz-note--plain";
-      none.textContent = "No interviews yet. Finish one and it will appear here.";
+      none.textContent = "No tests finished yet. Finish one and it will appear here.";
       host.appendChild(none);
       return;
     }
@@ -11762,35 +12044,45 @@ const refreshStudyForActiveProblem = () => {
       row.className = "mock-history__row";
       const name = document.createElement("span");
       name.className = "mock-history__name";
-      name.textContent = item.title;
+      /* Entries written before this panel changed had a single title. Entries
+         written now have a list of question names. Both are rendered, because
+         deleting the reader's record to tidy up the code would be a poor
+         trade. */
+      name.textContent = Array.isArray(item.questions) ? item.questions.join(" · ") : item.title || "Mock test";
       const detail = document.createElement("span");
       detail.className = "mock-history__detail";
-      detail.textContent = `${mockClockText(item.elapsed)} · ${item.difficulty} · rated ${item.confidence}`;
+      detail.textContent =
+        typeof item.right === "number"
+          ? `${item.right} of ${item.total} correct${item.unchecked ? `, ${item.unchecked} unchecked` : ""}`
+          : item.difficulty
+            ? `${mockClockText(item.elapsed)} · ${item.difficulty}`
+            : mockClockText(item.elapsed || 0);
       row.append(name, detail);
       list.appendChild(row);
     }
     host.appendChild(list);
   };
 
+  /* ---------------------------------------------------------------- init */
+
+  const initMock = () => {
+    initMockWorkspace();
+  };
+
   /* ------------------------------ mock editor -----------------------------
    *
-   * The interview's editor and its Run button.
+   * The coding answer is written here, in the Code Lab's own editor, and run by
+   * the Lab's own runner. Nothing about running code is reimplemented: same
+   * Monaco setup, same language list, same executeCode(), so the same code
+   * behaves the same in both places and the same runner answers for both.
    *
-   * Reuses the Lab's pieces rather than reimplementing them: the same Monaco
-   * setup, the same language list and the same executeCode() runner, so a
-   * snippet written during an interview is compiled and run by exactly the code
-   * that runs it in the Lab - same languages, same fallbacks, same offline
-   * behaviour.
+   * What is deliberately absent is the Lab's file management - sessions, tabs,
+   * New/Rename/Delete, Save, zoom, auto-save. A test question needs somewhere to
+   * type, not somewhere to organise files.
    *
-   * What it deliberately does NOT bring over: sessions, tabs, New/Rename/Delete,
-   * Save, zoom and auto-save. Those belong to the Lab's file management. An
-   * interview needs somewhere to type and somewhere to read the result; adding
-   * the rest would be the Lab's whole interface pasted into a panel that is not
-   * the Lab.
-   *
-   * The editor is built the first time the page is opened rather than at
-   * start-up, because a second Monaco instance costs real memory and nobody
-   * should pay for it before asking for it. */
+   * Built on the first visit to the panel rather than at start-up: a second
+   * Monaco instance is a real memory cost, and most sessions never open a mock
+   * test. Safe to call on every visit, since it returns once it exists. */
   const mockEditorNode = byId("mock-monaco-editor");
   const mockLanguageSelect = byId("mock-language-select");
   const mockOutput = byId("mock-output");
@@ -11806,7 +12098,7 @@ const refreshStudyForActiveProblem = () => {
   };
 
   /* Held per language, so switching to look something up in another language and
-     back does not destroy the answer being written. */
+     coming back does not destroy the answer being written. */
   const mockCodeState = { code: {}, language: DEFAULT_LANGUAGE };
 
   const mockLoadCodeState = () => {
@@ -11817,7 +12109,7 @@ const refreshStudyForActiveProblem = () => {
         mockCodeState.language = normalizeLanguage(saved.language);
       }
     } catch {
-      /* A corrupt stored value must not stop the interview starting. */
+      /* A corrupt stored value must not stop the test starting. */
     }
   };
 
@@ -11856,7 +12148,7 @@ const refreshStudyForActiveProblem = () => {
     if (!mockEditorNode) return null;
     if (mockEditor) {
       /* Monaco measures its container on demand. After the divider moves, or
-         after the page was hidden while the interview ran, that measurement is
+         after the page was hidden while a question was open, that measurement is
          stale and the editor draws at the wrong size. */
       mockEditor.layout();
       return mockEditor;
@@ -11894,6 +12186,9 @@ const refreshStudyForActiveProblem = () => {
     return mockEditor;
   };
 
+  /* Runs whatever is in the editor. Separate from submitting, so a reader can
+     try their code without being marked - the answer is only marked when they
+     press Submit. */
   const mockRun = async () => {
     if (mockRunning) return;
     const editor = await ensureMockEditor();
@@ -11908,9 +12203,8 @@ const refreshStudyForActiveProblem = () => {
     mockSetOutput("Running…");
     mockOutput?.classList.remove("is-error");
     const language = normalizeLanguage(mockLanguageSelect?.value);
-    const code = editor.getValue();
     try {
-      const result = await executeCode(language, code, "");
+      const result = await executeCode(language, editor.getValue(), "");
       const parts = [];
       if (result.stdout) parts.push(result.stdout.replace(/\n$/, ""));
       if (result.stderr) parts.push(result.stderr.replace(/\n$/, ""));
@@ -11930,40 +12224,40 @@ const refreshStudyForActiveProblem = () => {
     }
   };
 
-  /* Wiring only. The editor itself is built when the page is first opened,
-     from showPage(), so a session that never runs a mock interview never pays
-     for a second Monaco instance. */
   const initMockWorkspace = () => {
+    mockLoadHistory();
+    mockRenderHistory();
     mockLoadCodeState();
     mockRenderLanguages();
+
     mockLanguageSelect?.addEventListener("change", () => {
-      /* Save what is in the editor under the language it belongs to before
-         switching away from it, or the text is lost on every change. */
       if (mockEditor) mockCodeState.code[mockCodeState.language] = mockEditor.getValue();
       mockApplyModel();
     });
     mockRunBtn?.addEventListener("click", () => void mockRun());
-  };
 
-  const initMock = () => {
-    mockLoadHistory();
-    mockRenderSetup();
-    mockRenderHistory();
-    initMockWorkspace();
-    /* A page left open in the background would otherwise keep counting, and
-       coming back would show a stage that ran while nobody was watching. */
+    mockEl("mock-start-btn")?.addEventListener("click", () => mockStartTest());
+    mockEl("mock-submit-btn")?.addEventListener("click", () => void mockSubmit());
+    mockEl("mock-next-btn")?.addEventListener("click", () => mockNext());
+    mockEl("mock-again-btn")?.addEventListener("click", () => {
+      mockShow("mock-summary", false);
+      mockShow("mock-run", false);
+      mockShow("mock-start", true);
+    });
+
+    /* A page left in the background kept counting down without the reader
+       seeing it. Both clocks move, so coming back shows time that really passed
+       rather than time that quietly froze. */
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden || !mockState.active?.timer) return;
-      /* Count the time that genuinely passed rather than pausing silently. Both
-         clocks move: the stage it was in, and the interview as a whole. Only
-         the stage was moved before, so a page left in the background came back
-         showing ten minutes that had, in fact, partly gone. */
-      mockState.active.remaining -= 1;
-      mockState.active.programRemaining = Math.max(0, (mockState.active.programRemaining ?? 0) - 1);
+      if (!document.hidden || mockState.remaining === null) return;
+      mockState.remaining = MOCK_TEST_ENGINE().tick(mockState.remaining);
       mockRenderClock();
+      if (mockState.remaining <= 0 && !mockState.submitted) {
+        mockStopTimer();
+        void mockSubmit({ expired: true });
+      }
     });
   };
-
 
   /* ---------------------- solution comparison -------------------------- */
   /* The analysis lives in solutions.js, checked by scripts/test-solutions.js.

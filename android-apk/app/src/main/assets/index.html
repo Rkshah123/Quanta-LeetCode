@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=49" />
+  <link rel="stylesheet" href="style.css?v=52" />
   <link rel="stylesheet" href="lab-notes.css?v=44" />
 
 </head>
@@ -1095,47 +1095,41 @@
         <button class="dialog-avatar-btn" type="button" aria-label="Go to Quanta Lab home" title="Quanta Lab home"><img class="dialog-avatar" src="image.jpg" alt="" /></button>
         <div class="page-head__text">
           <h2 class="page-title">Mock interview</h2>
-          <p class="page-sub">One problem, a clock, and an honest review</p>
+          <p class="page-sub">Three questions: code with a clock, or multiple choice without one</p>
         </div>
       </header>
 
       <div class="settings-body mock-body">
-        <section id="mock-setup" class="settings-group" aria-labelledby="mock-setup-title">
-          <h3 id="mock-setup-title">Start</h3>
-          <div id="mock-difficulty-host"></div>
-          <p id="mock-setup-note" class="viz-about"></p>
+        <!-- ============================ start ============================ -->
+        <section id="mock-start" class="settings-group mock-start" aria-labelledby="mock-start-title">
+          <h3 id="mock-start-title">Start a mock test</h3>
+          <p class="pattern-intro">
+            Three questions, picked fresh each time. A coding problem gets ten minutes;
+            a multiple-choice question has no clock. Nothing is timed until you press Start.
+          </p>
+          <button id="mock-start-btn" class="prog-btn mock-start__btn" type="button">Start the test</button>
+          <p id="mock-start-note" class="viz-about" role="status" aria-live="polite"></p>
         </section>
 
-        <section id="mock-stage" class="settings-group mock-stage" aria-labelledby="mock-stage-title" hidden>
-          <div class="mock-stage__head">
+        <!-- ============================= run ============================= -->
+        <section id="mock-run" class="settings-group mock-run" aria-labelledby="mock-run-title" hidden>
+          <div class="mock-run__head">
             <div>
-              <p id="mock-stage-label" class="mock-stage__label"></p>
-              <h3 id="mock-stage-title" class="mock-stage__title"></h3>
+              <p id="mock-run-progress" class="mock-stage__label"></p>
+              <h3 id="mock-run-title" class="mock-stage__title">Question</h3>
             </div>
-            <p id="mock-clock" class="mock-clock">0:00</p>
+            <!-- The clock exists only while a coding question is on screen. It is
+                 not shown and not started for a multiple-choice question. -->
+            <p id="mock-clock" class="mock-clock" hidden>10:00</p>
           </div>
           <div class="mock-stage__bar"><div id="mock-stage-bar" class="mock-stage__fill"></div></div>
-          <p id="mock-stage-note" class="viz-about"></p>
 
-          <div class="mock-problem">
-            <p id="mock-problem-meta" class="pattern-intro"></p>
-            <h4 id="mock-problem-title" class="mock-problem__title"></h4>
-            <p id="mock-problem-reason" class="viz-note--plain"></p>
-            <div id="mock-problem-links" class="mock-actions"></div>
-            <!-- The assigned problem is read here, inside the interview. It used
-                 to be reachable only by a button that switched the whole app to
-                 Quanta Lab, which ended the interview the reader was sitting in. -->
-            <div id="mock-problem-statement" class="mock-problem__statement" aria-live="polite"></div>
-          </div>
+          <div id="mock-q-body" class="mock-q-body"></div>
 
-          <!-- The workspace. Same editor and the same execution path as the Code
-               Lab, with no Lab headings, instructions or file management: the
-               interview needs somewhere to type and somewhere to see the result,
-               and nothing else.
-
-               The divider is the same resizer the Lab uses, so dragging it
-               behaves identically and remembers where it was put. -->
-          <div id="mock-workspace" class="mock-workspace">
+          <!-- The editor, reused from the Code Lab. Shown only for a coding
+               question; a multiple-choice question has its own interface and
+               never mounts an editor. -->
+          <div id="mock-q-editor" class="mock-workspace" hidden>
             <section class="mock-editor-pane">
               <div class="mock-workspace__bar">
                 <label class="mock-lang">
@@ -1158,13 +1152,26 @@
               <pre id="mock-output" class="java-output"></pre>
             </section>
           </div>
+
+          <div class="mock-q-actions">
+            <button id="mock-submit-btn" class="prog-btn" type="button">Submit answer</button>
+            <button id="mock-next-btn" class="prog-btn prog-btn--primary" type="button" hidden>Next question</button>
+          </div>
+
+          <!-- Nothing about the answer appears here until the question has been
+               submitted or its clock has run out. -->
+          <div id="mock-q-result" class="mock-q-result" aria-live="polite"></div>
         </section>
 
-        <section id="mock-review" class="settings-group" aria-labelledby="mock-review-title" hidden>
-          <h3 id="mock-review-title">How did that go?</h3>
+        <!-- =========================== summary =========================== -->
+        <section id="mock-summary" class="settings-group mock-summary" aria-labelledby="mock-summary-title" hidden>
+          <h3 id="mock-summary-title">Your test</h3>
+          <p id="mock-score" class="mock-score"></p>
+          <div id="mock-summary-list" class="mock-summary__list"></div>
+          <div class="study-actions">
+            <button id="mock-again-btn" class="prog-btn" type="button">Another test</button>
+          </div>
         </section>
-
-        <p id="mock-outcome" class="mock-outcome" role="status" aria-live="polite" hidden></p>
 
         <section class="settings-group" aria-labelledby="mock-history-title">
           <h3 id="mock-history-title">Previous interviews</h3>
@@ -1650,8 +1657,8 @@
         if (isWrapper && !localStorage.getItem("quantaRunServerUrl")) {
           localStorage.setItem("quantaRunServerUrl", "http://192.168.0.5:3000");
         }
-        if (isWrapper && "https://quanta-api-2i9a.onrender.com" && !localStorage.getItem("quantaApiBaseUrl")) {
-          localStorage.setItem("quantaApiBaseUrl", "https://quanta-api-2i9a.onrender.com");
+        if (isWrapper && "" && !localStorage.getItem("quantaApiBaseUrl")) {
+          localStorage.setItem("quantaApiBaseUrl", "");
         }
       } catch (e) {}
     })();
@@ -1662,12 +1669,13 @@
   <script src="academy.js?v=1"></script>
   <script src="patterns.js?v=1"></script>
   <script src="mock.js?v=2"></script>
+  <script src="mocktest.js?v=1"></script>
   <script src="solutions.js?v=1"></script>
 <script src="debugger.js?v=1"></script>
 <script src="review.js?v=1"></script>
 <script src="contests.js?v=1"></script>
   <script src="version.js?v=1"></script>
   <script src="search.js?v=1"></script>
-  <script src="lab-notes.js?v=80"></script>
+  <script src="lab-notes.js?v=81"></script>
 </body>
 </html>
