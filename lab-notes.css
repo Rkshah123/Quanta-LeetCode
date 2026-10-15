@@ -5642,3 +5642,88 @@ html.quanta-native-shell {
     background-color: var(--accent-line, rgba(148, 196, 178, 0.85));
   }
 }
+
+
+/* =========================================================================
+   PROGRAM LIST — number and title on the first line
+   =========================================================================
+
+   The row is a two-column grid: a number badge, then a column holding the
+   title and, under it, the difficulty, star and link. So the second line was
+   already aligned with the title rather than the number, and the requested
+   layout was nearly in place.
+
+   What was wrong is the vertical one. The row used `align-items: center`, so
+   the number badge was centred across the whole two-line block - which put it
+   half way between the two lines, reading as neither. It needs to sit on the
+   first line, beside the title.
+
+   The badge is given the exact height of the title's line box rather than a
+   padding guess, because the title's line box is not the same size on every
+   platform: a coarse pointer or a narrow screen gives it a 40px tap target
+   (see the touch-target block in style.css), against 1.17rem for a mouse. One
+   custom property carries that difference, so both platforms line up without
+   the badge being written twice.
+
+   Applies to the desktop application, the website and the mobile application:
+   this is the layout the user asked to be consistent across all three.
+   ========================================================================= */
+
+.lc-problem-row {
+  /* The height of the title's first line box, in each platform's terms.
+     0.9rem of type at a line-height of 1.3. */
+  --lc-row-line: 1.17rem;
+
+  /* Was `center`, which centred the badge between the two lines. */
+  align-items: start;
+}
+
+/* Touch and narrow screens give the title a 40px tap target, so the badge has
+   to be 40px too or it drifts back to the middle of the row. */
+@media (pointer: coarse), (max-width: 760px) {
+  .lc-problem-row {
+    --lc-row-line: 40px;
+  }
+}
+
+.lc-problem-num {
+  height: var(--lc-row-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The badge filled its height with padding before, which is what made it
+     taller than the line it has to sit on. */
+  padding: 0;
+  line-height: 1;
+}
+
+/* =========================================================================
+   SETTINGS — use the full width of the panel
+   =========================================================================
+
+   Each row already puts its label at the left and its control at the right,
+   because `.settings-row` is a flex row with `justify-content: space-between`.
+   The dead space was not inside the rows - it was the rows themselves being
+   narrower than the page, because `.settings-body` was capped at 1160px to
+   keep a comfortable reading line. On a 1440px screen that left roughly 245px
+   of empty page to the right of every row, which is what was reported.
+
+   Lifting the cap fills the width, and the existing space-between then does the
+   rest: label hard left, control hard right.
+
+   Desktop application and website only. Below 761px the phone layout takes
+   over and the mobile application must not change - the cap is left in force
+   there, and the phone's own wrapping rules in the settings block above are
+   untouched.
+
+   Scoped to `.page--settings` on purpose. About and Revision share the same
+   cap and the same selector list; About is prose, where a 1160px line is a
+   deliberate choice and stretching it would make the text harder to read. Only
+   the Settings page was asked to change.
+   ========================================================================= */
+
+@media (min-width: 761px) {
+  .page--settings .settings-body {
+    max-width: none;
+  }
+}
