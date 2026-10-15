@@ -6819,3 +6819,64 @@ body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
     transform: none;
   }
 }
+
+/* ================= nested scrollbars, and the nav that runs off the edge ==========
+ *
+ * Two separate faults, with different scopes, kept in separate blocks so each
+ * can be read on its own.
+ */
+
+/* ------------------------------------------------------------------ 1.
+ * Nested scrollbars, everywhere: website, desktop app and mobile.
+ *
+ * Quanta scrolls in two layers - the page moves in .app-pages, and a panel
+ * inside it moves on its own. The outer one is the page you navigate with and
+ * stays visible; the inner ones are furniture, and a dozen of them each
+ * carrying a track and a thumb is noise that reads as clutter.
+ *
+ * Written as a descendant rule rather than a list of panels, because a list is
+ * how the Android build came to ship nine files instead of everything the page
+ * references: anything new that scrolls inherits this, and nothing has to be
+ * remembered. The main scroller is `.app-pages` itself, which a descendant
+ * selector cannot reach, so it is untouched by construction.
+ *
+ * Scrolling is unaffected. Only the track and the thumb are hidden, which is
+ * what `scrollbar-width: none` and a zero-width webkit scrollbar both do -
+ * the box still scrolls, still responds to wheel, touchpad, trackpad and
+ * touch, and still scrolls to a position when something inside it is focused.
+ *
+ * Webkit and Chromium get the vertical axis only, because that is what was
+ * asked for and because a problem statement's `pre` blocks scroll
+ * horizontally and that indicator is worth keeping. Firefox has no vertical
+ * only value, so it hides both axes - a small, documented over-reach rather
+ * than a different scroll behaviour.
+ */
+
+.app-pages ::-webkit-scrollbar:vertical,
+.app-nav ::-webkit-scrollbar:vertical,
+.page-head ::-webkit-scrollbar:vertical,
+body.nav-open ::-webkit-scrollbar:vertical {
+  width: 0;
+  height: 0;
+}
+
+.app-pages ::-webkit-scrollbar-track:vertical,
+.app-pages ::-webkit-scrollbar-thumb:vertical {
+  background: transparent;
+  border: 0;
+}
+
+/* Firefox: no axis-specific keyword exists, so this hides both. */
+.app-pages *,
+.app-nav *,
+.page-head * {
+  scrollbar-width: none;
+}
+
+/* The main scroller keeps its bar. Stated rather than assumed, because the
+   rule above hides every descendant's and a later "tidy up" pass could
+   reasonably have taken this one with it. */
+.app-pages {
+  scrollbar-width: auto;
+}
+

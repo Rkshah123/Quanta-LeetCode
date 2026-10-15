@@ -5486,3 +5486,66 @@ body {
 html.quanta-native-shell {
   --safe-top: 0px;
 }
+
+/* ------------------------------------------------------------------ 2.
+ * The navigation bar running off both edges. Desktop and website only.
+ *
+ * Measured, not guessed. At a 1440px window the bar's content needs 1490px
+ * and the bar has 1425px, so `About`, `Settings`, `Companies` and `Mock` sat
+ * outside the window with no way to reach them. At 1024px the gap was 273px.
+ *
+ * Two causes, and both had to go:
+ *
+ *   - `.nav-btn { flex: 0 0 auto }` - the buttons refused to give up any
+ *     width, so the row could only ever be as wide as it liked.
+ *   - `.app-nav { justify-content: center }` - centring a row wider than its
+ *     container spills equally out of *both* ends, and the left-hand spill is
+ *     the one a scroll container cannot scroll back to. That is why the first
+ *     item read "a Lab" in a screenshot: `justify-content` had pushed "Quanta
+ *     Lab" to left:-54px, where it is simply gone.
+ *
+ * `safe center` is the fix for the second. It centres when there is room and
+ * falls back to the start edge when there is not, so the left edge is never
+ * past the left edge. Chromium 93+, and the desktop app is Chromium 140.
+ *
+ * Scoped to 761px and up: below that the phone layout takes over and the bar
+ * becomes a drawer, which must not be touched here.
+ */
+@media (min-width: 761px) {
+  .app-nav {
+    justify-content: safe center;
+  }
+
+  /* Allowed to shrink rather than to overflow. `min-width: 0` is what lets a
+     flex item actually get smaller than its content. */
+  .nav-btn {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+}
+
+/* The row still overflows on a narrow desktop even with shrinking, because the
+   labels are what they are. Rather than cut anything off, the padding gives way
+   first and the type after that - the buttons stay legible and the design is
+   unchanged, it is just tighter. */
+@media (min-width: 761px) and (max-width: 1560px) {
+  .app-nav {
+    gap: 3px;
+    padding: 0 8px;
+  }
+  .nav-btn {
+    padding: 8px 11px;
+    font-size: 0.89rem;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1320px) {
+  .app-nav {
+    gap: 2px;
+    padding: 0 6px;
+  }
+  .nav-btn {
+    padding: 8px 8px;
+    font-size: 0.85rem;
+  }
+}
