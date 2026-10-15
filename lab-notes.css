@@ -3458,11 +3458,40 @@ body {
   font-size: clamp(0.92rem, 2vw, 1.12rem);
 }
 
-/* Settings / About fill the viewport and scroll their own content. */
+/* Settings and About used to scroll their own content as well as letting the
+   page container scroll it, which put two scrollbars on one piece of content.
+
+   The second one was the odd one in the screenshot: full height, arrow buttons
+   at both ends, and a thumb that never moved. Three things combine to make it.
+
+   One, `.page--about` declared `overflow-y: auto`, and in CSS a single axis
+   that is not `visible` makes the other axis compute to `auto` as well - so
+   `.overflow-x` became `auto` too and the whole section became a scroll
+   container.
+
+   Two, `.page` is `height: 100%`, so the section was exactly the height of
+   `.app-pages` regardless of how much content it held. The About page holds
+   959px of content in a 601px box.
+
+   Three, `.app-pages` reserves a scrollbar gutter (`scrollbar-gutter: stable`),
+   so the page section sits inset from the right edge - which is why the stray
+   bar appeared a little way in from the window edge rather than on it.
+
+   The page container is already the scroller, and it was built to be. These two
+   pages now grow past it and are scrolled there, like every other page, so
+   there is one scrollbar where the content is.
+
+   `height: auto` with `min-height: 100%` rather than plain `auto`: the pages
+   still fill the viewport when their content is short, and grow when it is
+   not. The pages that rely on a bounded height - Quanta Lab, Notes and the Lab,
+   whose inner panes scroll inside `minmax(0, 1fr)` grids - are untouched,
+   since this rule names only these two. */
 
 .page--settings,
 .page--about {
-  overflow-y: auto;
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
   overscroll-behavior: contain;
 }
 
