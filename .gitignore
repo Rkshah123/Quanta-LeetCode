@@ -15,3 +15,7 @@ android-apk/Quanta.apk.idsig
 # Written by scripts/curate-catalog.js - the plan for the last curation run.
 # Useful while tuning the curator, noise once it has been committed once.
 catalog-plan.json
+
+electron-app/
+
+release/

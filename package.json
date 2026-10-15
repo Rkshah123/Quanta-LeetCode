@@ -1,8 +1,8 @@
 {
   "name": "leetcode-dashboard",
   "version": "1.0.0",
-  "description": "Personal LeetCode practice dashboard with category workflow, Java Lab editor, and AI study assistant.",
-  "main": "server.js",
+  "description": "Quanta - a coding practice companion",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
@@ -30,7 +30,11 @@
     "test:debugger": "node scripts/test-debugger.js",
     "test:review": "node scripts/test-review.js",
     "test:program-search": "node scripts/test-program-search.js",
-    "clean:test-data": "node scripts/clean-test-data.js"
+    "clean:test-data": "node scripts/clean-test-data.js",
+    "desktop": "electron .",
+    "desktop:assets": "node scripts/build-electron-assets.js",
+    "desktop:build": "npm run desktop:assets && electron-builder --win --x64",
+    "desktop:dir": "npm run desktop:assets && electron-builder --win --x64 --dir"
   },
   "keywords": [
     "leetcode",
@@ -39,7 +43,9 @@
     "dsa",
     "coding"
   ],
-  "author": "Shaharukh Khan",
+  "author": {
+    "name": "Shahrukh Khan"
+  },
   "license": "ISC",
   "type": "commonjs",
   "engines": {
@@ -50,5 +56,47 @@
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "mysql2": "^3.24.5"
+  },
+  "devDependencies": {
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.khan.quanta.desktop",
+    "productName": "Quanta",
+    "copyright": "Copyright (c) Quanta",
+    "directories": {
+      "output": "release",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "electron/main.js",
+      "electron/preload.js",
+      "electron-app/**/*",
+      "leeticon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "leeticon.png",
+      "artifactName": "Quanta-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Quanta",
+      "menuCategory": false
+    }
   }
 }
