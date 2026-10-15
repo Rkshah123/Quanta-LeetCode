@@ -37,6 +37,13 @@
 }
 
 body[data-theme="dark"] {
+  /* Desktop hover. Dark surfaces need a stronger line than the accent's own. */
+  --hover-line: rgba(52, 211, 153, 0.62);
+  --hover-bg: rgba(16, 185, 129, 0.15);
+  --hover-bg-strong: rgba(16, 185, 129, 0.24);
+  --hover-glow: rgba(52, 211, 153, 0.26);
+  --hover-dur: 150ms;
+
   --bg-a: #060d0b;
   --bg-b: #0a1512;
   --bg-c: #0d1a16;
@@ -61,9 +68,25 @@ body[data-theme="dark"] {
   --danger-line: rgba(248, 113, 113, 0.42);
   --success: #34d399;
   color-scheme: dark;
+
+  /* Hover tones, for any theme that does not set its own. Each theme below
+     overrides these with its own accent, so the layer that uses them never
+     has to know which theme is on screen. */
+  --hover-line: rgba(52, 211, 153, 0.6);
+  --hover-bg: rgba(16, 185, 129, 0.14);
+  --hover-bg-strong: rgba(16, 185, 129, 0.22);
+  --hover-glow: rgba(52, 211, 153, 0.24);
+  --hover-dur: 150ms;
 }
 
 body[data-theme="beige"] {
+  /* Desktop hover. Light surfaces take the same idea far more gently. */
+  --hover-line: rgba(0, 106, 78, 0.66);
+  --hover-bg: rgba(0, 106, 78, 0.09);
+  --hover-bg-strong: rgba(0, 106, 78, 0.15);
+  --hover-glow: rgba(0, 106, 78, 0.22);
+  --hover-dur: 150ms;
+
   --bg-a: #f6faf8;
   --bg-b: #eef5f1;
   --bg-c: #e3efe9;
@@ -92,6 +115,13 @@ body[data-theme="beige"] {
 }
 
 body[data-theme="ember"] {
+  /* Desktop hover. Amber line over an orange wash, matching this theme. */
+  --hover-line: rgba(251, 191, 36, 0.62);
+  --hover-bg: rgba(249, 115, 22, 0.14);
+  --hover-bg-strong: rgba(249, 115, 22, 0.22);
+  --hover-glow: rgba(249, 115, 22, 0.28);
+  --hover-dur: 150ms;
+
   /* Deep charcoal surfaces with warm orange accents and amber highlights. */
   --bg-a: #14100d;
   --bg-b: #191411;
@@ -6524,4 +6554,268 @@ body[data-theme="beige"] .hm-cell--l4 { background: rgb(0, 106, 78); }
   .mock-run__head { flex-wrap: wrap; }
   .mock-clock { font-size: 1.9rem; }
   .mock-q-actions button { flex: 1 1 auto; }
+}
+
+/* ===================== desktop hover =============================
+ *
+ * Every rule here lives inside `@media (hover: hover) and (pointer: fine)`.
+ * That query is false on a phone and on a touch laptop in tablet mode, so
+ * nothing in this block can apply to a touch device - the mobile layout, touch
+ * behaviour and every mobile-specific rule are untouched by construction rather
+ * than by remembering to check.
+ *
+ * Nothing here changes size, padding, margin, border width or position. Hover
+ * is drawn with colour and shadow only, plus a one-pixel translate, so no
+ * element can shift the layout when the pointer crosses it and nothing can
+ * flicker as a neighbour is pushed around.
+ */
+@media (hover: hover) and (pointer: fine) {
+
+  /* ---- the transition, applied once to everything that can be pointed at.
+         `:where` keeps this at zero specificity, so it never overrides a
+         component's own transition or colour - it only supplies one where there
+         is none. */
+  :where(button, a, summary, [role="button"], [tabindex], .nav-btn, .prog-btn,
+         .run-btn, .settings-group, .lc-chip, .theme-chip, .viz-chip):not(:disabled) {
+    transition:
+      background-color var(--hover-dur) ease,
+      border-color var(--hover-dur) ease,
+      color var(--hover-dur) ease,
+      box-shadow var(--hover-dur) ease,
+      transform var(--hover-dur) ease,
+      opacity var(--hover-dur) ease;
+  }
+
+  /* Anything disabled stays dead. A button that cannot be pressed must not look
+     as though it can. */
+  :where(button, [role="button"], a):disabled,
+  :where(button, [role="button"])[aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  /* ---- primary buttons ------------------------------------------------ */
+  .prog-btn:not(:disabled):hover,
+  .run-btn:not(:disabled):hover,
+  .settings-action-btn:not(:disabled):hover,
+  .diag-action-btn:not(:disabled):hover,
+  .viz-icon-btn:not(:disabled):hover,
+  .lc-link-btn:not(:disabled):hover,
+  .lc-more-btn:not(:disabled):hover,
+  .exit-btn:not(:disabled):hover,
+  .sidebar-add:not(:disabled):hover,
+  .sidebar-edit-btn:not(:disabled):hover,
+  .sidebar-tool-btn:not(:disabled):hover,
+  .bulk-apply-btn:not(:disabled):hover,
+  .save-goal-btn:not(:disabled):hover,
+  .category-btn:not(:disabled):hover,
+  .category-move-btn:not(:disabled):hover,
+  .fab:not(:disabled):hover,
+  .lc-star-btn:not(:disabled):hover,
+  .icon-btn:not(:disabled):hover,
+  .dialog-avatar-btn:not(:disabled):hover,
+  .arena-contest:not(:disabled):hover,
+  .np-new-btn:not(:disabled):hover,
+  .dbg-line:not(:disabled):hover,
+  .btn-icon-danger:not(:disabled):hover,
+  .contact-card:hover,
+  .academy-point__label:hover {
+    border-color: var(--hover-line);
+    background-color: var(--hover-bg);
+    box-shadow: 0 0 0 1px var(--hover-line), 0 6px 18px var(--hover-glow);
+    transform: translateY(-1px);
+  }
+
+  /* A primary button sits on the accent gradient; a wash over it would be
+     invisible, so it brightens instead and gains a glow under it. */
+  .prog-btn--primary:not(:disabled):hover,
+  .run-btn:not(:disabled):hover {
+    filter: brightness(1.12);
+    box-shadow: 0 8px 22px var(--hover-glow);
+  }
+
+  /* Danger keeps the red it already has - a green hover on a delete button
+     would be telling the reader the wrong thing. */
+  .prog-btn--danger:not(:disabled):hover,
+  .settings-action-btn--danger:not(:disabled):hover,
+  .sidebar-edit-btn--danger:not(:disabled):hover,
+  .diag-action-btn--danger:not(:disabled):hover {
+    border-color: var(--danger-line);
+    background-color: var(--danger-soft);
+    box-shadow: 0 0 0 1px var(--danger-line), 0 6px 18px var(--danger-soft);
+    color: var(--danger);
+  }
+
+  /* A ghost button has no fill of its own, so the wash on hover is the whole
+     effect and must be a little stronger to read as one. */
+  .prog-btn--ghost:not(:disabled):hover {
+    background-color: var(--hover-bg-strong);
+    color: var(--accent-text);
+  }
+
+  /* ---- navigation and menu items -------------------------------------- */
+  .nav-btn:not(.is-active):hover,
+  .np-lang-tab:not(.is-active):hover,
+  .ql-detail-tab:not(.is-active):hover,
+  .lab-mobile-switch__btn:not(.is-active):hover {
+    background-color: var(--hover-bg);
+    border-color: var(--hover-line);
+    color: var(--text-a);
+  }
+
+  /* An active tab is already marked. Lifting it further would blur the
+     difference between "this is the one you are on" and "you are pointing at
+     this one", which is the distinction the tab exists to make. */
+  /* Handled with the other already-selected things below. */
+
+  /* ---- chips, badges, filters ----------------------------------------- */
+  .lc-chip:not(:disabled):hover,
+  .theme-chip:not(:disabled):hover,
+  .viz-chip:not(:disabled):hover,
+  .company-chip:not(:disabled):hover,
+  .study-badge:hover,
+  .rev-filter:not(.is-active):hover,
+  .rev-rating:not(.is-active):hover {
+    background-color: var(--hover-bg-strong);
+    border-color: var(--hover-line);
+    color: var(--text-a);
+    transform: translateY(-1px);
+  }
+
+  /* Already-selected things: acknowledged, but never enough to look like a
+     different selection. A reader must be able to tell "this is chosen"
+     from "you are pointing here", and only the first should be something
+     the pointer alone changes. */
+  .rev-filter.is-active:hover,
+  .rev-rating.is-active:hover,
+  .theme-chip.is-active:hover,
+  .viz-chip.is-active:hover,
+  .np-lang-tab.is-active:hover,
+  .ql-detail-tab.is-active:hover,
+  .arena-contest.is-active:hover,
+  .nav-btn.is-active:hover,
+  .lab-mobile-switch__btn.is-active:hover {
+    border-color: var(--hover-line);
+    box-shadow: 0 0 0 1px var(--hover-line), 0 4px 14px var(--hover-glow);
+  }
+
+  /* ---- cards, panels and section blocks ------------------------------- */
+  .settings-group:hover,
+  .stat-card:hover,
+  .contact-card:hover,
+  .pattern-block:hover,
+  .academy-point:hover,
+  .mock-res__item:hover,
+  .mock-result:hover {
+    border-color: var(--hover-line);
+    background-color: var(--hover-bg);
+    box-shadow: 0 8px 26px var(--hover-glow);
+  }
+
+  /* A whole panel lifting when the pointer merely crosses it is noise - the
+     reader may be aiming at a control inside it. Panels get a border and a
+     shadow, never a move. */
+  .discovery-card:hover,
+  .revision-card:hover,
+  .quiz-summary:hover,
+  .mock-tile:hover {
+    border-color: var(--hover-line);
+    box-shadow: 0 8px 26px var(--hover-glow);
+  }
+
+  /* A result card carries the colour of its verdict; hovering must not
+     overwrite that with the accent, or the colour stops meaning anything. */
+  .mock-result.is-wrong:hover,
+  .mock-res__item.is-error:hover {
+    border-color: var(--danger-line);
+    box-shadow: 0 8px 26px var(--danger-soft);
+  }
+
+  /* ---- lists, cells and grids ----------------------------------------- */
+  .heatmap .hm-cell:hover {
+    background-color: var(--hover-bg-strong);
+  }
+
+  .arena-standing__cell:hover,
+  .viz-table__cell:hover,
+  .key:hover {
+    background-color: var(--hover-bg-strong);
+    outline: 1px solid var(--hover-line);
+    outline-offset: -1px;
+  }
+
+  /* ---- mock panel ----------------------------------------------------- */
+  .mock-q-option:not(.is-chosen):hover {
+    border-color: var(--hover-line);
+    background-color: var(--hover-bg);
+    transform: translateX(2px);
+  }
+
+  /* A chosen option is already marked; it must not look unchosen on hover. */
+  .mock-q-option.is-chosen:hover {
+    border-color: var(--hover-line);
+    box-shadow: 0 0 0 1px var(--hover-line);
+  }
+
+  .mock-q-option:hover {
+    transform: none;
+  }
+  .mock-q-option.is-chosen:hover {
+    transform: none;
+  }
+
+  .mock-res__toggle:hover,
+  .lc-star-btn:hover {
+    color: var(--accent-text);
+    border-color: var(--hover-line);
+  }
+
+  /* ---- links ----------------------------------------------------------- */
+  a:not(.nav-btn):hover {
+    color: var(--accent-text);
+    text-decoration-color: var(--hover-line);
+  }
+
+  /* ---- form fields ----------------------------------------------------- */
+  .settings-input:hover,
+  .settings-select:hover,
+  .study-field:hover,
+  .viz-field:hover,
+  .lc-filter-field:hover,
+  .dbg-examples-field:hover {
+    border-color: var(--hover-line);
+    background-color: var(--hover-bg);
+  }
+
+  .settings-switch:hover {
+    border-color: var(--hover-line);
+    box-shadow: 0 0 0 1px var(--hover-line);
+  }
+
+  /* The guard that stands in for the disabled Submit button: a pointer on it
+     should not suggest it works. */
+  .mock-q-guard:hover {
+    cursor: not-allowed;
+  }
+
+  /* ---- keyboard, so the same affordance is reachable without a pointer --- */
+  :where(button, a, summary, [role="button"], [tabindex]):focus-visible {
+    outline: 2px solid var(--hover-line);
+    outline-offset: 2px;
+  }
+}
+
+/* Anyone who has asked for less motion gets none of it. The colours stay -
+   they are the whole point - only the movement and the fades are dropped. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  :where(button, a, summary, [role="button"], [tabindex], .nav-btn, .prog-btn,
+         .run-btn, .settings-group, .lc-chip, .theme-chip, .viz-chip) {
+    transition: none;
+  }
+  .prog-btn:not(:disabled):hover,
+  .run-btn:not(:disabled):hover,
+  .lc-chip:not(:disabled):hover,
+  .nav-btn:not(.is-active):hover,
+  .mock-q-option:not(.is-chosen):hover {
+    transform: none;
+  }
 }
