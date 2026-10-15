@@ -7240,6 +7240,54 @@ const ensureRevisionStateForCatalog = () => {
     if (spec.el) initSplitHandle(spec);
     if (qlSplits.values[spec.key] !== undefined) qlSplits.apply(spec.key);
   });
+  /* ---------------------------------------------------------- scrollbars
+   *
+   * Scrollbars hide themselves and appear only while something is being
+   * scrolled. The CSS needs to know which moments those are, and it cannot:
+   * there is no "scrolling" state in CSS. So this marks them.
+   *
+   * A scroll event does not bubble, so the listener is registered in the
+   * capture phase - that is what catches every scroller on the page, including
+   * ones added later, without each having to announce itself.
+   *
+   * One class, one timer, for the whole document. Anything more would be a
+   * scroll handler per panel, which is how scrolling ends up feeling heavy.
+   *
+   * Mouse wheel, touchpad, touch and keyboard all arrive here as the same
+   * event, because the browser reports them the same way once they have moved
+   * the scroll position. Nothing about scrolling itself is touched: no
+   * overflow is removed, no pointer-events are disabled, and the bar is still
+   * there to be dragged.
+   */
+  const SCROLLING_CLASS = "quanta-scrolling";
+  const SCROLL_IDLE_MS = 900;
+  let scrollIdleTimer = null;
+
+  const endScrollingSoon = () => {
+    if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
+    scrollIdleTimer = window.setTimeout(() => {
+      scrollIdleTimer = null;
+      document.documentElement.classList.remove(SCROLLING_CLASS);
+    }, SCROLL_IDLE_MS);
+  };
+
+  document.addEventListener(
+    "scroll",
+    () => {
+      const root = document.documentElement;
+      if (!root.classList.contains(SCROLLING_CLASS)) root.classList.add(SCROLLING_CLASS);
+      endScrollingSoon();
+    },
+    { capture: true, passive: true }
+  );
+
+  /* Hidden again when the pointer leaves the window, rather than waiting out
+     the timer for a bar nobody can see. */
+  window.addEventListener("blur", () => {
+    if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
+    document.documentElement.classList.remove(SCROLLING_CLASS);
+  });
+
   window.addEventListener("resize", () => {
     queueDescDividerSync();
     window.setTimeout(() => {

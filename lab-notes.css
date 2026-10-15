@@ -5578,3 +5578,67 @@ html.quanta-native-shell {
     font-size: 0.85rem;
   }
 }
+
+/* ============================== scrollbars ==============================
+ *
+ * Every scrollbar hides itself and appears only while something is being
+ * scrolled. Desktop and website only - scoped to 761px and up, because below
+ * that the phone layout takes over and the mobile application must not change.
+ *
+ * This uses ::-webkit-scrollbar, and not scrollbar-width / scrollbar-color,
+ * which is the opposite of the obvious choice and worth explaining.
+ *
+ * The two are not combinable. In Chromium, styling ::-webkit-scrollbar makes
+ * the browser ignore scrollbar-width and scrollbar-color outright, so a
+ * stylesheet carrying both does whichever branch wins and none of the other.
+ *
+ * The standard properties are also not reliably detectable. Chromium here
+ * answers `@supports (scrollbar-color: red)` with false, which put a
+ * "standard properties here, webkit fallback there" stylesheet into the webkit
+ * branch on every machine that reported it supported the selector - so the two
+ * mechanisms cancelled out and the scrollbars kept their default appearance
+ * while the stylesheet appeared to be doing the right thing.
+ *
+ * Styling ::-webkit-scrollbar is supported by every engine this actually runs
+ * on: Chrome, Edge, the desktop app's Chromium 140, and the Android WebView.
+ * One mechanism, applied unconditionally, cannot contradict itself.
+ *
+ * The track keeps its width whether or not the thumb is showing. A bar that
+ * went to zero width would reflow the content beside it on every scroll, and
+ * .app-pages already reserves a stable gutter so that swapping one for another
+ * cannot shift the page. Only the thumb's colour changes.
+ *
+ * Scrolling is untouched: no overflow is removed, nothing is set to
+ * pointer-events: none, and the bar is still there to be dragged. The scroll
+ * event that reveals it is the same one the browser fires for the wheel, the
+ * touchpad, touch and the keyboard alike.
+ */
+@media (min-width: 761px) {
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* A transparent thumb on a transparent track: invisible, but still occupying
+     the same space it will occupy when it appears. */
+  ::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+
+  html.quanta-scrolling ::-webkit-scrollbar-thumb {
+    background-color: var(--accent-line, rgba(148, 196, 178, 0.6));
+  }
+
+  /* A pointer over the bar still earns it, for someone steering towards it. */
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-line, rgba(148, 196, 178, 0.85));
+  }
+}

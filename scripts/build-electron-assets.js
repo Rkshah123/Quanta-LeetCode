@@ -146,11 +146,21 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"))
 const versionFile = path.join(OUT, "version.js");
 if (fs.existsSync(versionFile)) {
   const before = fs.readFileSync(versionFile, "utf8");
-  const stamped = before.replace(/window\.QUANTA_VERSION\s*=\s*"[^"]*"/, `window.QUANTA_VERSION = "${pkg.version}"`);
-  if (stamped === before) {
+  /* Whether the line exists and whether it already says the right thing are two
+     different questions, and the old check could not tell them apart.
+
+     It treated "the replacement changed nothing" as "the line is missing", so
+     the build failed precisely when the two versions already agreed - which is
+     the one case that should pass silently. Syncing package.json to version.js,
+     so the About page could not report one number on the website and a
+     different one in the desktop app, made the stamp a no-op and broke the very
+     build that packages it. */
+  const VERSION_LINE = /window\.QUANTA_VERSION\s*=\s*"[^"]*"/;
+  if (!VERSION_LINE.test(before)) {
     console.error("    FAILED: could not find the QUANTA_VERSION line to rewrite.");
     process.exit(1);
   }
+  const stamped = before.replace(VERSION_LINE, `window.QUANTA_VERSION = "${pkg.version}"`);
   fs.writeFileSync(versionFile, stamped);
   console.log(`    About page will report ${pkg.version}`);
 } else {
