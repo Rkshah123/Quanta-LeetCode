@@ -23,7 +23,6 @@
 .dialog-avatar {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
   object-fit: cover;
   border: 2px solid var(--accent-line, rgba(var(--tint-bright), 0.45));
   box-shadow: var(--shadow-soft, 0 6px 14px rgba(0, 0, 0, 0.35));
@@ -95,7 +94,7 @@ body[data-theme="beige"] .notes-title {
   height: 42px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(140deg, #ef4444, #b91c1c 90%);
   color: #fff;
   cursor: pointer;
@@ -240,7 +239,7 @@ body[data-theme="beige"] .settings-row__text span {
 .theme-chip {
   padding: 8px 12px;
   min-height: 38px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(var(--tint-light), 0.3);
   background: rgba(var(--tint-surface), 0.9);
   color: var(--text-d);
@@ -314,7 +313,7 @@ body[data-theme="beige"] .theme-chip.is-active {
 .settings-switch span {
   position: absolute;
   inset: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(var(--tint-light), 0.18);
   border: 1px solid rgba(var(--tint-light), 0.35);
   transition: background var(--anim-fast);
@@ -376,7 +375,7 @@ body[data-theme="beige"] .font-size-controls button {
   padding: 9px 16px;
   min-height: 38px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(125deg, rgb(var(--tint-bright)), rgb(var(--tint-deep)) 85%);
   color: #fff;
   font-weight: 750;
@@ -417,7 +416,7 @@ body[data-theme="beige"] .java-lab-switches {
   gap: 6px;
   background: rgba(var(--tint-bright), 0.12);
   border: 1px solid rgba(var(--tint-bright), 0.25);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 6px 11px;
   cursor: pointer;
 }
@@ -470,7 +469,7 @@ body[data-theme="beige"] .java-create-form select {
 .notes-top-actions button,
 .notes-editor-meta button {
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 10px 14px;
   min-height: 42px;
   font-weight: 700;
@@ -838,7 +837,7 @@ body[data-theme="beige"] .java-output-head h3 {
   white-space: nowrap;
 }
 
-.run-status--success { color: #34d399; }
+.run-status--success { color: var(--success); }
 .run-status--error { color: #f87171; }
 .run-status--running { color: #facc15; }
 
@@ -900,7 +899,7 @@ body[data-theme="beige"] .java-output {
 
 .java-diag-ok {
   margin: 0;
-  color: #34d399;
+  color: var(--success);
   font-size: 0.84rem;
 }
 
@@ -1526,7 +1525,7 @@ body[data-theme="beige"] .notes-section-editor {
   background: rgba(var(--tint-light), 0.12);
   border: 1px solid rgba(var(--tint-light), 0.28);
   padding: 5px 11px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 
@@ -1707,10 +1706,10 @@ body[data-theme="beige"] .lc-problem-name {
   font-weight: 800;
   letter-spacing: 0.05em;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
-.lc-diff--easy { color: #34d399; background: rgba(52, 211, 153, 0.14); }
+.lc-diff--easy { color: var(--success); background: rgba(var(--tint-light), 0.14); }
 .lc-diff--medium { color: #fbbf24; background: rgba(251, 191, 36, 0.14); }
 .lc-diff--hard { color: #f87171; background: rgba(248, 113, 113, 0.14); }
 
@@ -1777,10 +1776,6 @@ body[data-theme="beige"] .lc-detail {
   flex-wrap: wrap;
 }
 
-.lc-detail-title-wrap {
-  min-width: 0;
-  flex: 1;
-}
 
 .lc-detail-meta {
   color: var(--text-c);
@@ -1793,30 +1788,18 @@ body[data-theme="beige"] .lc-detail-meta {
   color: #4e7a6c;
 }
 
-.lc-detail-title {
-  margin: 2px 0 0;
-  font-size: 1.05rem;
-  line-height: 1.25;
-  color: #ecfdf5;
-  overflow-wrap: anywhere;
-}
 
 body[data-theme="beige"] .lc-detail-title {
   color: #0c2b22;
 }
 
-.lc-detail-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
 
 .lc-link-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 9px 13px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(var(--tint-surface), 0.9);
   border: 1px solid rgba(var(--tint-light), 0.3);
   color: var(--text-d);
@@ -1846,7 +1829,7 @@ body[data-theme="beige"] .lc-link-btn {
 .lc-solve-btn {
   padding: 9px 15px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(125deg, rgb(var(--tint-bright)), rgb(var(--tint-deep)) 85%);
   color: #fff;
   font-size: 0.8rem;
@@ -1861,9 +1844,9 @@ body[data-theme="beige"] .lc-link-btn {
 }
 
 .lc-solve-btn.is-solved {
-  background: rgba(52, 211, 153, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.4);
+  background: rgba(var(--tint-light), 0.15);
+  color: var(--success);
+  border: 1px solid rgba(var(--tint-light), 0.4);
 }
 
 body[data-theme="beige"] .lc-solve-btn.is-solved {
@@ -1877,7 +1860,7 @@ body[data-theme="beige"] .lc-solve-btn.is-solved {
 .lc-star-btn {
   padding: 9px 15px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--field);
   color: var(--text-b);
   font-size: 0.8rem;
@@ -2028,7 +2011,7 @@ body[data-theme="beige"] .lc-solve-btn.is-solved {
   z-index: 400;
   max-width: min(92vw, 480px);
   padding: 11px 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(var(--tint-bright), 0.35);
   background: rgba(var(--tint-teal-surface), 0.92);
   color: var(--text-d);
@@ -2064,7 +2047,12 @@ body {
 
 .app-nav {
   position: fixed;
-  top: var(--top-bar-h);
+  /* Offset by --safe-top as well as the bar height. The top bar is placed at
+     `top: var(--safe-top)`, so without this the nav started 4px above where the
+     bar ended: it covered the bar's bottom edge and left a gap above the
+     content. Scoped to nothing - the phone drawer sets its own top in the media
+     block below, so the mobile app is untouched. */
+  top: calc(var(--safe-top) + var(--top-bar-h));
   left: 0;
   right: 0;
   height: var(--qx-nav-h);
@@ -2240,6 +2228,7 @@ body {
 .lc-detail-title {
   margin: 2px 0 0;
   font-size: 1.08rem;
+  line-height: 1.25;
   color: var(--text-a);
   overflow-wrap: anywhere;
 }
@@ -2996,7 +2985,7 @@ body {
   place-items: center;
   width: 22px;
   height: 22px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-soft);
   color: var(--success);
   flex: none;
@@ -3458,11 +3447,40 @@ body {
   font-size: clamp(0.92rem, 2vw, 1.12rem);
 }
 
-/* Settings / About fill the viewport and scroll their own content. */
+/* Settings and About used to scroll their own content as well as letting the
+   page container scroll it, which put two scrollbars on one piece of content.
+
+   The second one was the odd one in the screenshot: full height, arrow buttons
+   at both ends, and a thumb that never moved. Three things combine to make it.
+
+   One, `.page--about` declared `overflow-y: auto`, and in CSS a single axis
+   that is not `visible` makes the other axis compute to `auto` as well - so
+   `.overflow-x` became `auto` too and the whole section became a scroll
+   container.
+
+   Two, `.page` is `height: 100%`, so the section was exactly the height of
+   `.app-pages` regardless of how much content it held. The About page holds
+   959px of content in a 601px box.
+
+   Three, `.app-pages` reserves a scrollbar gutter (`scrollbar-gutter: stable`),
+   so the page section sits inset from the right edge - which is why the stray
+   bar appeared a little way in from the window edge rather than on it.
+
+   The page container is already the scroller, and it was built to be. These two
+   pages now grow past it and are scrolled there, like every other page, so
+   there is one scrollbar where the content is.
+
+   `height: auto` with `min-height: 100%` rather than plain `auto`: the pages
+   still fill the viewport when their content is short, and grow when it is
+   not. The pages that rely on a bounded height - Quanta Lab, Notes and the Lab,
+   whose inner panes scroll inside `minmax(0, 1fr)` grids - are untouched,
+   since this rule names only these two. */
 
 .page--settings,
 .page--about {
-  overflow-y: auto;
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
   overscroll-behavior: contain;
 }
 
@@ -3490,7 +3508,7 @@ body {
   gap: 10px;
   padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--card-1);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
 }
@@ -3521,7 +3539,7 @@ body {
 
 .lc-add-error {
   margin: 0;
-  color: #fda4af;
+  color: #f8a6a6;
   font-size: 0.82rem;
   font-weight: 600;
 }
@@ -3956,7 +3974,7 @@ body.lab-lang-cpp .ql-detail-tab.is-active {
 
 .run-btn--head.is-success {
   border-color: rgba(16, 185, 129, 0.55);
-  color: #34d399;
+  color: var(--success);
 }
 
 /* Keep the run button readable in both themes. */
@@ -4063,7 +4081,7 @@ body[data-theme="beige"] .run-btn--head.is-success {
   max-width: 55%;
   padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(127, 127, 127, 0.12);
   color: var(--text);
   font-size: 0.68rem;
@@ -4349,7 +4367,7 @@ body[data-theme="beige"] .ql-code-solved-badge.is-solved {
 .ql-row-resizer::after {
   content: "";
   position: absolute;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--border);
   opacity: 0;
   transition: opacity 0.15s ease, background 0.15s ease;
@@ -4792,9 +4810,6 @@ body.lc-detail-maximized .lc-max-btn .lc-min-icon {
   min-width: 0;
 }
 
-.lc-detail-actions {
-  min-width: 0;
-}
 
 .lc-detail-actions > * {
   min-width: 0;
@@ -4898,7 +4913,7 @@ body.lc-detail-maximized .lc-max-btn .lc-min-icon {
 
 .about-dev__links a {
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--field);
   color: var(--text-a);
@@ -5485,4 +5500,259 @@ body {
    never get the class and keep the env()-based spacing unchanged. */
 html.quanta-native-shell {
   --safe-top: 0px;
+}
+
+/* ------------------------------------------------------------------ 2.
+ * The navigation bar running off both edges. Desktop and website only.
+ *
+ * Measured, not guessed. At a 1440px window the bar's content needs 1490px
+ * and the bar has 1425px, so `About`, `Settings`, `Companies` and `Mock` sat
+ * outside the window with no way to reach them. At 1024px the gap was 273px.
+ *
+ * Two causes, and both had to go:
+ *
+ *   - `.nav-btn { flex: 0 0 auto }` - the buttons refused to give up any
+ *     width, so the row could only ever be as wide as it liked.
+ *   - `.app-nav { justify-content: center }` - centring a row wider than its
+ *     container spills equally out of *both* ends, and the left-hand spill is
+ *     the one a scroll container cannot scroll back to. That is why the first
+ *     item read "a Lab" in a screenshot: `justify-content` had pushed "Quanta
+ *     Lab" to left:-54px, where it is simply gone.
+ *
+ * `safe center` is the fix for the second. It centres when there is room and
+ * falls back to the start edge when there is not, so the left edge is never
+ * past the left edge. Chromium 93+, and the desktop app is Chromium 140.
+ *
+ * Scoped to 761px and up: below that the phone layout takes over and the bar
+ * becomes a drawer, which must not be touched here.
+ */
+@media (min-width: 761px) {
+  .app-nav {
+    justify-content: safe center;
+  }
+
+  /* Allowed to shrink rather than to overflow. `min-width: 0` is what lets a
+     flex item actually get smaller than its content. */
+  .nav-btn {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+}
+
+/* The row still overflows on a narrow desktop even with shrinking, because the
+   labels are what they are. Rather than cut anything off, the padding gives way
+   first and the type after that - the buttons stay legible and the design is
+   unchanged, it is just tighter. */
+@media (min-width: 761px) and (max-width: 1560px) {
+  .app-nav {
+    gap: 3px;
+    padding: 0 8px;
+  }
+  .nav-btn {
+    padding: 8px 11px;
+    font-size: 0.89rem;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1320px) {
+  .app-nav {
+    gap: 2px;
+    padding: 0 6px;
+  }
+  .nav-btn {
+    padding: 8px 8px;
+    font-size: 0.85rem;
+  }
+}
+
+/* ============================== scrollbars ==============================
+ *
+ * Every scrollbar hides itself and appears only while something is being
+ * scrolled. Desktop and website only - scoped to 761px and up, because below
+ * that the phone layout takes over and the mobile application must not change.
+ *
+ * This uses ::-webkit-scrollbar, and not scrollbar-width / scrollbar-color,
+ * which is the opposite of the obvious choice and worth explaining.
+ *
+ * The two are not combinable. In Chromium, styling ::-webkit-scrollbar makes
+ * the browser ignore scrollbar-width and scrollbar-color outright, so a
+ * stylesheet carrying both does whichever branch wins and none of the other.
+ *
+ * The standard properties are also not reliably detectable. Chromium here
+ * answers `@supports (scrollbar-color: red)` with false, which put a
+ * "standard properties here, webkit fallback there" stylesheet into the webkit
+ * branch on every machine that reported it supported the selector - so the two
+ * mechanisms cancelled out and the scrollbars kept their default appearance
+ * while the stylesheet appeared to be doing the right thing.
+ *
+ * Styling ::-webkit-scrollbar is supported by every engine this actually runs
+ * on: Chrome, Edge, the desktop app's Chromium 140, and the Android WebView.
+ * One mechanism, applied unconditionally, cannot contradict itself.
+ *
+ * The track keeps its width whether or not the thumb is showing. A bar that
+ * went to zero width would reflow the content beside it on every scroll, and
+ * .app-pages already reserves a stable gutter so that swapping one for another
+ * cannot shift the page. Only the thumb's colour changes.
+ *
+ * Scrolling is untouched: no overflow is removed, nothing is set to
+ * pointer-events: none, and the bar is still there to be dragged. The scroll
+ * event that reveals it is the same one the browser fires for the wheel, the
+ * touchpad, touch and the keyboard alike.
+ */
+@media (min-width: 761px) {
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* A transparent thumb on a transparent track: invisible, but still occupying
+     the same space it will occupy when it appears. */
+  ::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border: 3px solid transparent;
+    border-radius: var(--radius-pill);
+    background-clip: content-box;
+  }
+
+  html.quanta-scrolling ::-webkit-scrollbar-thumb {
+    background-color: var(--accent-line, rgba(148, 196, 178, 0.6));
+  }
+
+  /* A pointer over the bar still earns it, for someone steering towards it. */
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-line, rgba(148, 196, 178, 0.85));
+  }
+}
+
+
+/* =========================================================================
+   PROGRAM LIST — number and title on the first line
+   =========================================================================
+
+   The row is a two-column grid: a number badge, then a column holding the
+   title and, under it, the difficulty, star and link. So the second line was
+   already aligned with the title rather than the number, and the requested
+   layout was nearly in place.
+
+   What was wrong is the vertical one. The row used `align-items: center`, so
+   the number badge was centred across the whole two-line block - which put it
+   half way between the two lines, reading as neither. It needs to sit on the
+   first line, beside the title.
+
+   The badge is given the exact height of the title's line box rather than a
+   padding guess, because the title's line box is not the same size on every
+   platform: a coarse pointer or a narrow screen gives it a 40px tap target
+   (see the touch-target block in style.css), against 1.17rem for a mouse. One
+   custom property carries that difference, so both platforms line up without
+   the badge being written twice.
+
+   Applies to the desktop application, the website and the mobile application:
+   this is the layout the user asked to be consistent across all three.
+   ========================================================================= */
+
+.lc-problem-row {
+  /* The height of the title's first line box, in each platform's terms.
+     0.9rem of type at a line-height of 1.3. */
+  --lc-row-line: 1.17rem;
+
+  /* Was `center`, which centred the badge between the two lines. */
+  align-items: start;
+}
+
+/* Touch and narrow screens give the title a 40px tap target, so the badge has
+   to be 40px too or it drifts back to the middle of the row. */
+@media (pointer: coarse), (max-width: 760px) {
+  .lc-problem-row {
+    --lc-row-line: 40px;
+  }
+}
+
+.lc-problem-num {
+  height: var(--lc-row-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The badge filled its height with padding before, which is what made it
+     taller than the line it has to sit on. */
+  padding: 0;
+  line-height: 1;
+}
+
+/* =========================================================================
+   SETTINGS — use the full width of the panel
+   =========================================================================
+
+   Each row already puts its label at the left and its control at the right,
+   because `.settings-row` is a flex row with `justify-content: space-between`.
+   The dead space was not inside the rows - it was the rows themselves being
+   narrower than the page, because `.settings-body` was capped at 1160px to
+   keep a comfortable reading line. On a 1440px screen that left roughly 245px
+   of empty page to the right of every row, which is what was reported.
+
+   Lifting the cap fills the width, and the existing space-between then does the
+   rest: label hard left, control hard right.
+
+   Desktop application and website only. Below 761px the phone layout takes
+   over and the mobile application must not change - the cap is left in force
+   there, and the phone's own wrapping rules in the settings block above are
+   untouched.
+
+   Scoped to `.page--settings` on purpose. About and Revision share the same
+   cap and the same selector list; About is prose, where a 1160px line is a
+   deliberate choice and stretching it would make the text harder to read. Only
+   the Settings page was asked to change.
+   ========================================================================= */
+
+@media (min-width: 761px) {
+  .page--settings .settings-body {
+    max-width: none;
+  }
+}
+
+/* The Add Problem dialog's fields. The markup has used .lc-add-field since the
+   dialog was built, but no rule for it existed in either stylesheet - so these
+   two labels were inline text in the dialog's grid, flush against their inputs,
+   while every other field in the app stacks its label above with a gap. */
+.lc-add-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.lc-add-field > label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-b);
+  letter-spacing: 0.02em;
+}
+
+.lc-add-field > input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Star and Revise hold an icon and a label, where they used to hold a glyph
+   and text. The glyph rendered at the inherited font size on the text baseline,
+   so these two sat at a different height from the SVG-icon buttons beside them
+   in the same row; now they are the same shape as the rest. */
+.lc-star-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lc-star-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  flex: none;
+}
+
+.lc-star-btn__label {
+  line-height: 1.2;
 }

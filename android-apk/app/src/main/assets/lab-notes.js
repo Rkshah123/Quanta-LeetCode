@@ -4718,7 +4718,7 @@ const ensureRevisionStateForCatalog = () => {
     lcDetailSolvedBtn.classList.toggle("is-solved", langSolvedNow);
     const starredNow = problem.bookmarked === true;
     if (lcDetailStarBtn) {
-      lcDetailStarBtn.textContent = starredNow ? "★ Starred" : "☆ Star";
+      setStarBtnLabel(lcDetailStarBtn, starredNow ? "Starred" : "Star");
       lcDetailStarBtn.classList.toggle("is-active", starredNow);
       lcDetailStarBtn.setAttribute("aria-pressed", String(starredNow));
       lcDetailStarBtn.title = starredNow ? "Remove star" : "Star for revision";
@@ -7240,6 +7240,54 @@ const ensureRevisionStateForCatalog = () => {
     if (spec.el) initSplitHandle(spec);
     if (qlSplits.values[spec.key] !== undefined) qlSplits.apply(spec.key);
   });
+  /* ---------------------------------------------------------- scrollbars
+   *
+   * Scrollbars hide themselves and appear only while something is being
+   * scrolled. The CSS needs to know which moments those are, and it cannot:
+   * there is no "scrolling" state in CSS. So this marks them.
+   *
+   * A scroll event does not bubble, so the listener is registered in the
+   * capture phase - that is what catches every scroller on the page, including
+   * ones added later, without each having to announce itself.
+   *
+   * One class, one timer, for the whole document. Anything more would be a
+   * scroll handler per panel, which is how scrolling ends up feeling heavy.
+   *
+   * Mouse wheel, touchpad, touch and keyboard all arrive here as the same
+   * event, because the browser reports them the same way once they have moved
+   * the scroll position. Nothing about scrolling itself is touched: no
+   * overflow is removed, no pointer-events are disabled, and the bar is still
+   * there to be dragged.
+   */
+  const SCROLLING_CLASS = "quanta-scrolling";
+  const SCROLL_IDLE_MS = 900;
+  let scrollIdleTimer = null;
+
+  const endScrollingSoon = () => {
+    if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
+    scrollIdleTimer = window.setTimeout(() => {
+      scrollIdleTimer = null;
+      document.documentElement.classList.remove(SCROLLING_CLASS);
+    }, SCROLL_IDLE_MS);
+  };
+
+  document.addEventListener(
+    "scroll",
+    () => {
+      const root = document.documentElement;
+      if (!root.classList.contains(SCROLLING_CLASS)) root.classList.add(SCROLLING_CLASS);
+      endScrollingSoon();
+    },
+    { capture: true, passive: true }
+  );
+
+  /* Hidden again when the pointer leaves the window, rather than waiting out
+     the timer for a bar nobody can see. */
+  window.addEventListener("blur", () => {
+    if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
+    document.documentElement.classList.remove(SCROLLING_CLASS);
+  });
+
   window.addEventListener("resize", () => {
     queueDescDividerSync();
     window.setTimeout(() => {
@@ -8900,6 +8948,17 @@ const refreshStudyForActiveProblem = () => {
   
   /* Keeps the "Revise" button in the problem detail honest: it shows whether this
      problem is already scheduled, and how soon. */
+  /* Sets a .lc-star-btn's visible label without touching the rest of its
+     contents. Writing `button.textContent = "..."` replaces everything inside
+     the button, which was harmless while it held only text and silently deletes
+     the icon the moment the label changes. */
+  const setStarBtnLabel = (button, label) => {
+    if (!button) return;
+    const span = button.querySelector(".lc-star-btn__label");
+    if (span) span.textContent = label;
+    else button.textContent = label;
+  };
+
   const refreshRevisionButton = async (problem) => {
     const button = byId("lc-detail-revision");
     if (!button) return;
@@ -8911,19 +8970,19 @@ const refreshStudyForActiveProblem = () => {
     button.hidden = false;
   
     if (!revisionView.loaded) {
-      button.textContent = "↻ Revise";
+      setStarBtnLabel(button, "Revise");
       button.setAttribute("aria-pressed", "false");
       return;
     }
     const item = revisionView.items.find((entry) => entry.slug === slug);
     if (!item) {
-      button.textContent = "↻ Revise";
+      setStarBtnLabel(button, "Revise");
       button.setAttribute("aria-pressed", "false");
       button.title = "Add to revision";
       return;
     }
     const when = item.status === "completed" ? "finished" : revisionDueLabel(item).toLowerCase();
-    button.textContent = item.status === "completed" ? "✓ Revised" : `↻ ${when}`;
+    setStarBtnLabel(button, item.status === "completed" ? "Revised" : when);
     button.setAttribute("aria-pressed", "true");
     button.title = `Next review ${revisionFormatDate(item.dueDate)}`;
   };
