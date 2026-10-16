@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="leeticon.png" />
   <link rel="apple-touch-icon" href="leeticon.png" />
-  <link rel="stylesheet" href="style.css?v=73" />
-  <link rel="stylesheet" href="lab-notes.css?v=55" />
+  <link rel="stylesheet" href="style.css?v=75" />
+  <link rel="stylesheet" href="lab-notes.css?v=57" />
 
 </head>
 <body data-theme="dark">
@@ -172,8 +172,14 @@
                   All saved
                 </span>
                 <button id="lc-detail-solved" class="lc-solve-btn" type="button">Mark solved</button>
-                <button id="lc-detail-star" class="lc-star-btn" type="button" aria-pressed="false" aria-label="Star this problem for revision" title="Star for revision">☆ Star</button>
-                <button id="lc-detail-revision" class="lc-star-btn" type="button" aria-pressed="false" aria-label="Add this problem to the revision schedule" title="Add to revision">↻ Revise</button>
+                <button id="lc-detail-star" class="lc-star-btn" type="button" aria-pressed="false" aria-label="Star this problem for revision" title="Star for revision">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 17.3-6.2 3.7 1.7-7L2 9.2l7.1-.6L12 2.2l2.9 6.4 7.1.6-5.5 4.8 1.7 7z"/></svg>
+                  <span class="lc-star-btn__label">Star</span>
+                </button>
+                <button id="lc-detail-revision" class="lc-star-btn" type="button" aria-pressed="false" aria-label="Add this problem to the revision schedule" title="Add to revision">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7.5 6.5 12 11V8a5.5 5.5 0 1 1-5.5 5.5H4A8 8 0 1 0 12 5Z"/></svg>
+                  <span class="lc-star-btn__label">Revise</span>
+                </button>
                 <button id="lc-detail-maximize" class="lc-max-btn" type="button" aria-label="Maximize notes and code" title="Maximize">
                   <svg class="lc-max-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3Zm-2-4h2V7h3V5H5v5Zm12 7h-3v2h5v-5h-2v3ZM14 5v2h3v3h2V5h-5Z"/></svg>
                   <svg class="lc-min-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h3v3h2v-5H5v2Zm3-8H5v2h5V5H8v3Zm6 11h2v-3h3v-2h-5v5Zm2-11V5h-2v5h5V8h-3Z"/></svg>
@@ -235,28 +241,28 @@
                   <option value="6">XXL</option>
                 </select>
                 <button type="button" data-cmd="insertUnorderedList" aria-label="Bulleted list" title="Bullets">
-                  <svg viewBox="0 0 24 24"><path d="M4 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0-6a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 12a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM8 5h13v2H8V5Zm0 6h13v2H8v-2Zm0 6h13v2H8v-2Z"/></svg>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0-6a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 12a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM8 5h13v2H8V5Zm0 6h13v2H8v-2Zm0 6h13v2H8v-2Z"/></svg>
                 </button>
                 <button type="button" data-cmd="insertOrderedList" aria-label="Numbered list" title="Numbered list">
-                  <svg viewBox="0 0 24 24"><path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1Zm1-9h1V4H2v1h1v3Zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1ZM8 5h13v2H8V5Zm0 6h13v2H8v-2Zm0 6h13v2H8v-2Z"/></svg>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1Zm1-9h1V4H2v1h1v3Zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1ZM8 5h13v2H8V5Zm0 6h13v2H8v-2Zm0 6h13v2H8v-2Z"/></svg>
                 </button>
                 <button type="button" id="notes-insert-link-btn" aria-label="Insert link" title="Link">
-                  <svg viewBox="0 0 24 24"><path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12ZM8 13h8v-2H8v2Zm9-6h-4v1.9h4a3.1 3.1 0 1 1 0 6.2h-4V17h4a5 5 0 0 0 0-10Z"/></svg>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12ZM8 13h8v-2H8v2Zm9-6h-4v1.9h4a3.1 3.1 0 1 1 0 6.2h-4V17h4a5 5 0 0 0 0-10Z"/></svg>
                 </button>
                 <button type="button" id="notes-insert-code-btn" aria-label="Insert code block" title="Code block">
-                  <svg viewBox="0 0 24 24"><path d="m9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4Zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4Z"/></svg>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4Zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4Z"/></svg>
                 </button>
                 <button type="button" id="notes-insert-table-btn" aria-label="Insert table" title="Table">
-                  <svg viewBox="0 0 24 24"><path d="M20 3H4a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1ZM5 5h6v4H5V5Zm0 6h6v4H5v-4Zm0 6h6v2H5v-2Zm14 2h-6v-2h6v2Zm0-4h-6v-4h6v4Zm0-6h-6V5h6v4Z"/></svg>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 3H4a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1ZM5 5h6v4H5V5Zm0 6h6v4H5v-4Zm0 6h6v2H5v-2Zm14 2h-6v-2h6v2Zm0-4h-6v-4h6v4Zm0-6h-6V5h6v4Z"/></svg>
                 </button>
                 <button type="button" data-cmd="undo" aria-label="Undo" title="Undo">
-                  <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.6 0-5 1-6.9 2.6L2 7v9h9l-3.6-3.6A7 7 0 1 1 12.5 19h4A11 11 0 0 0 12.5 8Z"/></svg>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12.5 8c-2.6 0-5 1-6.9 2.6L2 7v9h9l-3.6-3.6A7 7 0 1 1 12.5 19h4A11 11 0 0 0 12.5 8Z"/></svg>
                 </button>
                 <button type="button" data-cmd="redo" aria-label="Redo" title="Redo">
-                  <svg viewBox="0 0 24 24"><path d="M18.4 10.6A11 11 0 0 0 11.5 8 11 11 0 0 0 7.5 19h4a7 7 0 1 1 5.1-6.6L13 16h9V7l-3.6 3.6Z"/></svg>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18.4 10.6A11 11 0 0 0 11.5 8 11 11 0 0 0 7.5 19h4a7 7 0 1 1 5.1-6.6L13 16h9V7l-3.6 3.6Z"/></svg>
                 </button>
                 <button type="button" id="notes-find-replace-toggle-btn" aria-label="Find and replace" title="Find/Replace">
-                  <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5Zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Z"/></svg>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5Zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Z"/></svg>
                 </button>
               </div>
               <div id="notes-find-replace" class="notes-find-replace" hidden>
@@ -295,6 +301,7 @@
                     <span id="ql-desc-diff" class="lc-detail-meta"></span>
                     <span id="ql-desc-sync" class="ql-desc-sync" hidden></span>
                     <a id="lc-detail-link-desc" class="lc-link-btn" href="#" target="_blank" rel="noopener noreferrer">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12ZM8 13h8v-2H8v2Zm9-6h-4v1.9h4a3.1 3.1 0 1 1 0 6.2h-4V17h4a5 5 0 0 0 0-10Z"/></svg>
                   <span class="lc-link-btn__text lc-link-btn__text--full">Open in Website</span>
                       <span class="lc-link-btn__text lc-link-btn__text--short" aria-hidden="true">Open</span>
                     </a>

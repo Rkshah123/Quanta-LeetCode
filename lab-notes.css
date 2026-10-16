@@ -23,7 +23,6 @@
 .dialog-avatar {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
   object-fit: cover;
   border: 2px solid var(--accent-line, rgba(var(--tint-bright), 0.45));
   box-shadow: var(--shadow-soft, 0 6px 14px rgba(0, 0, 0, 0.35));
@@ -95,7 +94,7 @@ body[data-theme="beige"] .notes-title {
   height: 42px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(140deg, #ef4444, #b91c1c 90%);
   color: #fff;
   cursor: pointer;
@@ -240,7 +239,7 @@ body[data-theme="beige"] .settings-row__text span {
 .theme-chip {
   padding: 8px 12px;
   min-height: 38px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(var(--tint-light), 0.3);
   background: rgba(var(--tint-surface), 0.9);
   color: var(--text-d);
@@ -314,7 +313,7 @@ body[data-theme="beige"] .theme-chip.is-active {
 .settings-switch span {
   position: absolute;
   inset: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(var(--tint-light), 0.18);
   border: 1px solid rgba(var(--tint-light), 0.35);
   transition: background var(--anim-fast);
@@ -376,7 +375,7 @@ body[data-theme="beige"] .font-size-controls button {
   padding: 9px 16px;
   min-height: 38px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(125deg, rgb(var(--tint-bright)), rgb(var(--tint-deep)) 85%);
   color: #fff;
   font-weight: 750;
@@ -417,7 +416,7 @@ body[data-theme="beige"] .java-lab-switches {
   gap: 6px;
   background: rgba(var(--tint-bright), 0.12);
   border: 1px solid rgba(var(--tint-bright), 0.25);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 6px 11px;
   cursor: pointer;
 }
@@ -470,7 +469,7 @@ body[data-theme="beige"] .java-create-form select {
 .notes-top-actions button,
 .notes-editor-meta button {
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 10px 14px;
   min-height: 42px;
   font-weight: 700;
@@ -838,7 +837,7 @@ body[data-theme="beige"] .java-output-head h3 {
   white-space: nowrap;
 }
 
-.run-status--success { color: #34d399; }
+.run-status--success { color: var(--success); }
 .run-status--error { color: #f87171; }
 .run-status--running { color: #facc15; }
 
@@ -900,7 +899,7 @@ body[data-theme="beige"] .java-output {
 
 .java-diag-ok {
   margin: 0;
-  color: #34d399;
+  color: var(--success);
   font-size: 0.84rem;
 }
 
@@ -1526,7 +1525,7 @@ body[data-theme="beige"] .notes-section-editor {
   background: rgba(var(--tint-light), 0.12);
   border: 1px solid rgba(var(--tint-light), 0.28);
   padding: 5px 11px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 
@@ -1707,10 +1706,10 @@ body[data-theme="beige"] .lc-problem-name {
   font-weight: 800;
   letter-spacing: 0.05em;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
-.lc-diff--easy { color: #34d399; background: rgba(52, 211, 153, 0.14); }
+.lc-diff--easy { color: var(--success); background: rgba(var(--tint-light), 0.14); }
 .lc-diff--medium { color: #fbbf24; background: rgba(251, 191, 36, 0.14); }
 .lc-diff--hard { color: #f87171; background: rgba(248, 113, 113, 0.14); }
 
@@ -1777,10 +1776,6 @@ body[data-theme="beige"] .lc-detail {
   flex-wrap: wrap;
 }
 
-.lc-detail-title-wrap {
-  min-width: 0;
-  flex: 1;
-}
 
 .lc-detail-meta {
   color: var(--text-c);
@@ -1793,30 +1788,18 @@ body[data-theme="beige"] .lc-detail-meta {
   color: #4e7a6c;
 }
 
-.lc-detail-title {
-  margin: 2px 0 0;
-  font-size: 1.05rem;
-  line-height: 1.25;
-  color: #ecfdf5;
-  overflow-wrap: anywhere;
-}
 
 body[data-theme="beige"] .lc-detail-title {
   color: #0c2b22;
 }
 
-.lc-detail-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
 
 .lc-link-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 9px 13px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(var(--tint-surface), 0.9);
   border: 1px solid rgba(var(--tint-light), 0.3);
   color: var(--text-d);
@@ -1846,7 +1829,7 @@ body[data-theme="beige"] .lc-link-btn {
 .lc-solve-btn {
   padding: 9px 15px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(125deg, rgb(var(--tint-bright)), rgb(var(--tint-deep)) 85%);
   color: #fff;
   font-size: 0.8rem;
@@ -1861,9 +1844,9 @@ body[data-theme="beige"] .lc-link-btn {
 }
 
 .lc-solve-btn.is-solved {
-  background: rgba(52, 211, 153, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.4);
+  background: rgba(var(--tint-light), 0.15);
+  color: var(--success);
+  border: 1px solid rgba(var(--tint-light), 0.4);
 }
 
 body[data-theme="beige"] .lc-solve-btn.is-solved {
@@ -1877,7 +1860,7 @@ body[data-theme="beige"] .lc-solve-btn.is-solved {
 .lc-star-btn {
   padding: 9px 15px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--field);
   color: var(--text-b);
   font-size: 0.8rem;
@@ -2028,7 +2011,7 @@ body[data-theme="beige"] .lc-solve-btn.is-solved {
   z-index: 400;
   max-width: min(92vw, 480px);
   padding: 11px 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(var(--tint-bright), 0.35);
   background: rgba(var(--tint-teal-surface), 0.92);
   color: var(--text-d);
@@ -2064,7 +2047,12 @@ body {
 
 .app-nav {
   position: fixed;
-  top: var(--top-bar-h);
+  /* Offset by --safe-top as well as the bar height. The top bar is placed at
+     `top: var(--safe-top)`, so without this the nav started 4px above where the
+     bar ended: it covered the bar's bottom edge and left a gap above the
+     content. Scoped to nothing - the phone drawer sets its own top in the media
+     block below, so the mobile app is untouched. */
+  top: calc(var(--safe-top) + var(--top-bar-h));
   left: 0;
   right: 0;
   height: var(--qx-nav-h);
@@ -2240,6 +2228,7 @@ body {
 .lc-detail-title {
   margin: 2px 0 0;
   font-size: 1.08rem;
+  line-height: 1.25;
   color: var(--text-a);
   overflow-wrap: anywhere;
 }
@@ -2996,7 +2985,7 @@ body {
   place-items: center;
   width: 22px;
   height: 22px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-soft);
   color: var(--success);
   flex: none;
@@ -3519,7 +3508,7 @@ body {
   gap: 10px;
   padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--card-1);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
 }
@@ -3550,7 +3539,7 @@ body {
 
 .lc-add-error {
   margin: 0;
-  color: #fda4af;
+  color: #f8a6a6;
   font-size: 0.82rem;
   font-weight: 600;
 }
@@ -3985,7 +3974,7 @@ body.lab-lang-cpp .ql-detail-tab.is-active {
 
 .run-btn--head.is-success {
   border-color: rgba(16, 185, 129, 0.55);
-  color: #34d399;
+  color: var(--success);
 }
 
 /* Keep the run button readable in both themes. */
@@ -4092,7 +4081,7 @@ body[data-theme="beige"] .run-btn--head.is-success {
   max-width: 55%;
   padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(127, 127, 127, 0.12);
   color: var(--text);
   font-size: 0.68rem;
@@ -4378,7 +4367,7 @@ body[data-theme="beige"] .ql-code-solved-badge.is-solved {
 .ql-row-resizer::after {
   content: "";
   position: absolute;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--border);
   opacity: 0;
   transition: opacity 0.15s ease, background 0.15s ease;
@@ -4821,9 +4810,6 @@ body.lc-detail-maximized .lc-max-btn .lc-min-icon {
   min-width: 0;
 }
 
-.lc-detail-actions {
-  min-width: 0;
-}
 
 .lc-detail-actions > * {
   min-width: 0;
@@ -4927,7 +4913,7 @@ body.lc-detail-maximized .lc-max-btn .lc-min-icon {
 
 .about-dev__links a {
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--field);
   color: var(--text-a);
@@ -5629,7 +5615,7 @@ html.quanta-native-shell {
   ::-webkit-scrollbar-thumb {
     background-color: transparent;
     border: 3px solid transparent;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background-clip: content-box;
   }
 
@@ -5726,4 +5712,47 @@ html.quanta-native-shell {
   .page--settings .settings-body {
     max-width: none;
   }
+}
+
+/* The Add Problem dialog's fields. The markup has used .lc-add-field since the
+   dialog was built, but no rule for it existed in either stylesheet - so these
+   two labels were inline text in the dialog's grid, flush against their inputs,
+   while every other field in the app stacks its label above with a gap. */
+.lc-add-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.lc-add-field > label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-b);
+  letter-spacing: 0.02em;
+}
+
+.lc-add-field > input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Star and Revise hold an icon and a label, where they used to hold a glyph
+   and text. The glyph rendered at the inherited font size on the text baseline,
+   so these two sat at a different height from the SVG-icon buttons beside them
+   in the same row; now they are the same shape as the rest. */
+.lc-star-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lc-star-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  flex: none;
+}
+
+.lc-star-btn__label {
+  line-height: 1.2;
 }

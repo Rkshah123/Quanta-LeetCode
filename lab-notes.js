@@ -4718,7 +4718,7 @@ const ensureRevisionStateForCatalog = () => {
     lcDetailSolvedBtn.classList.toggle("is-solved", langSolvedNow);
     const starredNow = problem.bookmarked === true;
     if (lcDetailStarBtn) {
-      lcDetailStarBtn.textContent = starredNow ? "★ Starred" : "☆ Star";
+      setStarBtnLabel(lcDetailStarBtn, starredNow ? "Starred" : "Star");
       lcDetailStarBtn.classList.toggle("is-active", starredNow);
       lcDetailStarBtn.setAttribute("aria-pressed", String(starredNow));
       lcDetailStarBtn.title = starredNow ? "Remove star" : "Star for revision";
@@ -8948,6 +8948,17 @@ const refreshStudyForActiveProblem = () => {
   
   /* Keeps the "Revise" button in the problem detail honest: it shows whether this
      problem is already scheduled, and how soon. */
+  /* Sets a .lc-star-btn's visible label without touching the rest of its
+     contents. Writing `button.textContent = "..."` replaces everything inside
+     the button, which was harmless while it held only text and silently deletes
+     the icon the moment the label changes. */
+  const setStarBtnLabel = (button, label) => {
+    if (!button) return;
+    const span = button.querySelector(".lc-star-btn__label");
+    if (span) span.textContent = label;
+    else button.textContent = label;
+  };
+
   const refreshRevisionButton = async (problem) => {
     const button = byId("lc-detail-revision");
     if (!button) return;
@@ -8959,19 +8970,19 @@ const refreshStudyForActiveProblem = () => {
     button.hidden = false;
   
     if (!revisionView.loaded) {
-      button.textContent = "↻ Revise";
+      setStarBtnLabel(button, "Revise");
       button.setAttribute("aria-pressed", "false");
       return;
     }
     const item = revisionView.items.find((entry) => entry.slug === slug);
     if (!item) {
-      button.textContent = "↻ Revise";
+      setStarBtnLabel(button, "Revise");
       button.setAttribute("aria-pressed", "false");
       button.title = "Add to revision";
       return;
     }
     const when = item.status === "completed" ? "finished" : revisionDueLabel(item).toLowerCase();
-    button.textContent = item.status === "completed" ? "✓ Revised" : `↻ ${when}`;
+    setStarBtnLabel(button, item.status === "completed" ? "Revised" : when);
     button.setAttribute("aria-pressed", "true");
     button.title = `Next review ${revisionFormatDate(item.dueDate)}`;
   };
