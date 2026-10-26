@@ -13,8 +13,8 @@ $BT = Join-Path $SDK "build-tools\36.0.0"
 $PLATFORM = Join-Path $SDK "platforms\android-36\android.jar"
 $KEYSTORE = "quanta.keystore"
 $KS_PASS = "pass:quanta123"
-$VERSION_CODE = 12
-$VERSION_NAME = "1.6.4"
+$VERSION_CODE = 13
+$VERSION_NAME = "1.6.5"
 
 # The previous APK shipped as versionCode 11. Android refuses to install an
 # update whose versionCode is not higher, so this has to exceed what is already

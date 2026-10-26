@@ -956,48 +956,6 @@ body[data-theme="beige"] .about-features {
   font-size: 0.9rem;
 }
 
-.about-dev__name span {
-  animation: star-breathe 2.6s ease-in-out infinite;
-}
-
-.about-dev__role {
-  margin: 0;
-  color: var(--text-c);
-  font-size: 0.85rem;
-}
-
-.about-dev__links {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-}
-
-.about-dev__links a {
-  padding: 7px 13px;
-  border-radius: 999px;
-  border: 1px solid rgba(var(--tint-light), 0.3);
-  color: var(--text-d);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: filter var(--anim-fast), transform var(--anim-fast);
-}
-
-.about-dev__links a:hover {
-  filter: brightness(1.2);
-  transform: translateY(-1px);
-}
-
-body[data-theme="beige"] .about-dev__links a {
-  color: #0c2b22;
-  border-color: rgba(0, 106, 78, 0.3);
-}
-
-body[data-theme="beige"] .about-dev__role {
-  color: #4e7a6c;
-}
-
 /* ----------------------------- contact panel --------------------------- */
 
 .contact-panel {
@@ -1758,16 +1716,6 @@ body[data-theme="beige"] .btn-toggle {
   margin: 8px 0 0;
   color: var(--text-b);
 }
-
-.app-footer {
-  text-align: center;
-  color: var(--text-b);
-  font-size: 0.85rem;
-  line-height: 1.6;
-  padding-bottom: 12px;
-}
-
-.app-footer p { margin: 0; }
 
 @keyframes fade-in-page {
   from { opacity: 0; transform: translateY(6px); }
