@@ -575,8 +575,29 @@ const BLOCKED_DIRS = [
   "/backend/",
   "/android-apk/",
   "/.git/",
-  "/.freebuff/"
+  "/.freebuff/",
+  "/electron/",
+  "/release/"
 ];
+
+/* Locally meaningful files that a public static server must not hand out -
+   the backend sources, manifests, notes and logs. Nothing the browser wants
+   (index, styles, scripts, images, manifest.json, offline-pack.js) matches. */
+const BLOCKED_FILES = new Set([
+  "/keys.txt",
+  "/server.js",
+  "/codeforces.js",
+  "/package.json",
+  "/package-lock.json",
+  "/vercel.json",
+  "/render.yaml",
+  "/readme.md",
+  "/desktop.md",
+  "/catalog-plan.json",
+  "/bigscrolbar.png",
+  "/.env",
+  "/.env.example"
+]);
 
 const isBlockedPath = (rawPath) => {
   let decoded;
@@ -587,6 +608,9 @@ const isBlockedPath = (rawPath) => {
   }
   const normalized = `/${String(decoded).replace(/^\/+/, "").toLowerCase()}`;
   if (normalized === "/keys.txt") return true;
+  if (BLOCKED_FILES.has(normalized)) return true;
+  /* Notes, logs, deployment recipes and their ilk are not app content. */
+  if (/\.(log|md|ya?ml)$/.test(normalized)) return true;
   if (normalized.startsWith("/.env")) return true;
   if (/\.(log|sql|keystore|idsig)$/.test(normalized)) return true;
   if (normalized === "/server.js" || normalized === "/package.json" || normalized === "/package-lock.json") {
@@ -601,10 +625,6 @@ app.use((req, res, next) => {
     return;
   }
   next();
-});
-
-app.get("/keys.txt", (_req, res) => {
-  res.status(404).end();
 });
 
 app.use(express.static(__dirname, { extensions: ["html"], dotfiles: "ignore" }));

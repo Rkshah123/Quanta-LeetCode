@@ -2961,23 +2961,6 @@ body {
   color: var(--text-b);
 }
 
-/* footer credit after links */
-
-.app-footer {
-  margin-top: 18px;
-  padding: 10px 0 0;
-  border-top: 1px solid var(--border);
-}
-
-.app-footer p {
-  margin: 0;
-  text-align: center;
-  color: var(--text-b);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-}
-
 /* ===================== Quanta Lab extras ===================== */
 
 .lc-solved-tick {
@@ -3037,13 +3020,6 @@ body {
 }
 
 /* Notes page: head, editor-foot save buttons */
-
-.np-avatar,
-.lp-avatar {
-  width: 46px;
-  height: 46px;
-  flex: none;
-}
 
 .np-head {
   align-items: center;
@@ -3656,19 +3632,6 @@ body {
 }
 
 /* -------------------------- Footer credit ------------------------------ */
-
-.app-footer p {
-  color: var(--text-a);
-}
-
-.footer-star {
-  color: #d4af37;
-  margin-right: 8px;
-}
-
-body[data-theme="beige"] .footer-star {
-  color: #b8860b;
-}
 
 /* ------------- Light theme: Add Problem must be clearly visible -------- */
 
@@ -4904,28 +4867,6 @@ body.lc-detail-maximized .lc-max-btn .lc-min-icon {
   text-decoration: underline;
 }
 
-/* Developer links wrap cleanly on phones instead of overflowing. */
-.about-dev__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.about-dev__links a {
-  padding: 8px 14px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: var(--field);
-  color: var(--text-a);
-  text-decoration: none;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.about-dev__links a:hover {
-  border-color: var(--success);
-  color: var(--success);
-}
 /* =========================================================================
    v31 — VISIBLE DRAG LINE + PANEL BOUNDARY HARDENING (Notes/Code split)
    1) Every drag divider shows a permanent subtle line (bright on hover/drag)

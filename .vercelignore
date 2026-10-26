@@ -38,3 +38,9 @@ keys.txt
 *.apk
 *.keystore
 *.idsig
+
+# Built for the desktop app and local-only notes, not for the website.
+electron/
+DESKTOP.md
+bigscrolbar.png
+catalog-plan.json
